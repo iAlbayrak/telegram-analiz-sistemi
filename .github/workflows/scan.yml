@@ -1,0 +1,49 @@
+name: Altcoin Alert Scanner
+
+on:
+  schedule:
+    # Saatte bir çalışır, sadece 05:00-21:00 UTC arası (TR saatiyle 08:00-24:00).
+    # Başka bir saat aralığı isterseniz sadece bu satırdaki saatleri değiştirin.
+    - cron: '5 5-21 * * *'
+  workflow_dispatch: {}   # İstediğiniz an "Run workflow" ile elle de tetikleyebilirsiniz
+
+permissions:
+  contents: write   # durum dosyasını repoya geri yazabilmek için
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Bağımlılıkları kur
+        run: pip install -r requirements.txt
+
+      - name: Taramayı çalıştır
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MIN_24H_VOLUME: '1000000'
+          ALERT_MIN_SCORE: '85'
+        run: python altcoin_alert_scanner.py
+
+      # Bildirim geçmişini repoya geri yazar. Hem durumu kalıcı tutar hem de
+      # her çalışma bir commit/push ürettiği için GitHub'ın "60 gün
+      # hareketsiz repoda zamanlanmış görevleri otomatik durdurma" kuralına
+      # hiç takılmamamızı sağlar.
+      - name: Durumu kaydet
+        run: |
+          if [ -n "$(git status --porcelain alert_state.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add alert_state.json
+            git commit -m "alert state güncellendi"
+            git push
+          else
+            echo "Durumda değişiklik yok, commit atılmadı."
+          fi
