@@ -30,6 +30,49 @@ jobs:
 
       - name: Bağımlılıkları kur
         run: pip install -r requirements.txt
+      - name: Telegram ID kontrol
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os
+          import requests
+
+          token = os.environ["TELEGRAM_BOT_TOKEN"]
+
+          r = requests.get(
+              f"https://api.telegram.org/bot{token}/getUpdates",
+              params={"limit": 20},
+              timeout=20
+          )
+
+          print("Telegram getUpdates HTTP:", r.status_code)
+          data = r.json()
+
+          if not data.get("ok"):
+              print(data)
+              raise SystemExit(1)
+
+          updates = data.get("result", [])
+          print("Bulunan update sayısı:", len(updates))
+
+          for u in updates:
+              chat = None
+
+              if "channel_post" in u:
+                  chat = u["channel_post"].get("chat")
+              elif "message" in u:
+                  chat = u["message"].get("chat")
+
+              if chat:
+                  print(
+                      "CHAT BULUNDU:",
+                      "id=", chat.get("id"),
+                      "type=", chat.get("type"),
+                      "title=", chat.get("title")
+                  )
+          PY
       - name: Telegram test
         if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
