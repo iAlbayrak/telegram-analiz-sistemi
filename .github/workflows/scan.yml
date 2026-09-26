@@ -27,10 +27,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
       - name: Bağımlılıkları kur
         run: pip install -r requirements.txt
-      - name: Telegram ID kontrol
+
+      - name: Telegram bağlantı testi
         if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -46,56 +46,43 @@ jobs:
               params={"limit": 20},
               timeout=20
           )
+          r.raise_for_status()
 
-          print("Telegram getUpdates HTTP:", r.status_code)
           data = r.json()
-
-          if not data.get("ok"):
-              print(data)
-              raise SystemExit(1)
-
           updates = data.get("result", [])
-          print("Bulunan update sayısı:", len(updates))
 
-          for u in updates:
-              chat = None
+          channel_chat = None
 
+          for u in reversed(updates):
               if "channel_post" in u:
-                  chat = u["channel_post"].get("chat")
-              elif "message" in u:
-                  chat = u["message"].get("chat")
+                  channel_chat = u["channel_post"].get("chat")
+                  if channel_chat:
+                      break
 
-              if chat:
-                  print(
-                      "CHAT BULUNDU:",
-                      "id=", chat.get("id"),
-                      "type=", chat.get("type"),
-                      "title=", chat.get("title")
-                  )
-          PY
-      - name: Telegram test
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          python - <<'PY'
-          import os
-          import requests
+          if not channel_chat:
+              raise RuntimeError("Kanal mesajı bulunamadı.")
 
-          r = requests.post(
-              f"https://api.telegram.org/bot{os.environ['TELEGRAM_BOT_TOKEN']}/sendMessage",
+          chat_id = channel_chat["id"]
+          title = channel_chat.get("title", "bilinmeyen kanal")
+
+          print("Kanal bulundu:", title)
+          print("Kanal tipi:", channel_chat.get("type"))
+          print("Chat ID bulundu ve kullanılacak.")
+
+          send = requests.post(
+              f"https://api.telegram.org/bot{token}/sendMessage",
               data={
-                  "chat_id": os.environ["TELEGRAM_CHAT_ID"],
+                  "chat_id": chat_id,
                   "text": "🧪 Telegram bağlantı testi başarılı."
               },
               timeout=20
           )
 
-          print("Telegram HTTP:", r.status_code)
-          print(r.text)
-          r.raise_for_status()
+          print("Telegram sendMessage HTTP:", send.status_code)
+          print(send.text)
+          send.raise_for_status()
           PY
+
       - name: Taramayı çalıştır
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
