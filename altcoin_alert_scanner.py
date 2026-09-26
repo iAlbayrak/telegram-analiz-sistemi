@@ -42,6 +42,7 @@ süs değil -- doğrudan directional skoruna giriyor (tam hizalıysa tam
 puan, kısmi hizalıysa yarım, ters yönde ise sıfır).
 """
 import os, json, time
+from datetime import datetime
 import ccxt
 import numpy as np
 import pandas as pd
@@ -54,9 +55,12 @@ from pathlib import Path
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHAT_ID   = os.getenv('TELEGRAM_CHAT_ID', '')
 MIN_24H_VOLUME      = float(os.getenv('MIN_24H_VOLUME', '1000000'))
-ALERT_MIN_SCORE      = float(os.getenv('ALERT_MIN_SCORE', '85'))   # ORTA (80-85) bandı kaldırıldı
+ALERT_MIN_SCORE      = float(os.getenv('ALERT_MIN_SCORE', '80'))   # 80-90 "GİRİLEBİLİR", 90+ "ÇOK GÜÇLÜ/ELİT"
 SLEEP_BETWEEN_COINS  = float(os.getenv('SLEEP_BETWEEN_COINS', '0.12'))
 STATE_FILE           = Path(os.getenv('STATE_FILE', 'alert_state.json'))
+DIAG_LOG             = Path(os.getenv('DIAG_LOG_FILE', 'scan_diagnostic.log'))
+DIAG_LOG_MAX_LINES   = 500
+WIDE_STOP_BUFFER_ATR = float(os.getenv('WIDE_STOP_BUFFER_ATR', '0.6'))  # ek "geniş stop" ATR payı
 OHLCV_LIMIT = 220
 
 exchange = ccxt.mexc({'enableRateLimit': True, 'options': {'defaultType': 'swap'}})
@@ -245,6 +249,13 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
     rr = ((target-entry)/risk if direction=='LONG' else (entry-target)/risk) if target and risk else np.nan
     rr_bonus = clamp((rr-2.0)*2.0,0,6) if pd.notna(rr) else 0
 
+    # Wide (buffered) stop: standart stop'un biraz daha gerisinde, ani bir
+    # fitilin (stop-hunt / sarkma) sizi standart stop'tan çıkarttıktan hemen
+    # sonra fiyat asıl yönüne dönmesi riskine karşı. Puanlamayı, RR'yi ya da
+    # TP'leri ETKİLEMEZ -- sadece ek, bilgilendirici bir alan.
+    wide_stop_buffer = atr * WIDE_STOP_BUFFER_ATR
+    wide_stop = stop - wide_stop_buffer if direction=='LONG' else stop + wide_stop_buffer
+
     # Each axis counted EXACTLY ONCE. Weights (0.56/0.20/0.24) fold in what
     # used to be separate structure/market terms, sum to 1.00 -- no double
     # counting, no component can silently dominate through two channels.
@@ -253,7 +264,7 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
     elite_gate = (raw_score>=90 and directional>=85 and entry_quality>=80 and move_potential>=94 and pd.notna(rr) and rr>=2.5 and gap>=15)
     quality = 'ELITE' if elite_gate else 'STRONG' if raw_score>=85 else 'SELECTIVE' if raw_score>=72 else 'WEAK'
     return {'direction':direction,'score':round(raw_score,1),'quality':quality,'elite_gate':elite_gate,
-            'entry':entry,'stop':stop,'target':target,'rr':rr,'support':sup,'resistance':res,
+            'entry':entry,'stop':stop,'wide_stop':wide_stop,'target':target,'rr':rr,'support':sup,'resistance':res,
             'directional_confidence':round(directional,1),'entry_quality':round(entry_quality,1),
             'move_potential':round(move_potential,1),'breakout':round(vals['breakout'],1)}
 
@@ -274,11 +285,11 @@ def tp_levels(x):
 def tier(x):
     if x.get('elite_gate'): return '🟢 ELİT (90+, tüm kapılar geçti)'
     s=x['score']
-    if s>=90: return '🟢 ÇOK YÜKSEK (90+)'
-    if s>=85: return '🟡 GÜÇLÜ (85-90)'
+    if s>=90: return '🟢 ÇOK GÜÇLÜ (90+)'
+    if s>=80: return '🔵 GİRİLEBİLİR (80-90)'
     return None
 
-TIER_RANK = {'🟡 GÜÇLÜ (85-90)':1, '🟢 ÇOK YÜKSEK (90+)':2, '🟢 ELİT (90+, tüm kapılar geçti)':3}
+TIER_RANK = {'🔵 GİRİLEBİLİR (80-90)':1, '🟢 ÇOK GÜÇLÜ (90+)':2, '🟢 ELİT (90+, tüm kapılar geçti)':3}
 
 def load_state():
     if STATE_FILE.exists():
@@ -313,7 +324,8 @@ def format_setup(x, t):
         f"RR {x['rr']:.2f}  |  Yön{x['directional_confidence']:.0f} Giriş{x['entry_quality']:.0f} "
         f"Potansiyel{x['move_potential']:.0f} Kırılım{x['breakout']:.0f}",
         f"Referans fiyat: {x['entry']:.6g}",
-        f"Stop: {x['stop']:.6g}",
+        f"Stop (standart): {x['stop']:.6g}",
+        f"Stop (geniş, ani sarkma payı): {x['wide_stop']:.6g}",
         f"Destek: {x['support']:.6g}   Direnç: {x['resistance']:.6g}"]
     if tp:
         lines.append(f"TP1 ({tp['TP1']['r']}R): {tp['TP1']['price']:.6g}  |  "
@@ -337,8 +349,25 @@ def send_telegram(text):
             print(f'TELEGRAM GÖNDERİM HATASI: {e}'); ok=False
     return ok
 
+def write_diagnostic(all_results, ctx):
+    """Her turun en iyi adaylarını -- eşiği geçmemiş olsalar bile -- kalıcı
+    bir dosyaya yazar. Bu sayede 'çok mu kısıtladık' sorusu tahminle değil
+    gerçek veriyle cevaplanabilir. Dosya sınırsız büyümesin diye son
+    DIAG_LOG_MAX_LINES satır tutulur."""
+    stamp = datetime.now().isoformat(timespec='seconds')
+    top = sorted(all_results, key=lambda r: r['score'], reverse=True)[:10]
+    best = f"{top[0]['score']:.1f}" if top else 'n/a'
+    lines = [f"=== {stamp} | BTC4h={ctx['btc']['4h']} BTC1h={ctx['btc']['1h']} "
+             f"ETH4h={ctx['eth']['4h']} ETH1h={ctx['eth']['1h']} | "
+             f"taranan={len(all_results)} | en_iyi={best} ==="]
+    for r in top:
+        lines.append(f"  {r['symbol']:20} {r['direction']:5} score={r['score']:5.1f} ({r['quality']})")
+    existing = DIAG_LOG.read_text(encoding='utf-8').splitlines() if DIAG_LOG.exists() else []
+    combined = (existing + lines)[-DIAG_LOG_MAX_LINES:]
+    DIAG_LOG.write_text('\n'.join(combined) + '\n', encoding='utf-8')
+
 def main():
-    print('=== ALTCOIN ALERT SCANNER v2 ===')
+    print('=== ALTCOIN ALERT SCANNER v2.3 ===')
     ctx = market_context()
     print(f"BTC 4h={ctx['btc']['4h']} 1h={ctx['btc']['1h']} | ETH 4h={ctx['eth']['4h']} 1h={ctx['eth']['1h']}")
     symbols = liquid_usdt_swaps()
@@ -347,11 +376,13 @@ def main():
     state = load_state()
     new_state = {}
     qualifying = []
+    all_results = []
 
     def evaluate(s, symbol_key=None):
         try:
             x = score_setup(candles(s,'4h'), candles(s,'1h'), candles(s,'15m'), ctx, symbol_key)
             x['symbol'] = s
+            all_results.append(x)
             if x['score'] >= ALERT_MIN_SCORE and pd.notna(x['rr']):
                 t = tier(x)
                 new_state[f"{s}:{x['direction']}"] = {'tier': t, 'score': x['score']}
@@ -373,9 +404,11 @@ def main():
         time.sleep(SLEEP_BETWEEN_COINS)
 
     save_state(new_state)
+    write_diagnostic(all_results, ctx)
 
     if not qualifying:
-        print('Bu turda yeni/yükselmiş bir setup yok.')
+        best = max((r['score'] for r in all_results), default=None)
+        print(f'Bu turda yeni/yükselmiş bir setup yok. (En iyi aday: {best})')
         return
 
     qualifying.sort(key=lambda p: p[0]['score'], reverse=True)
