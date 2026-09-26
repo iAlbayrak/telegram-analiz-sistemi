@@ -5,14 +5,11 @@ on:
     # 7/24, her 15 dakikada bir (mum kapanışından 2 dk sonra, veri
     # borsada oturması için). Gece kısıtlaması yok.
     - cron: '2,17,32,47 * * * *'
-  workflow_dispatch: {}   # İstediğiniz an "Run workflow" ile elle de tetikleyebilirsiniz
+  workflow_dispatch: {}
 
 permissions:
-  contents: write   # durum/log dosyalarını repoya geri yazabilmek için
+  contents: write
 
-# Bir tarama 15 dakikadan uzun sürerse bir sonraki tetiklenme aynı anda
-# değil, öncekinin bitmesini bekleyip SIRAYLA çalışır -- alert_state.json
-# ve scan_diagnostic.log'a çakışan/eşzamanlı yazım olmaz.
 concurrency:
   group: altcoin-scanner
   cancel-in-progress: false
@@ -27,74 +24,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
       - name: Bağımlılıkları kur
         run: pip install -r requirements.txt
-
-      - name: Telegram bağlantı testi
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        run: |
-          python - <<'PY'
-          import os
-          import requests
-
-          token = os.environ["TELEGRAM_BOT_TOKEN"]
-
-          r = requests.get(
-              f"https://api.telegram.org/bot{token}/getUpdates",
-              params={"limit": 20},
-              timeout=20
-          )
-          r.raise_for_status()
-
-          data = r.json()
-          updates = data.get("result", [])
-
-          channel_chat = None
-
-          for u in reversed(updates):
-              if "channel_post" in u:
-                  channel_chat = u["channel_post"].get("chat")
-                  if channel_chat:
-                      break
-
-          if not channel_chat:
-              raise RuntimeError("Kanal mesajı bulunamadı.")
-
-          chat_id = channel_chat["id"]
-          title = channel_chat.get("title", "bilinmeyen kanal")
-
-          print("Kanal bulundu:", title)
-          print("Kanal tipi:", channel_chat.get("type"))
-          print("Chat ID bulundu ve kullanılacak.")
-
-          send = requests.post(
-              f"https://api.telegram.org/bot{token}/sendMessage",
-              data={
-                  "chat_id": chat_id,
-                  "text": "🧪 Telegram bağlantı testi başarılı."
-              },
-              timeout=20
-          )
-
-          print("Telegram sendMessage HTTP:", send.status_code)
-          print(send.text)
-          send.raise_for_status()
-          PY
 
       - name: Taramayı çalıştır
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_CHANNEL_TITLE: 'iAlbayrak Analiz'
           MIN_24H_VOLUME: '1000000'
           ALERT_MIN_SCORE: '80'
         run: python altcoin_alert_scanner.py
 
-      # Bildirim geçmişini ve tanı logunu repoya geri yazar. Hem durumu
-      # kalıcı/şeffaf tutar hem de her çalışma bir commit/push ürettiği
-      # için GitHub'ın "60 gün hareketsiz repoda zamanlanmış görevleri
-      # otomatik durdurma" kuralına hiç takılmamamızı sağlar.
       - name: Durumu kaydet
         run: |
           if [ -n "$(git status --porcelain alert_state.json scan_diagnostic.log)" ]; then
