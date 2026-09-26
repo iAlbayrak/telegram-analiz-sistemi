@@ -2,13 +2,20 @@ name: Altcoin Alert Scanner
 
 on:
   schedule:
-    # Saatte bir çalışır, sadece 05:00-21:00 UTC arası (TR saatiyle 08:00-24:00).
-    # Başka bir saat aralığı isterseniz sadece bu satırdaki saatleri değiştirin.
-    - cron: '5 5-21 * * *'
+    # 7/24, her 15 dakikada bir (mum kapanışından 2 dk sonra, veri
+    # borsada oturması için). Gece kısıtlaması yok.
+    - cron: '2,17,32,47 * * * *'
   workflow_dispatch: {}   # İstediğiniz an "Run workflow" ile elle de tetikleyebilirsiniz
 
 permissions:
-  contents: write   # durum dosyasını repoya geri yazabilmek için
+  contents: write   # durum/log dosyalarını repoya geri yazabilmek için
+
+# Bir tarama 15 dakikadan uzun sürerse bir sonraki tetiklenme aynı anda
+# değil, öncekinin bitmesini bekleyip SIRAYLA çalışır -- alert_state.json
+# ve scan_diagnostic.log'a çakışan/eşzamanlı yazım olmaz.
+concurrency:
+  group: altcoin-scanner
+  cancel-in-progress: false
 
 jobs:
   scan:
@@ -29,20 +36,20 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           MIN_24H_VOLUME: '1000000'
-          ALERT_MIN_SCORE: '85'
+          ALERT_MIN_SCORE: '80'
         run: python altcoin_alert_scanner.py
 
-      # Bildirim geçmişini repoya geri yazar. Hem durumu kalıcı tutar hem de
-      # her çalışma bir commit/push ürettiği için GitHub'ın "60 gün
-      # hareketsiz repoda zamanlanmış görevleri otomatik durdurma" kuralına
-      # hiç takılmamamızı sağlar.
+      # Bildirim geçmişini ve tanı logunu repoya geri yazar. Hem durumu
+      # kalıcı/şeffaf tutar hem de her çalışma bir commit/push ürettiği
+      # için GitHub'ın "60 gün hareketsiz repoda zamanlanmış görevleri
+      # otomatik durdurma" kuralına hiç takılmamamızı sağlar.
       - name: Durumu kaydet
         run: |
-          if [ -n "$(git status --porcelain alert_state.json)" ]; then
+          if [ -n "$(git status --porcelain alert_state.json scan_diagnostic.log)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add alert_state.json
-            git commit -m "alert state güncellendi"
+            git add alert_state.json scan_diagnostic.log
+            git commit -m "alert state + tanı logu güncellendi"
             git push
           else
             echo "Durumda değişiklik yok, commit atılmadı."
