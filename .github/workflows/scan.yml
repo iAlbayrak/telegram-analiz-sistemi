@@ -30,7 +30,29 @@ jobs:
 
       - name: Bağımlılıkları kur
         run: pip install -r requirements.txt
+      - name: Telegram test
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python - <<'PY'
+          import os
+          import requests
 
+          r = requests.post(
+              f"https://api.telegram.org/bot{os.environ['TELEGRAM_BOT_TOKEN']}/sendMessage",
+              data={
+                  "chat_id": os.environ["TELEGRAM_CHAT_ID"],
+                  "text": "🧪 Telegram bağlantı testi başarılı."
+              },
+              timeout=20
+          )
+
+          print("Telegram HTTP:", r.status_code)
+          print(r.text)
+          r.raise_for_status()
+          PY
       - name: Taramayı çalıştır
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
