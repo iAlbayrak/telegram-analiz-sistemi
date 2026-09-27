@@ -6,7 +6,7 @@ emir göndermez. Sadece MEXC'nin herkese açık (public) piyasa verisini
 okur ve Telegram'a bildirim gönderir. API anahtarı / hesap bilgisi
 gerektirmez -- sadece TELEGRAM_BOT_TOKEN ve TELEGRAM_CHAT_ID.
 
---- Skorlama tasarımı (v2.4 -- bildirim/state güvenilirliği eklendi) ---
+--- Skorlama tasarımı (v2 -- önceki iki versiyondaki hatalar giderildi) ---
 
 Üç BAĞIMSIZ eksen var, hiçbiri diğerini beslemiyor / bloklamıyor:
 
@@ -54,9 +54,11 @@ from pathlib import Path
 # ---------------------------------------------------------------------
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHAT_ID   = os.getenv('TELEGRAM_CHAT_ID', '')
-TELEGRAM_CHANNEL_TITLE = os.getenv('TELEGRAM_CHANNEL_TITLE', 'iAlbayrak Analiz').strip()
 MIN_24H_VOLUME      = float(os.getenv('MIN_24H_VOLUME', '1000000'))
-ALERT_MIN_SCORE      = float(os.getenv('ALERT_MIN_SCORE', '80'))   # 80-90 "GİRİLEBİLİR", 90+ "ÇOK GÜÇLÜ/ELİT"
+ALERT_MIN_SCORE      = float(os.getenv('ALERT_MIN_SCORE', '80'))   # base technical score; rank tiers decide the actual alert gate
+MARKET_CAP_CACHE_FILE = Path(os.getenv('MARKET_CAP_CACHE_FILE', 'market_cap_cache.json'))
+MARKET_CAP_REFRESH_MINUTES = int(os.getenv('MARKET_CAP_REFRESH_MINUTES', '360'))
+MARKET_CAP_TOP_N = 500
 SLEEP_BETWEEN_COINS  = float(os.getenv('SLEEP_BETWEEN_COINS', '0.12'))
 STATE_FILE           = Path(os.getenv('STATE_FILE', 'alert_state.json'))
 DIAG_LOG             = Path(os.getenv('DIAG_LOG_FILE', 'scan_diagnostic.log'))
@@ -131,6 +133,81 @@ def liquid_usdt_swaps():
         if q and float(q) >= MIN_24H_VOLUME:
             out.append((s, float(q)))
     return [s for s, _ in sorted(out, key=lambda x: x[1], reverse=True)]
+
+def market_cap_rankings():
+    """Fetch top-500 market-cap ranks with a 6h cache.
+
+    Market cap is used ONLY to choose the alert threshold; it never adds
+    points to the technical score. If the live API fails, a fresh-enough
+    cache is used. If neither is available, symbols are treated as rank
+    501+ (the conservative 90+ gate), so missing market-cap data can never
+    make an alert easier to trigger.
+    """
+    now = time.time()
+    cache = {}
+    cache_ts = 0.0
+    if MARKET_CAP_CACHE_FILE.exists():
+        try:
+            raw = json.loads(MARKET_CAP_CACHE_FILE.read_text(encoding='utf-8'))
+            cache_ts = float(raw.get('updated_at', 0))
+            cache = raw.get('ranks', {}) or {}
+        except Exception:
+            cache, cache_ts = {}, 0.0
+
+    if cache and (now - cache_ts) < MARKET_CAP_REFRESH_MINUTES * 60:
+        return cache, cache_ts, 'cache'
+
+    fresh = {}
+    try:
+        for page in (1, 2):
+            r = requests.get(
+                'https://api.coingecko.com/api/v3/coins/markets',
+                params={
+                    'vs_currency': 'usd',
+                    'order': 'market_cap_desc',
+                    'per_page': 250,
+                    'page': page,
+                    'sparkline': 'false',
+                },
+                timeout=20,
+                headers={'accept': 'application/json', 'user-agent': 'altcoin-alert-scanner/3.0'}
+            )
+            r.raise_for_status()
+            rows = r.json()
+            for row in rows:
+                sym = str(row.get('symbol') or '').upper()
+                rank = row.get('market_cap_rank')
+                if not sym or not rank:
+                    continue
+                rank = int(rank)
+                # Symbol collisions exist; retain the highest-cap candidate.
+                old = fresh.get(sym)
+                if old is None or rank < old:
+                    fresh[sym] = rank
+        if fresh:
+            MARKET_CAP_CACHE_FILE.write_text(
+                json.dumps({'updated_at': now, 'ranks': fresh}, indent=2),
+                encoding='utf-8'
+            )
+            return fresh, now, 'live'
+    except Exception as e:
+        print(f'MARKET CAP VERİSİ ALINAMADI: {e}')
+
+    if cache:
+        return cache, cache_ts, 'stale-cache'
+    return {}, 0.0, 'unavailable'
+
+def market_cap_rank_for_symbol(symbol, rankings):
+    base = str(symbol).split('/')[0].upper()
+    return int(rankings.get(base, 501))
+
+def alert_gate_for_rank(score, market_cap_rank):
+    """Tiered alert gate: 1-200=>80+, 201-500=>85+, 501+=>90+."""
+    if market_cap_rank <= 200:
+        return score >= 80.0, 80.0
+    if market_cap_rank <= 500:
+        return score >= 85.0, 85.0
+    return score >= 90.0, 90.0
 
 def structure_levels(df):
     w = df.iloc[-98:-2]
@@ -294,25 +371,17 @@ TIER_RANK = {'🔵 GİRİLEBİLİR (80-90)':1, '🟢 ÇOK GÜÇLÜ (90+)':2, '�
 
 def load_state():
     if STATE_FILE.exists():
-        try:
-            state = json.loads(STATE_FILE.read_text(encoding='utf-8'))
-            return state if isinstance(state, dict) else {}
-        except Exception:
-            return {}
+        try: return json.loads(STATE_FILE.read_text(encoding='utf-8'))
+        except Exception: return {}
     return {}
 
 def save_state(state):
-    STATE_FILE.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding='utf-8')
+    STATE_FILE.write_text(json.dumps(state, indent=2), encoding='utf-8')
 
 def is_new_or_upgraded(x, t, state):
     key = f"{x['symbol']}:{x['direction']}"
     prev = state.get(key)
-    if prev is None:
-        return True
-    # Telegram gönderimi önceki turda başarısız olduysa bu setup
-    # bir sonraki turda tekrar gönderilmeye çalışılır.
-    if not prev.get('notified', True):
-        return True
+    if prev is None: return True
     return TIER_RANK.get(t, 0) > TIER_RANK.get(prev.get('tier'), 0)
 
 def format_context_header(ctx):
@@ -330,6 +399,7 @@ def format_setup(x, t):
     tp = tp_levels(x)
     lines = [t,
         f"*{x['symbol']}*  —  {x['direction']}  |  Skor {x['score']} ({x['quality']})",
+        f"Market Cap sırası: #{x.get('market_cap_rank', 501)}  |  Alarm eşiği: {x.get('alert_threshold', 90):.0f}+",
         f"RR {x['rr']:.2f}  |  Yön{x['directional_confidence']:.0f} Giriş{x['entry_quality']:.0f} "
         f"Potansiyel{x['move_potential']:.0f} Kırılım{x['breakout']:.0f}",
         f"Referans fiyat: {x['entry']:.6g}",
@@ -342,101 +412,27 @@ def format_setup(x, t):
                       f"TP3 ({tp['TP3']['r']}R): {tp['TP3']['price']:.6g}")
     return '\n'.join(lines)
 
-def _discover_channel_chat_id():
-    """Configured Chat ID 'chat not found' verirse, botun gördüğü son
-    channel_post içinden doğru kanalı bulmayı dener. Kanal başlığı da
-    eşleşmelidir; böylece yanlış bir kanala gönderme riski azaltılır."""
-    if not TELEGRAM_BOT_TOKEN:
-        return None
-    try:
-        r = requests.get(
-            f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates',
-            params={'limit': 50}, timeout=15
-        )
-        if r.status_code != 200:
-            print(f'TELEGRAM getUpdates HATASI: {r.status_code} {r.text[:200]}')
-            return None
-        data = r.json()
-        matches = []
-        for u in data.get('result', []):
-            post = u.get('channel_post')
-            if not post:
-                continue
-            chat = post.get('chat') or {}
-            if chat.get('type') != 'channel':
-                continue
-            title = str(chat.get('title', '')).strip()
-            if TELEGRAM_CHANNEL_TITLE and title != TELEGRAM_CHANNEL_TITLE:
-                continue
-            matches.append(chat)
-        if not matches:
-            print(f'Kanal otomatik bulunamadı. Beklenen kanal: {TELEGRAM_CHANNEL_TITLE!r}')
-            return None
-        chat = matches[-1]
-        print(f"Telegram kanal otomatik bulundu: {chat.get('title')} (ID gizli)")
-        return str(chat.get('id'))
-    except Exception as e:
-        print(f'TELEGRAM getUpdates HATASI: {e}')
-        return None
-
-def _send_chunks(text, chat_id):
-    chunks = [text[i:i+3500] for i in range(0, len(text), 3500)] or [text]
+def send_telegram(text):
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        print('TELEGRAM AYARLI DEĞİL: TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID secret olarak ekleyin.')
+        return False
+    chunks = [text[i:i+3500] for i in range(0,len(text),3500)] or [text]
+    ok = True
     for chunk in chunks:
         try:
-            r = requests.post(
-                f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage',
-                json={'chat_id': chat_id, 'text': chunk, 'parse_mode': 'Markdown'},
-                timeout=15
-            )
+            r = requests.post(f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage',
+                               json={'chat_id':TELEGRAM_CHAT_ID,'text':chunk,'parse_mode':'Markdown'}, timeout=15)
+            if r.status_code != 200:
+                print(f'TELEGRAM HATASI: {r.status_code} {r.text[:200]}'); ok=False
         except Exception as e:
-            print(f'TELEGRAM GÖNDERİM HATASI: {e}')
-            return False, None
-        if r.status_code != 200:
-            return False, r
-    return True, None
+            print(f'TELEGRAM GÖNDERİM HATASI: {e}'); ok=False
+    return ok
 
-def send_telegram(text):
-    if not TELEGRAM_BOT_TOKEN:
-        print('TELEGRAM AYARLI DEĞİL: TELEGRAM_BOT_TOKEN secret eksik.')
-        return False
-    if not TELEGRAM_CHAT_ID:
-        print('TELEGRAM_CHAT_ID secret boş. Kanal otomatik keşfi deneniyor...')
-        fallback = _discover_channel_chat_id()
-        if not fallback:
-            return False
-        ok, err = _send_chunks(text, fallback)
-        if ok:
-            return True
-        print(f'TELEGRAM GÖNDERİM HATASI: {err.status_code if err is not None else "bağlantı"} '
-              f'{err.text[:200] if err is not None else ""}')
-        return False
-
-    ok, err = _send_chunks(text, TELEGRAM_CHAT_ID)
-    if ok:
-        return True
-
-    # Mevcut secret yanlış/eski ise, bu proje için daha önce kanalda
-    # görülen doğrulanmış channel_post üzerinden doğru ID'yi bulup bir kez
-    # daha deneriz. Bu, 'chat not found' yüzünden bildirimin kaybolmasını
-    # önler; yetki/403 hatasında sessizce başka yere göndermez.
-    if err is not None and err.status_code == 400 and 'chat not found' in err.text.lower():
-        print('Telegram Chat ID geçersiz görünüyor; kanal otomatik keşfi deneniyor...')
-        fallback = _discover_channel_chat_id()
-        if fallback and fallback != str(TELEGRAM_CHAT_ID):
-            ok2, err2 = _send_chunks(text, fallback)
-            if ok2:
-                print('Telegram bildirimi otomatik bulunan kanal ID ile gönderildi.')
-                return True
-            if err2 is not None:
-                print(f'TELEGRAM GÖNDERİM HATASI (otomatik ID): {err2.status_code} {err2.text[:200]}')
-    elif err is not None:
-        print(f'TELEGRAM HATASI: {err.status_code} {err.text[:200]}')
-    return False
-
-def write_diagnostic(all_results, ctx, notify_keys=None):
-    """Her turun en iyi adaylarını ve bildirim uygunluğunu kaydeder.
-    Böylece skor >= 80 olsa bile neden bildirime girmediği görülebilir."""
-    notify_keys = notify_keys or set()
+def write_diagnostic(all_results, ctx):
+    """Her turun en iyi adaylarını -- eşiği geçmemiş olsalar bile -- kalıcı
+    bir dosyaya yazar. Bu sayede 'çok mu kısıtladık' sorusu tahminle değil
+    gerçek veriyle cevaplanabilir. Dosya sınırsız büyümesin diye son
+    DIAG_LOG_MAX_LINES satır tutulur."""
     stamp = datetime.now().isoformat(timespec='seconds')
     top = sorted(all_results, key=lambda r: r['score'], reverse=True)[:10]
     best = f"{top[0]['score']:.1f}" if top else 'n/a'
@@ -444,21 +440,13 @@ def write_diagnostic(all_results, ctx, notify_keys=None):
              f"ETH4h={ctx['eth']['4h']} ETH1h={ctx['eth']['1h']} | "
              f"taranan={len(all_results)} | en_iyi={best} ==="]
     for r in top:
-        key = f"{r['symbol']}:{r['direction']}"
-        rr = r.get('rr')
-        rr_text = f"{float(rr):.2f}" if pd.notna(rr) else 'NA'
-        tier_text = tier(r) if r['score'] >= ALERT_MIN_SCORE and pd.notna(r['rr']) else '-'
-        eligible = 'EVET' if key in notify_keys else 'HAYIR'
-        lines.append(
-            f"  {r['symbol']:20} {r['direction']:5} score={r['score']:5.1f} "
-            f"rr={rr_text:>5} tier={tier_text} bildirim={eligible}"
-        )
+        lines.append(f"  {r['symbol']:20} {r['direction']:5} score={r['score']:5.1f} mc=#{r.get('market_cap_rank',501):4d} gate={r.get('alert_threshold',90):.0f} ({r['quality']})")
     existing = DIAG_LOG.read_text(encoding='utf-8').splitlines() if DIAG_LOG.exists() else []
     combined = (existing + lines)[-DIAG_LOG_MAX_LINES:]
     DIAG_LOG.write_text('\n'.join(combined) + '\n', encoding='utf-8')
 
 def main():
-    print('=== ALTCOIN ALERT SCANNER v2.4 ===')
+    print('=== ALTCOIN ALERT SCANNER v2.3 ===')
     ctx = market_context()
     print(f"BTC 4h={ctx['btc']['4h']} 1h={ctx['btc']['1h']} | ETH 4h={ctx['eth']['4h']} 1h={ctx['eth']['1h']}")
     symbols = liquid_usdt_swaps()
@@ -468,34 +456,31 @@ def main():
     new_state = {}
     qualifying = []
     all_results = []
-    notify_keys = set()
+    market_caps, market_cap_updated_at, market_cap_source = market_cap_rankings()
+    print(f'Market cap sıralaması: {market_cap_source} | eşik: 1-200=>80+, 201-500=>85+, 501+=>90+')
 
     def evaluate(s, symbol_key=None):
         try:
             x = score_setup(candles(s,'4h'), candles(s,'1h'), candles(s,'15m'), ctx, symbol_key)
             x['symbol'] = s
+            x['market_cap_rank'] = market_cap_rank_for_symbol(s, market_caps)
+            x['alert_eligible'], x['alert_threshold'] = alert_gate_for_rank(x['score'], x['market_cap_rank'])
             all_results.append(x)
-            if x['score'] >= ALERT_MIN_SCORE and pd.notna(x['rr']):
-                key = f"{s}:{x['direction']}"
+            if x['alert_eligible'] and pd.notna(x['rr']):
                 t = tier(x)
-                prev = state.get(key) or {}
-                new_state[key] = {
-                    'tier': t,
-                    'score': x['score'],
-                    # Eski state dosyaları için geriye dönük uyum:
-                    # Eski state dosyalarında notified alanı yoksa, güvenli tarafta kalıp
-                    # bu setup'ı daha önce bildirilmemiş kabul ederiz.
-                    'notified': prev.get('notified', False)
+                new_state[f"{s}:{x['direction']}"] = {
+                    'tier': t, 'score': x['score'],
+                    'market_cap_rank': x['market_cap_rank'],
+                    'alert_threshold': x['alert_threshold']
                 }
                 if is_new_or_upgraded(x, t, state):
                     qualifying.append((x, t))
-                    notify_keys.add(key)
-        except Exception as e:
-            # Tek bir sembolün veri/indikatör hatası bütün taramayı durdurmasın.
-            print(f'SKIP {s}: {e}')
+        except Exception:
+            pass
 
-    # BTC ve ETH'nin kendisi de adaydır; hizalık bonusu kendi kendilerine değil
-    # diğer varlığa göre hesaplanır.
+    # BTC ve ETH'nin kendisi de birer aday -- ama hizalık bonusu kendine
+    # değil, diğer varlığa göre hesaplanıyor (bkz. _external_alignment_raw),
+    # yoksa BTC "kendi yönüyle uyumlu" diye yapay puan kazanırdı.
     evaluate('BTC/USDT:USDT', symbol_key='btc')
     evaluate('ETH/USDT:USDT', symbol_key='eth')
 
@@ -505,13 +490,10 @@ def main():
             print(f'  ... {i}/{len(symbols)} tarandı')
         time.sleep(SLEEP_BETWEEN_COINS)
 
-    # Önce tanı logunu yaz; state ise bildirim sonucuna göre aşağıda kesinleştirilir.
-    write_diagnostic(all_results, ctx, notify_keys)
+    save_state(new_state)
+    write_diagnostic(all_results, ctx)
 
     if not qualifying:
-        # Mevcut 80+ setup'lar korunur; 80'in altına düşenler new_state'e hiç
-        # girmediği için doğal olarak resetlenir.
-        save_state(new_state)
         best = max((r['score'] for r in all_results), default=None)
         print(f'Bu turda yeni/yükselmiş bir setup yok. (En iyi aday: {best})')
         return
@@ -521,18 +503,8 @@ def main():
     for x, t in qualifying:
         parts.append(format_setup(x, t)); parts.append('')
     parts.append('⚠️ Yatırım tavsiyesi değildir. Sadece kurduğunuz skor sisteminin çıktısıdır.')
-
     ok = send_telegram('\n'.join(parts))
-
-    # KRİTİK: Telegram başarısızsa qualifying setup'ları 'bildirildi' sayma.
-    # Böylece bir sonraki turda otomatik yeniden denenir.
-    for x, _ in qualifying:
-        key = f"{x['symbol']}:{x['direction']}"
-        if key in new_state:
-            new_state[key]['notified'] = bool(ok)
-
-    save_state(new_state)
-    print('Bildirim gönderildi.' if ok else 'Bildirim gönderilemedi; ilgili setup(lar) bir sonraki turda yeniden denenecek.')
+    print('Bildirim gönderildi.' if ok else 'Bildirim gönderilemedi.')
 
 if __name__ == '__main__':
     main()
