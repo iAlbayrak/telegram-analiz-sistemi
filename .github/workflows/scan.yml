@@ -2,8 +2,8 @@ name: Altcoin Alert Scanner
 
 on:
   schedule:
-    # 7/24, her 15 dakikada bir (mum kapanışından 2 dk sonra, veri
-    # borsada oturması için). Gece kısıtlaması yok.
+    # 7/24, her 15 dakikada bir
+    # Mum kapanışından yaklaşık 2 dakika sonra çalışır.
     - cron: '2,17,32,47 * * * *'
   workflow_dispatch: {}
 
@@ -18,43 +18,21 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+    steps:
+      - name: Repository'yi al
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Python kur
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Bağımlılıkları kur
         run: pip install -r requirements.txt
-      - name: Telegram Chat ID teşhis
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        run: |
-          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteWebhook" > /dev/null
-          python - <<'PY'
-          import os, json, urllib.request
 
-          token = os.environ["TELEGRAM_BOT_TOKEN"]
-          url = f"https://api.telegram.org/bot{token}/getUpdates"
-          data = json.load(urllib.request.urlopen(url, timeout=20))
-
-          print("Telegram API ok:", data.get("ok"))
-
-          found = False
-          for u in data.get("result", []):
-              for key in ("channel_post", "message", "edited_channel_post", "edited_message"):
-                  obj = u.get(key)
-                  if obj and obj.get("chat"):
-                      chat = obj["chat"]
-                      print("CHAT ID:", chat.get("id"))
-                      print("CHAT TITLE:", chat.get("title") or chat.get("username") or chat.get("first_name"))
-                      print("CHAT TYPE:", chat.get("type"))
-                      found = True
-
-          if not found:
-              print("Chat bulunamadı. Telegram kanalına TEST mesajı gönderip workflow'u tekrar çalıştır.")
-          PY
       - name: Taramayı çalıştır
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -69,9 +47,16 @@ jobs:
           if [ -n "$(git status --porcelain alert_state.json scan_diagnostic.log)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
+
             git add alert_state.json scan_diagnostic.log
             git commit -m "alert state + tanı logu güncellendi"
-            git push
+
+            # Workflow çalışırken main dalına yeni bir commit geldiyse
+            # önce onu alıp kendi commitimizi üzerine uygula.
+            git fetch origin main
+            git rebase origin/main
+
+            git push origin HEAD:main
           else
             echo "Durumda değişiklik yok, commit atılmadı."
           fi
