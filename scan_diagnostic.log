@@ -1,15 +1,3 @@
-  MUBARAK/USDT:USDT    LONG  score= 78.8 mc=# 501 gate=90 (SELECTIVE)
-  GRASS/USDT:USDT      LONG  score= 76.7 mc=# 501 gate=90 (SELECTIVE)
-  SOONNETWORK/USDT:USDT LONG  score= 74.5 mc=# 501 gate=90 (SELECTIVE)
-  SITMSTOCK/USDT:USDT  LONG  score= 73.5 mc=# 501 gate=90 (SELECTIVE)
-  SYRUP/USDT:USDT      LONG  score= 71.3 mc=# 501 gate=90 (WEAK)
-  PHA/USDT:USDT        LONG  score= 69.5 mc=# 501 gate=90 (WEAK)
-  KAS/USDT:USDT        LONG  score= 68.9 mc=# 501 gate=90 (WEAK)
-  JASMY/USDT:USDT      LONG  score= 67.9 mc=# 501 gate=90 (WEAK)
-  NMR/USDT:USDT        LONG  score= 67.8 mc=# 501 gate=90 (WEAK)
-=== 2026-09-29T08:33:58 | BTC4h=NEUTRAL BTC1h=BULLISH ETH4h=BULLISH ETH1h=BULLISH | taranan=165 | en_iyi=81.3 ===
-  SOONNETWORK/USDT:USDT LONG  score= 81.3 mc=# 501 gate=90 (SELECTIVE)
-  0G/USDT:USDT         LONG  score= 80.9 mc=# 501 gate=90 (SELECTIVE)
   MUBARAK/USDT:USDT    LONG  score= 78.2 mc=# 501 gate=90 (SELECTIVE)
   BTW/USDT:USDT        LONG  score= 77.3 mc=# 501 gate=90 (SELECTIVE)
   GRASS/USDT:USDT      LONG  score= 76.9 mc=# 501 gate=90 (SELECTIVE)
@@ -497,4 +485,16 @@ PERP TWSTSTOCK/USDT:USDT  LONG  phase=NO_EARLY_SETUP   score= 66.9 rr=2.20 pot=Y
 PERP TSMSTOCK/USDT:USDT   LONG  phase=NO_EARLY_SETUP   score= 66.7 rr=2.20 pot=ORTA       rel1h=-0.01 rel4h=+2.60 outlier=False mc=# 501 gate=90 ready=72 valid=False entry=62 gap=62 qv=392513 reject=ERKEN KIRILIM/TEYİT KOŞULU
 PERP NMR/USDT:USDT        LONG  phase=NO_EARLY_SETUP   score= 66.5 rr=3.82 pot=ÇOK YÜKSEK rel1h=+4.75 rel4h=-0.16 outlier=True mc=# 273 gate=85 ready=26 valid=False entry=91 gap=25 qv=15343869 reject=ERKEN KIRILIM/TEYİT KOŞULU
 PERP VELO/USDT:USDT       LONG  phase=NO_EARLY_SETUP   score= 66.3 rr=2.20 pot=ORTA       rel1h=+0.52 rel4h=+2.37 outlier=False mc=# 289 gate=85 ready=39 valid=False entry=75 gap=56 qv=418645 reject=ERKEN KIRILIM/TEYİT KOŞULU
+ERRORS {"ValueError": 4}
+=== 2026-09-29T19:02:01 | BTC4h=NEUTRAL BTC1h=BEARISH ETH4h=NEUTRAL ETH1h=NEUTRAL | perp_taranan=339 | en_iyi=PUMPFUN/USDT:USDT 75.7 | marketcap=cache ===
+PERP PUMPFUN/USDT:USDT    LONG  phase=PRE_BREAKOUT     score= 75.7 rr=2.20 pot=ÇOK YÜKSEK rel1h=-0.82 rel4h=+4.25 outlier=True mc=# 501 gate=90 ready=70 valid=True entry=64 gap=62 qv=77694435 reject=SKOR/EŞİK
+PERP ANSEM/USDT:USDT      SHORT phase=NO_EARLY_SETUP   score= 74.5 rr=2.20 pot=ÇOK YÜKSEK rel1h=-0.84 rel4h=-3.98 outlier=True mc=# 377 gate=85 ready=35 valid=False entry=72 gap=63 qv=315721 reject=ERKEN KIRILIM/TEYİT KOŞULU
+PERP SKY/USDT:USDT        LONG  phase=BREAKOUT_STARTED score= 74.2 rr=2.20 pot=ORTA       rel1h=+0.32 rel4h=+3.93 outlier=True mc=#  53 gate=80 ready=92 valid=True entry=63 gap=74 qv=1022376 reject=SKOR/EŞİK
+PERP STRCSTOCK/USDT:USDT  LONG  phase=PRE_BREAKOUT     score= 73.1 rr=2.20 pot=SINIRLI    rel1h=+0.14 rel4h=+1.86 outlier=False mc=# 501 gate=90 ready=82 valid=True entry=67 gap=71 qv=621863 reject=SKOR/EŞİK
+PERP AEHRSTOCK/USDT:USDT  LONG  phase=NO_EARLY_SETUP   score= 72.6 rr=2.20 pot=YÜKSEK     rel1h=+2.50 rel4h=+3.58 outlier=True mc=# 501 gate=90 ready=37 valid=False entry=75 gap=66 qv=273868 reject=ERKEN KIRILIM/TEYİT KOŞULU
+PERP ROBIN/USDT:USDT      SHORT phase=PRE_BREAKOUT     score= 69.9 rr=2.20 pot=ÇOK YÜKSEK rel1h=-6.68 rel4h=-24.23 outlier=True mc=# 501 gate=90 ready=47 valid=False entry=71 gap=68 qv=388098 reject=ERKEN KIRILIM/TEYİT KOŞULU
+PERP FCXSTOCK/USDT:USDT   SHORT phase=NO_EARLY_SETUP   score= 69.3 rr=2.20 pot=ORTA       rel1h=+0.59 rel4h=-1.07 outlier=False mc=# 501 gate=90 ready=36 valid=False entry=75 gap=54 qv=655255 reject=ERKEN KIRILIM/TEYİT KOŞULU
+PERP SOONNETWORK/USDT:USDT LONG  phase=NO_EARLY_SETUP   score= 67.9 rr=2.20 pot=ÇOK YÜKSEK rel1h=-3.89 rel4h=+20.89 outlier=True mc=# 501 gate=90 ready=45 valid=False entry=67 gap=43 qv=2788853 reject=ERKEN KIRILIM/TEYİT KOŞULU
+PERP TWSTSTOCK/USDT:USDT  LONG  phase=NO_EARLY_SETUP   score= 66.9 rr=2.20 pot=YÜKSEK     rel1h=+0.22 rel4h=+3.27 outlier=True mc=# 501 gate=90 ready=36 valid=False entry=57 gap=68 qv=854696 reject=ERKEN KIRILIM/TEYİT KOŞULU
+PERP NMR/USDT:USDT        LONG  phase=NO_EARLY_SETUP   score= 66.5 rr=3.82 pot=ÇOK YÜKSEK rel1h=+4.75 rel4h=-0.16 outlier=True mc=# 273 gate=85 ready=26 valid=False entry=91 gap=25 qv=15368783 reject=ERKEN KIRILIM/TEYİT KOŞULU
 ERRORS {"ValueError": 4}
