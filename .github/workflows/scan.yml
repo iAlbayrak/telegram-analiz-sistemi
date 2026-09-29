@@ -2,6 +2,7 @@ name: Altcoin Alert Scanner
 
 on:
   schedule:
+    # 7/24, her 15 dakikada bir; mum kapanışından yaklaşık 2 dk sonra
     - cron: '2,17,32,47 * * * *'
   workflow_dispatch: {}
 
@@ -15,7 +16,7 @@ concurrency:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - name: Depoyu al
         uses: actions/checkout@v4
@@ -29,44 +30,7 @@ jobs:
 
       - name: Bağımlılıkları kur
         run: pip install -r requirements.txt
-      - name: Telegram kanal ID kontrolü
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        run: |
-          python - <<'PY'
-          import os
-          import json
-          import urllib.request
 
-          token = os.environ["TELEGRAM_BOT_TOKEN"]
-          url = f"https://api.telegram.org/bot{token}/getUpdates"
-
-          try:
-              with urllib.request.urlopen(url, timeout=20) as response:
-                  data = json.load(response)
-
-              if not data.get("ok"):
-                  print("Telegram API isteği başarısız.")
-              else:
-                  found = set()
-
-                  for item in data.get("result", []):
-                      post = item.get("channel_post")
-                      if post:
-                          chat = post.get("chat", {})
-                          if chat.get("type") == "channel":
-                              cid = chat.get("id")
-                              title = chat.get("title", "İsimsiz kanal")
-                              found.add((str(cid), title))
-
-                  if found:
-                      for cid, title in sorted(found):
-                          print(f"Kanal: {title} | Chat ID: {cid}")
-                  else:
-                      print("Bekleyen kanal mesajı güncellemesi bulunamadı.")
-          except Exception as exc:
-              print("Kontrol başarısız:", type(exc).__name__)
-          PY
       - name: Tarayıcıyı çalıştır
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -74,16 +38,16 @@ jobs:
           MIN_24H_VOLUME: '1000000'
           MIN_SPOT_24H_VOLUME: '500000'
           SPOT_RADAR_MAX_CANDIDATES: '50'
-          SPOT_WATCH_COOLDOWN_HOURS: '6'
           ALERT_MIN_SCORE: '80'
-          MIN_CONFIRMED_RR: '1.8'
+          MIN_CONFIRMED_RR: '2.0'
           MIN_DIRECTION_GAP: '8'
-          MIN_ENTRY_QUALITY: '55'
+          MIN_ENTRY_QUALITY: '65'
+          EARLY_TRIGGER_MAX_ATR: '0.85'
+          MIN_SETUP_READINESS: '65'
+          MARKET_CAP_REFRESH_MINUTES: '360'
         run: python altcoin_alert_scanner.py
 
       - name: Durum, tanı kaydı ve market-cap önbelleğini kaydet
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -93,7 +57,5 @@ jobs:
             exit 0
           fi
           git commit -m "scanner state, diagnostics and market cap cache"
-          # Başka bir commit tarama sırasında main'e geldiyse önce onu alıp
-          # bu taramanın durum commit'ini yeniden uygula; eski fetch/push hatasını azaltır.
           git pull --rebase origin "${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"
