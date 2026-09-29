@@ -2,7 +2,7 @@ name: Altcoin Alert Scanner
 
 on:
   schedule:
-    # 7/24, her 15 dakikada bir; mum kapanışından yaklaşık 2 dk sonra
+    # 7/24, her 15 dakikada bir; mum kapanışından yaklaşık 2 dk sonra (V6)
     - cron: '2,17,32,47 * * * *'
   workflow_dispatch: {}
 
