@@ -1,16 +1,3 @@
-  XLM/USDT:USDT        LONG  score= 73.7 mc=# 501 gate=90 (SELECTIVE)
-=== 2026-09-29T07:34:34 | BTC4h=NEUTRAL BTC1h=BULLISH ETH4h=NEUTRAL ETH1h=BULLISH | taranan=170 | en_iyi=78.3 ===
-  QNT/USDT:USDT        LONG  score= 78.3 mc=# 501 gate=90 (SELECTIVE)
-  MUBARAK/USDT:USDT    LONG  score= 75.8 mc=# 501 gate=90 (SELECTIVE)
-  SOONNETWORK/USDT:USDT LONG  score= 74.6 mc=# 501 gate=90 (SELECTIVE)
-  0G/USDT:USDT         LONG  score= 73.8 mc=# 501 gate=90 (SELECTIVE)
-  GRASS/USDT:USDT      LONG  score= 72.5 mc=# 501 gate=90 (SELECTIVE)
-  JASMY/USDT:USDT      LONG  score= 71.4 mc=# 501 gate=90 (WEAK)
-  LINK/USDT:USDT       LONG  score= 70.0 mc=# 501 gate=90 (WEAK)
-  NICKEL/USDT:USDT     SHORT score= 68.7 mc=# 501 gate=90 (WEAK)
-  SITMSTOCK/USDT:USDT  LONG  score= 68.5 mc=# 501 gate=90 (WEAK)
-  PHA/USDT:USDT        LONG  score= 68.4 mc=# 501 gate=90 (WEAK)
-=== 2026-09-29T07:50:16 | BTC4h=NEUTRAL BTC1h=BULLISH ETH4h=NEUTRAL ETH1h=BULLISH | taranan=171 | en_iyi=81.2 ===
   QNT/USDT:USDT        LONG  score= 81.2 mc=# 501 gate=90 (SELECTIVE)
   SOONNETWORK/USDT:USDT LONG  score= 77.9 mc=# 501 gate=90 (SELECTIVE)
   MUBARAK/USDT:USDT    LONG  score= 77.0 mc=# 501 gate=90 (SELECTIVE)
@@ -498,3 +485,16 @@ PERP AKE/USDT:USDT        SHORT phase=NO_EARLY_SETUP   score= 68.9 rr=2.20 pot=O
 PERP NBISSTOCK/USDT:USDT  LONG  phase=NO_EARLY_SETUP   score= 68.8 rr=2.20 pot=ORTA       rel1h=+0.02 rel4h=+4.22 outlier=True mc=# 501 gate=90 ready=22 valid=False entry=87 gap=45
 SPOT MARSCOIN/USDT        AŞAĞI HAREKET   15m=-4.17% 1h=-6.60% 24h=-11.48% vol=1.99x swap=True
 ERRORS {"ValueError": 2}
+=== 2026-09-29T18:22:46 | BTC4h=NEUTRAL BTC1h=BEARISH ETH4h=NEUTRAL ETH1h=NEUTRAL | perp_taranan=1050 | en_iyi=NMR/USDT:USDT 85.4 | marketcap=cache ===
+PERP NMR/USDT:USDT        LONG  phase=BREAKOUT_STARTED score= 85.4 rr=4.38 pot=ÇOK YÜKSEK rel1h=+4.75 rel4h=-0.16 outlier=True mc=# 273 gate=85 ready=88 valid=True entry=84 gap=73 qv=14991502 reject=OK
+PERP PAIR/USDT:USDT       SHORT phase=PRE_BREAKOUT     score= 81.4 rr=2.20 pot=ÇOK YÜKSEK rel1h=-0.06 rel4h=-0.50 outlier=False mc=# 501 gate=90 ready=83 valid=True entry=66 gap=77 qv=92089 reject=LIKIDITE<250,000 USDT
+PERP SUE/USDT:USDT        SHORT phase=BREAKOUT_STARTED score= 81.3 rr=2.20 pot=ÇOK YÜKSEK rel1h=-5.62 rel4h=-7.95 outlier=True mc=# 501 gate=90 ready=82 valid=False entry=57 gap=84 qv=120092 reject=LIKIDITE<250,000 USDT
+PERP GPNSTOCK/USDT:USDT   SHORT phase=PRE_BREAKOUT     score= 78.9 rr=4.32 pot=YÜKSEK     rel1h=-0.07 rel4h=+0.06 outlier=False mc=# 501 gate=90 ready=62 valid=False entry=94 gap=58 qv=97292 reject=LIKIDITE<250,000 USDT
+PERP KRMNSTOCK/USDT:USDT  SHORT phase=PRE_BREAKOUT     score= 78.8 rr=2.20 pot=YÜKSEK     rel1h=-0.87 rel4h=-0.96 outlier=False mc=# 501 gate=90 ready=82 valid=True entry=66 gap=72 qv=93792 reject=LIKIDITE<250,000 USDT
+PERP SPX/USDT:USDT        SHORT phase=BREAKOUT_STARTED score= 77.6 rr=1.75 pot=YÜKSEK     rel1h=-0.83 rel4h=-0.38 outlier=False mc=# 136 gate=80 ready=81 valid=True entry=62 gap=75 qv=1968153 reject=SKOR/EŞİK
+PERP AIOT/USDT:USDT       LONG  phase=NO_EARLY_SETUP   score= 77.1 rr=7.05 pot=YÜKSEK     rel1h=+0.87 rel4h=+3.92 outlier=True mc=# 501 gate=90 ready=45 valid=False entry=87 gap=62 qv=215880 reject=LIKIDITE<250,000 USDT
+PERP TUT/USDT:USDT        SHORT phase=NO_EARLY_SETUP   score= 75.9 rr=3.18 pot=ORTA       rel1h=+0.07 rel4h=+2.88 outlier=False mc=# 501 gate=90 ready=48 valid=False entry=93 gap=59 qv=407211 reject=ERKEN KIRILIM/TEYİT KOŞULU
+PERP VICRSTOCK/USDT:USDT  LONG  phase=NO_EARLY_SETUP   score= 75.1 rr=9.92 pot=ORTA       rel1h=+0.68 rel4h=+0.23 outlier=False mc=# 501 gate=90 ready=26 valid=False entry=94 gap=59 qv=91531 reject=LIKIDITE<250,000 USDT
+PERP CRCLSTOCK/USDT:USDT  SHORT phase=BREAKOUT_STARTED score= 73.8 rr=2.20 pot=ORTA       rel1h=-0.86 rel4h=-0.95 outlier=False mc=# 501 gate=90 ready=84 valid=True entry=57 gap=70 qv=4450813 reject=SKOR/EŞİK
+SPOT KRAFT/USDT           YUKARI HAREKET  15m=+2.14% 1h=+0.13% 24h=-22.18% vol=13.28x swap=False
+ERRORS {"ValueError": 24}
