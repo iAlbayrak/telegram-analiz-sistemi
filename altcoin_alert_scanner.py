@@ -1,12 +1,12 @@
 """
-V5 erken kırılım + doğrulanmış işlem planı tarayıcısı -- BULUTTA çalışır (GitHub Actions),
+V6 çoklu-zaman-dilimi + göreceli-güç + erken kırılım işlem planı tarayıcısı -- BULUTTA çalışır (GitHub Actions),
 telefondaki/bilgisayardaki hiçbir şeye bağımlı değil. Mevcut MEXC trading
 bot'unuzdan TAMAMEN bağımsızdır -- hiçbir dosyasını içe aktarmaz, hiçbir
 emir göndermez. Sadece MEXC'nin herkese açık (public) piyasa verisini
 okur ve Telegram'a bildirim gönderir. API anahtarı / hesap bilgisi
 gerektirmez -- sadece TELEGRAM_BOT_TOKEN ve TELEGRAM_CHAT_ID.
 
---- V4: mevcut doğrulanmış setup + ayrı spot erken hareket radarı ---
+--- V6: kısa vadeli işlem planı + BTC/ETH dışı güçlü coin ayrışmasını yakalama ---
 
 Üç BAĞIMSIZ eksen var, hiçbiri diğerini beslemiyor / bloklamıyor:
 
@@ -123,9 +123,20 @@ def regime_from_row(x):
     if x.close < x.ema50 < x.ema200 and x.rsi <= 48: return 'BEARISH'
     return 'NEUTRAL'
 
+def _closed_return_pct(df, bars=1):
+    # Yalnızca kapanmış mumlar: -2 son kapanmış, -2-bars karşılaştırma mumu.
+    if len(df) < bars + 3:
+        return 0.0
+    old = float(df.iloc[-2-bars].close)
+    new = float(df.iloc[-2].close)
+    return ((new / old) - 1.0) * 100.0 if old else 0.0
+
 def symbol_regime(symbol):
     d4 = candles(symbol, '4h'); d1 = candles(symbol, '1h')
-    return {'4h': regime_from_row(d4.iloc[-2]), '1h': regime_from_row(d1.iloc[-2])}
+    return {
+        '4h': regime_from_row(d4.iloc[-2]), '1h': regime_from_row(d1.iloc[-2]),
+        'ret_4h': _closed_return_pct(d4, 1), 'ret_1h': _closed_return_pct(d1, 1),
+    }
 
 def market_context():
     btc = symbol_regime('BTC/USDT:USDT')
@@ -205,7 +216,10 @@ def market_cap_rankings():
         return [(str(x.get('symbol') or '').upper(), int(x['rank']))
                 for x in rows if x.get('symbol') and x.get('rank') and str(x['rank']).isdigit()]
 
-    providers = [('coingecko', get_coingecko), ('coinpaprika', get_coinpaprika), ('coincap', get_coincap)]
+    # GitHub-hosted runners commonly receive 403 from CoinGecko's public API.
+    # Prefer the providers that worked in the latest deployment; CoinGecko remains
+    # the final fallback instead of adding a predictable 403 to every fresh scan.
+    providers = [('coinpaprika', get_coinpaprika), ('coincap', get_coincap), ('coingecko', get_coingecko)]
     for provider_name, fetcher in providers:
         try:
             pairs = fetcher()
@@ -303,10 +317,31 @@ def _directional_score(df4, df1, df15, ctx, side, symbol_key=None):
         confirmation = 1.0 if float(c.close) < float(prev.close) else 0.0
     breakout_raw = clamp(14.0*clamp(breakout_atr/1.5,0,1) + 8.0*confirmation, 0, 22)
     market_raw = _external_alignment_raw(side, ctx, symbol_key)
+    # Relative strength explicitly detects coins moving against a weak BTC/ETH
+    # tape. This is a positive feature, not a hard market-regime veto.
+    coin_1h = _closed_return_pct(df1, 1)
+    coin_4h = _closed_return_pct(df4, 1)
+    if symbol_key in ('btc', 'eth'):
+        peers = ['eth', 'btc']
+        peer = ctx[peers[0] if symbol_key == 'btc' else peers[1]]
+        rel_1h = coin_1h - float(peer.get('ret_1h', 0.0))
+        rel_4h = coin_4h - float(peer.get('ret_4h', 0.0))
+    else:
+        market_1h = (float(ctx['btc'].get('ret_1h', 0.0)) + float(ctx['eth'].get('ret_1h', 0.0))) / 2.0
+        market_4h = (float(ctx['btc'].get('ret_4h', 0.0)) + float(ctx['eth'].get('ret_4h', 0.0))) / 2.0
+        rel_1h = coin_1h - market_1h
+        rel_4h = coin_4h - market_4h
+    rel_signed = (0.65 * rel_1h + 0.35 * rel_4h) * (1.0 if side == 'LONG' else -1.0)
+    relative_strength = clamp(50.0 + rel_signed * 9.0, 0.0, 100.0)
     trend = trend_raw/50*100; momentum = mom_raw/38*100; volume = vol_raw/12*100
     breakout = breakout_raw/22*100; market = market_raw/8*100
-    directional = 0.32*trend + 0.32*momentum + 0.12*volume + 0.16*breakout + 0.08*market
-    return {'trend':trend,'momentum':momentum,'volume':volume,'breakout':breakout,'market':market,'directional':clamp(directional)}
+    # Own-coin structure dominates; BTC/ETH regime is context, not a veto.
+    directional = (0.29*trend + 0.29*momentum + 0.12*volume +
+                   0.16*breakout + 0.04*market + 0.10*relative_strength)
+    return {'trend':trend,'momentum':momentum,'volume':volume,'breakout':breakout,
+            'market':market,'relative_strength':relative_strength,
+            'relative_1h':rel_1h,'relative_4h':rel_4h,'coin_1h':coin_1h,'coin_4h':coin_4h,
+            'directional':clamp(directional)}
 
 def score_setup(df4, df1, df15, ctx, symbol_key=None):
     """Build a pre-breakout or newly-started breakout plan from closed candles.
@@ -369,9 +404,17 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
 
     # A breakout that has already run too far is not an entry signal.
     overextended = stretch_atr > EARLY_TRIGGER_MAX_ATR
-    stop_mult = clamp(2.2+(0.5 if c.adx<22 else 0)+(0.3 if atr_pct>0.035 else 0),2.2,3.0)
-    stop_pct = clamp(atr_pct*stop_mult,0.008,0.05)
-    stop = entry*(1-stop_pct) if direction=='LONG' else entry*(1+stop_pct)
+    stop_mult = clamp(2.0+(0.4 if c.adx<22 else 0)+(0.25 if atr_pct>0.035 else 0),2.0,2.8)
+    atr_stop = entry - stop_mult*atr if direction=='LONG' else entry + stop_mult*atr
+    # Use a nearby structure invalidation when it is neither too tight nor too wide.
+    structural_stop = (local_sup - 0.12*atr) if direction=='LONG' else (local_res + 0.12*atr)
+    structural_dist_atr = abs(entry-structural_stop)/atr if atr else 999.0
+    if 1.15 <= structural_dist_atr <= 3.0:
+        stop = structural_stop
+        stop_method = 'yakın yapı + ATR tamponu'
+    else:
+        stop = atr_stop
+        stop_method = 'ATR volatilite stopu'
     risk = abs(entry-stop)
 
     if direction == 'LONG':
@@ -418,14 +461,22 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
     setup_valid = phase in ('PRE_BREAKOUT','BREAKOUT_STARTED') and trend_ok and not overextended and readiness >= MIN_SETUP_READINESS
     elite_gate = (raw_score>=90 and directional>=85 and entry_quality>=80 and move_potential>=85 and pd.notna(rr) and rr>=2.0 and gap>=15 and setup_valid)
     quality = 'ELITE' if elite_gate else 'STRONG' if raw_score>=85 else 'SELECTIVE' if raw_score>=72 else 'WEAK'
+    # Outlier flag: candidate has notable relative strength against the BTC/ETH tape.
+    rel_side = vals['relative_1h'] * (1 if direction == 'LONG' else -1)
+    rel4_side = vals['relative_4h'] * (1 if direction == 'LONG' else -1)
+    relative_outlier = (rel_side >= 1.5 or rel4_side >= 3.0)
+    potential_label = ('ÇOK YÜKSEK' if move_potential >= 80 else 'YÜKSEK' if move_potential >= 65 else 'ORTA' if move_potential >= 45 else 'SINIRLI')
     return {'direction':direction,'score':round(raw_score,1),'quality':quality,'elite_gate':elite_gate,
             'entry':float(entry),'reference_price':ref_price,'trigger':float(trigger),'phase':phase,
             'setup_valid':bool(setup_valid),'readiness':round(readiness,1),'overextended':bool(overextended),
-            'stop':float(stop),'wide_stop':float(stop-(atr*WIDE_STOP_BUFFER_ATR) if direction=='LONG' else stop+(atr*WIDE_STOP_BUFFER_ATR)),
+            'stop':float(stop),'stop_method':stop_method,'wide_stop':float(stop-(atr*WIDE_STOP_BUFFER_ATR) if direction=='LONG' else stop+(atr*WIDE_STOP_BUFFER_ATR)),
             'target':float(target),'target_method':target_method,'rr':float(rr) if pd.notna(rr) else float('nan'),
             'support':sup,'resistance':res,'local_support':local_sup,'local_resistance':local_res,
             'directional_confidence':round(directional,1),'direction_gap':round(gap,1),
             'entry_quality':round(entry_quality,1),'move_potential':round(move_potential,1),
+            'potential_label':potential_label,'relative_strength':round(vals['relative_strength'],1),
+            'relative_1h':round(vals['relative_1h'],2),'relative_4h':round(vals['relative_4h'],2),
+            'relative_outlier':bool(relative_outlier),
             'breakout':round(vals['breakout'],1),'atr':atr,'atr_pct':atr_pct}
 
 # ---------------------------------------------------------------------
@@ -572,13 +623,19 @@ def format_setup(x, t):
     entry_instruction = (f"Tetik/giriş seviyesi: {x['trigger']:.8g} | 15 dk mum kapanışı bu seviyeyi doğrulamalı"
                          if x['phase']=='PRE_BREAKOUT' else
                          f"Kırılım sonrası referans giriş: {x['entry']:.8g} | aşırı uzama filtresi geçti")
+    risk_pct = abs(x['entry']-x['stop']) / max(abs(x['entry']), 1e-12) * 100.0
+    tp1_pct = (tp['TP1']['price']/x['entry']-1)*100 if x['direction']=='LONG' else (1-tp['TP1']['price']/x['entry'])*100
+    tp3_pct = (tp['TP3']['price']/x['entry']-1)*100 if x['direction']=='LONG' else (1-tp['TP3']['price']/x['entry'])*100
+    outlier_line = ('⚡ BTC/ETH zayıf olsa da coin göreceli güçlü/zayıf ayrışıyor' if x.get('relative_outlier') else 'Göreceli güç: piyasa ile uyum ayrıca değerlendirildi')
     lines = [phase_title,
         f"*{x['symbol']}* — {x['direction']} | Skor {x['score']} ({x['quality']})",
         f"Market-cap: {x.get('market_cap_label', 'bilinmiyor')} | Gerekli eşik: {x.get('alert_threshold', 90):.0f}+",
-        f"Hazırlık {x['readiness']:.0f}/100 | Yön {x['directional_confidence']:.0f} | Giriş kalitesi {x['entry_quality']:.0f} | Hareket potansiyeli {x['move_potential']:.0f}",
+        f"Hazırlık {x['readiness']:.0f}/100 | Yön {x['directional_confidence']:.0f} | Giriş kalitesi {x['entry_quality']:.0f}",
+        f"Potansiyel: {x['potential_label']} ({x['move_potential']:.0f}/100) | TP1 yaklaşık {tp1_pct:+.2f}% | TP3 yaklaşık {tp3_pct:+.2f}%",
+        f"BTC/ETH'ye göre getiri farkı: 1 saat {x['relative_1h']:+.2f} yüzde puan | 4 saat {x['relative_4h']:+.2f} yüzde puan | {outlier_line}",
         f"Mevcut referans fiyat: {x['reference_price']:.8g}",
         entry_instruction,
-        f"Stop: {x['stop']:.8g} | Geniş stop bölgesi: {x['wide_stop']:.8g}",
+        f"Stop: {x['stop']:.8g} ({x['stop_method']}, risk yaklaşık {risk_pct:.2f}%) | Geniş stop bölgesi: {x['wide_stop']:.8g}",
         f"Hedef: {x['target']:.8g} ({x['target_method']}) | R:R {x['rr']:.2f}",
         f"TP1 ({tp['TP1']['r']}R): {tp['TP1']['price']:.8g} | TP2 ({tp['TP2']['r']}R): {tp['TP2']['price']:.8g} | TP3: {tp['TP3']['price']:.8g}",
         f"Yakın destek: {x['local_support']:.8g} | Yakın direnç: {x['local_resistance']:.8g}",
@@ -622,7 +679,7 @@ def write_diagnostic(all_results, ctx, spot_results=None, error_counts=None, sou
              f"ETH4h={ctx['eth']['4h']} ETH1h={ctx['eth']['1h']} | "
              f"perp_taranan={len(all_results)} | en_iyi={best} | marketcap={source} ==="]
     for r in top:
-        lines.append(f"PERP {r['symbol']:20} {r['direction']:5} phase={r.get('phase','?'):16} score={r['score']:5.1f} rr={r['rr']:.2f} mc=#{r.get('market_cap_rank',501):4d} gate={r.get('alert_threshold',90):.0f} ready={r.get('readiness',0):.0f} valid={r.get('setup_valid',False)} entry={r['entry_quality']:.0f} gap={r.get('direction_gap',0):.0f}")
+        lines.append(f"PERP {r['symbol']:20} {r['direction']:5} phase={r.get('phase','?'):16} score={r['score']:5.1f} rr={r['rr']:.2f} pot={r.get('potential_label','?'):10} rel1h={r.get('relative_1h',0):+.2f} rel4h={r.get('relative_4h',0):+.2f} outlier={r.get('relative_outlier',False)} mc=#{r.get('market_cap_rank',501):4d} gate={r.get('alert_threshold',90):.0f} ready={r.get('readiness',0):.0f} valid={r.get('setup_valid',False)} entry={r['entry_quality']:.0f} gap={r.get('direction_gap',0):.0f}")
     for r in (spot_results or [])[:10]:
         lines.append(f"SPOT {r['symbol']:20} {r['direction']:15} 15m={r['change_15m']:+.2f}% 1h={r['change_1h']:+.2f}% 24h={r['change_24h']:+.2f}% vol={r['volume_ratio']:.2f}x swap={r['swap_available']}")
     if error_counts:
@@ -631,7 +688,7 @@ def write_diagnostic(all_results, ctx, spot_results=None, error_counts=None, sou
     DIAG_LOG.write_text('\n'.join((existing + lines)[-DIAG_LOG_MAX_LINES:]) + '\n', encoding='utf-8')
 
 def main():
-    print('=== ALTCOIN ALERT SCANNER V5 ===')
+    print('=== ALTCOIN ALERT SCANNER V6 ===')
     ctx = market_context()
     print(f"BTC 4h={ctx['btc']['4h']} 1h={ctx['btc']['1h']} | ETH 4h={ctx['eth']['4h']} 1h={ctx['eth']['1h']}")
     symbols = liquid_usdt_swaps()
@@ -681,7 +738,7 @@ def main():
     top = sorted(all_results, key=lambda r: r['score'], reverse=True)[:8]
     if top:
         print('En iyi vadeli adaylar: ' + ' | '.join(
-            f"{x['symbol']} {x['direction']} {x['score']:.1f} eşik={x['alert_threshold']:.0f} RR={x['rr']:.2f} faz={x['phase']} valid={x['setup_valid']} neden={x.get('gate_reason','')}"
+            f"{x['symbol']} {x['direction']} {x['score']:.1f} eşik={x['alert_threshold']:.0f} RR={x['rr']:.2f} potansiyel={x.get('potential_label')} rel1h={x.get('relative_1h',0):+.2f}% faz={x['phase']} valid={x['setup_valid']} neden={x.get('gate_reason','')}"
             for x in top))
     if spot_results:
         print('Spot radar (tanı amaçlı; Telegram izleme spamı gönderilmez): ' + ', '.join(
