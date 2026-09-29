@@ -1,18 +1,3 @@
-  SPCXSTOCK/USDT:USDT  SHORT score= 66.9 mc=# 501 gate=90 (WEAK)
-=== 2026-09-29T02:28:07 | BTC4h=NEUTRAL BTC1h=BEARISH ETH4h=NEUTRAL ETH1h=BEARISH | taranan=172 | en_iyi=75.4 ===
-  NMR/USDT:USDT        LONG  score= 75.4 mc=# 282 gate=85 (SELECTIVE)
-  ONE/USDT:USDT        SHORT score= 75.2 mc=# 368 gate=85 (SELECTIVE)
-  0G/USDT:USDT         LONG  score= 75.0 mc=# 423 gate=85 (SELECTIVE)
-  UAI/USDT:USDT        SHORT score= 74.8 mc=# 386 gate=85 (SELECTIVE)
-  PHA/USDT:USDT        LONG  score= 71.8 mc=# 459 gate=85 (WEAK)
-  RUNE/USDT:USDT       LONG  score= 71.5 mc=# 164 gate=80 (WEAK)
-  SOONNETWORK/USDT:USDT LONG  score= 71.1 mc=# 501 gate=90 (WEAK)
-  SYN/USDT:USDT        SHORT score= 69.1 mc=# 501 gate=90 (WEAK)
-  US30/USDT:USDT       SHORT score= 68.7 mc=# 501 gate=90 (WEAK)
-  TRUMPOFFICIAL/USDT:USDT SHORT score= 68.3 mc=# 501 gate=90 (WEAK)
-=== 2026-09-29T02:43:02 | BTC4h=NEUTRAL BTC1h=BEARISH ETH4h=NEUTRAL ETH1h=BEARISH | taranan=173 | en_iyi=75.6 ===
-  NMR/USDT:USDT        LONG  score= 75.6 mc=# 282 gate=85 (SELECTIVE)
-  XMR/USDT:USDT        SHORT score= 72.3 mc=#  14 gate=80 (SELECTIVE)
   US30/USDT:USDT       SHORT score= 71.8 mc=# 501 gate=90 (WEAK)
   WLFI/USDT:USDT       SHORT score= 71.6 mc=#  57 gate=80 (WEAK)
   PHA/USDT:USDT        LONG  score= 71.4 mc=# 457 gate=85 (WEAK)
@@ -497,4 +482,19 @@ PERP NVIDIA/USDT:USDT     LONG  score= 74.3 rr=0.59 mc=# 501 gate=90 entry=87 ga
 SPOT RHEA/USDT            AŞAĞI HAREKET   15m=-8.80% 1h=-8.23% 24h=-24.08% vol=2.00x swap=False
 SPOT CNPY/USDT            AŞAĞI HAREKET   15m=-1.55% 1h=-1.61% 24h=-13.40% vol=3.22x swap=False
 SPOT CRV/USDT             YUKARI HAREKET  15m=+0.88% 1h=+3.46% 24h=+27.75% vol=2.59x swap=True
+ERRORS {"IndexError": 2}
+=== 2026-09-29T15:19:04 | BTC4h=BULLISH BTC1h=NEUTRAL ETH4h=BULLISH ETH1h=BULLISH | perp_taranan=164 | en_iyi=SOONNETWORK/USDT:USDT 79.6 | marketcap=unavailable ===
+PERP SOONNETWORK/USDT:USDT LONG  score= 79.6 rr=1.50 mc=# 501 gate=90 entry=87 gap=56 target=yapısal direnç
+PERP NICKEL/USDT:USDT     SHORT score= 76.8 rr=2.00 mc=# 501 gate=90 entry=78 gap=72 target=kırılım sonrası ATR/R projeksiyonu
+PERP CRV/USDT:USDT        LONG  score= 76.7 rr=2.00 mc=# 501 gate=90 entry=66 gap=74 target=kırılım sonrası ATR/R projeksiyonu
+PERP ZRO/USDT:USDT        LONG  score= 76.7 rr=2.00 mc=# 501 gate=90 entry=62 gap=74 target=kırılım sonrası ATR/R projeksiyonu
+PERP NMR/USDT:USDT        LONG  score= 76.6 rr=5.06 mc=# 501 gate=90 entry=93 gap=21 target=yapısal direnç
+PERP 0G/USDT:USDT         LONG  score= 75.2 rr=0.80 mc=# 501 gate=90 entry=80 gap=52 target=yapısal direnç
+PERP TWSTSTOCK/USDT:USDT  LONG  score= 75.0 rr=2.24 mc=# 501 gate=90 entry=93 gap=57 target=yapısal direnç
+PERP ICP/USDT:USDT        LONG  score= 74.9 rr=0.73 mc=# 501 gate=90 entry=93 gap=44 target=yapısal direnç
+PERP PHA/USDT:USDT        LONG  score= 74.8 rr=1.47 mc=# 501 gate=90 entry=93 gap=44 target=yapısal direnç
+PERP 1000BONK/USDT:USDT   LONG  score= 74.7 rr=0.94 mc=# 501 gate=90 entry=82 gap=45 target=yapısal direnç
+SPOT RHEA/USDT            AŞAĞI HAREKET   15m=-8.80% 1h=-8.23% 24h=-23.53% vol=2.00x swap=False
+SPOT CNPY/USDT            AŞAĞI HAREKET   15m=-1.55% 1h=-1.61% 24h=-12.37% vol=3.22x swap=False
+SPOT CRV/USDT             YUKARI HAREKET  15m=+0.88% 1h=+3.46% 24h=+26.53% vol=2.59x swap=True
 ERRORS {"IndexError": 2}
