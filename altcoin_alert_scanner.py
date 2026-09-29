@@ -1,5 +1,5 @@
 """
-V4 altcoin + spot erken hareket radar scanner -- BULUTTA çalışır (GitHub Actions),
+V5 erken kırılım + doğrulanmış işlem planı tarayıcısı -- BULUTTA çalışır (GitHub Actions),
 telefondaki/bilgisayardaki hiçbir şeye bağımlı değil. Mevcut MEXC trading
 bot'unuzdan TAMAMEN bağımsızdır -- hiçbir dosyasını içe aktarmaz, hiçbir
 emir göndermez. Sadece MEXC'nin herkese açık (public) piyasa verisini
@@ -58,13 +58,15 @@ MIN_24H_VOLUME      = float(os.getenv('MIN_24H_VOLUME', '1000000'))
 MIN_SPOT_24H_VOLUME = float(os.getenv('MIN_SPOT_24H_VOLUME', '500000'))
 SPOT_RADAR_MAX_CANDIDATES = int(os.getenv('SPOT_RADAR_MAX_CANDIDATES', '50'))
 SPOT_WATCH_COOLDOWN_HOURS = float(os.getenv('SPOT_WATCH_COOLDOWN_HOURS', '6'))
-MIN_CONFIRMED_RR = float(os.getenv('MIN_CONFIRMED_RR', '1.8'))
+MIN_CONFIRMED_RR = float(os.getenv('MIN_CONFIRMED_RR', '2.0'))
 MIN_DIRECTION_GAP = float(os.getenv('MIN_DIRECTION_GAP', '8'))
-MIN_ENTRY_QUALITY = float(os.getenv('MIN_ENTRY_QUALITY', '55'))
+MIN_ENTRY_QUALITY = float(os.getenv('MIN_ENTRY_QUALITY', '65'))
 ALERT_MIN_SCORE      = float(os.getenv('ALERT_MIN_SCORE', '80'))   # base technical score; rank tiers decide the actual alert gate
 MARKET_CAP_CACHE_FILE = Path(os.getenv('MARKET_CAP_CACHE_FILE', 'market_cap_cache.json'))
 MARKET_CAP_REFRESH_MINUTES = int(os.getenv('MARKET_CAP_REFRESH_MINUTES', '360'))
 MARKET_CAP_TOP_N = 500
+EARLY_TRIGGER_MAX_ATR = float(os.getenv('EARLY_TRIGGER_MAX_ATR', '0.85'))
+MIN_SETUP_READINESS = float(os.getenv('MIN_SETUP_READINESS', '65'))
 SLEEP_BETWEEN_COINS  = float(os.getenv('SLEEP_BETWEEN_COINS', '0.12'))
 STATE_FILE           = Path(os.getenv('STATE_FILE', 'alert_state.json'))
 DIAG_LOG             = Path(os.getenv('DIAG_LOG_FILE', 'scan_diagnostic.log'))
@@ -82,7 +84,10 @@ def clamp(v, lo=0.0, hi=100.0):
 # Indicators
 # ---------------------------------------------------------------------
 def add_indicators(df):
-    df = df.copy(); h, l, c, v = df.high, df.low, df.close, df.volume
+    df = df.copy()
+    if df.empty or len(df) < 25:
+        raise ValueError(f'Yetersiz mum verisi: {len(df)}')
+    h, l, c, v = df.high, df.low, df.close, df.volume
     df['ema20'] = c.ewm(span=20, adjust=False).mean()
     df['ema50'] = c.ewm(span=50, adjust=False).mean()
     df['ema200'] = c.ewm(span=200, adjust=False).mean()
@@ -142,17 +147,15 @@ def liquid_usdt_swaps():
     return [s for s, _ in sorted(out, key=lambda x: x[1], reverse=True)]
 
 def market_cap_rankings():
-    """Fetch top-500 market-cap ranks with a 6h cache.
+    """Market-cap rank with persistent cache and provider fallbacks.
 
-    Market cap is used ONLY to choose the alert threshold; it never adds
-    points to the technical score. If the live API fails, a fresh-enough
-    cache is used. If neither is available, symbols are treated as rank
-    501+ (the conservative 90+ gate), so missing market-cap data can never
-    make an alert easier to trigger.
+    Tries CoinGecko first, then CoinPaprika and CoinCap. A provider failure
+    never prevents scanning; a previous cache is retained. Unknown ranks use
+    the conservative 90+ tier. Symbols with ambiguous duplicate tickers are
+    removed rather than assigned a potentially wrong rank.
     """
     now = time.time()
-    cache = {}
-    cache_ts = 0.0
+    cache, cache_ts = {}, 0.0
     if MARKET_CAP_CACHE_FILE.exists():
         try:
             raw = json.loads(MARKET_CAP_CACHE_FILE.read_text(encoding='utf-8'))
@@ -160,54 +163,70 @@ def market_cap_rankings():
             cache = raw.get('ranks', {}) or {}
         except Exception:
             cache, cache_ts = {}, 0.0
-
     if cache and (now - cache_ts) < MARKET_CAP_REFRESH_MINUTES * 60:
         return cache, cache_ts, 'cache'
 
-    fresh = {}
-    try:
-        collisions = set()
+    providers = []
+    # Provider 1: CoinGecko API (may deny requests from some cloud IP ranges).
+    def get_coingecko():
+        out = []
         for page in (1, 2):
             r = requests.get(
                 'https://api.coingecko.com/api/v3/coins/markets',
-                params={
-                    'vs_currency': 'usd',
-                    'order': 'market_cap_desc',
-                    'per_page': 250,
-                    'page': page,
-                    'sparkline': 'false',
-                },
-                timeout=20,
-                headers={'accept': 'application/json', 'user-agent': 'altcoin-alert-scanner/3.0'}
+                params={'vs_currency':'usd','order':'market_cap_desc','per_page':250,'page':page,'sparkline':'false'},
+                timeout=18,
+                headers={'accept':'application/json','user-agent':'Mozilla/5.0 altcoin-alert-scanner/5.0'}
             )
             r.raise_for_status()
             rows = r.json()
-            for row in rows:
-                sym = str(row.get('symbol') or '').upper()
-                rank = row.get('market_cap_rank')
-                if not sym or not rank:
-                    continue
-                rank = int(rank)
-                # A ticker symbol can belong to multiple unrelated coins.
-                # Mark collisions ambiguous instead of assigning the most famous
-                # coin's rank to a different asset. Ambiguous symbols use 501+.
-                old = fresh.get(sym)
-                if old is not None and old != rank:
+            if not isinstance(rows, list):
+                raise ValueError('CoinGecko unexpected response')
+            out.extend((str(x.get('symbol') or '').upper(), int(x['market_cap_rank']))
+                       for x in rows if x.get('symbol') and x.get('market_cap_rank'))
+        return out
+
+    # Provider 2: CoinPaprika public tickers; ranks are supplied by the API.
+    def get_coinpaprika():
+        r = requests.get('https://api.coinpaprika.com/v1/tickers', params={'quotes':'USD'},
+                         timeout=25, headers={'accept':'application/json','user-agent':'altcoin-alert-scanner/5.0'})
+        r.raise_for_status()
+        rows = r.json()
+        if not isinstance(rows, list): raise ValueError('CoinPaprika unexpected response')
+        return [(str(x.get('symbol') or '').upper(), int(x['rank']))
+                for x in rows if x.get('symbol') and x.get('rank') and int(x['rank']) > 0 and int(x['rank']) <= 500]
+
+    # Provider 3: CoinCap assets endpoint as a separate fallback.
+    def get_coincap():
+        r = requests.get('https://api.coincap.io/v2/assets', params={'limit':500},
+                         timeout=20, headers={'accept':'application/json','user-agent':'altcoin-alert-scanner/5.0'})
+        r.raise_for_status()
+        payload = r.json(); rows = payload.get('data', []) if isinstance(payload, dict) else []
+        if not isinstance(rows, list): raise ValueError('CoinCap unexpected response')
+        return [(str(x.get('symbol') or '').upper(), int(x['rank']))
+                for x in rows if x.get('symbol') and x.get('rank') and str(x['rank']).isdigit()]
+
+    providers = [('coingecko', get_coingecko), ('coinpaprika', get_coinpaprika), ('coincap', get_coincap)]
+    for provider_name, fetcher in providers:
+        try:
+            pairs = fetcher()
+            fresh, collisions = {}, set()
+            for sym, rank in pairs:
+                if not sym or rank <= 0: continue
+                if sym in fresh and fresh[sym] != rank:
                     collisions.add(sym)
-                elif old is None:
+                else:
                     fresh[sym] = rank
-        for sym in collisions:
-            fresh.pop(sym, None)
-        if fresh:
-            MARKET_CAP_CACHE_FILE.write_text(
-                json.dumps({'updated_at': now, 'ranks': fresh}, indent=2),
-                encoding='utf-8'
-            )
-            return fresh, now, 'live'
-    except Exception as e:
-        print(f'MARKET CAP VERİSİ ALINAMADI: {e}')
+            for sym in collisions: fresh.pop(sym, None)
+            if len(fresh) >= 100:
+                MARKET_CAP_CACHE_FILE.write_text(json.dumps({'updated_at':now,'source':provider_name,'ranks':fresh}, indent=2), encoding='utf-8')
+                print(f'Market-cap kaynağı: {provider_name} | {len(fresh)} sembol sıralandı.')
+                return fresh, now, provider_name
+            print(f'Market-cap {provider_name}: yetersiz veri ({len(fresh)} sembol), yedek kaynağa geçiliyor.')
+        except Exception as e:
+            print(f'Market-cap {provider_name} başarısız: {type(e).__name__}: {str(e)[:180]}')
 
     if cache:
+        print(f'Market-cap: kayıtlı önbellek kullanılıyor ({len(cache)} sembol; güncellik sınırlı olabilir).')
         return cache, cache_ts, 'stale-cache'
     return {}, 0.0, 'unavailable'
 
@@ -290,71 +309,121 @@ def _directional_score(df4, df1, df15, ctx, side, symbol_key=None):
     return {'trend':trend,'momentum':momentum,'volume':volume,'breakout':breakout,'market':market,'directional':clamp(directional)}
 
 def score_setup(df4, df1, df15, ctx, symbol_key=None):
-    """Score a setup, with targets that cannot sit behind the entry price.
+    """Build a pre-breakout or newly-started breakout plan from closed candles.
 
-    Structural targets are used only when they are ahead of price. If price has
-    already broken the measured range, an explicitly labelled ATR/R projection
-    is used instead. A hard R:R gate later prevents weak targets becoming alerts.
+    The current reference price is kept separate from the planned trigger entry.
+    Pre-breakout alerts only qualify when price is close to a local level, trend
+    context agrees, and a projected plan meets the market-cap score gate and RR.
     """
     c = df15.iloc[-2]
-    entry = float(c.close); sup, res = structure_levels(df15)
-    atr = max(float(c.atr), entry*0.0001); atr_pct = float(c.atr_pct)
+    ref_price = float(c.close)
+    sup, res = structure_levels(df15)
+    atr = max(float(c.atr), ref_price*0.0001)
+    atr_pct = float(c.atr_pct)
+    local = df15.iloc[-22:-2]
+    if len(local) < 10:
+        raise ValueError('Yeterli kapalı mum yok: yapı seviyeleri hesaplanamadı')
+    local_res = float(local.high.max())
+    local_sup = float(local.low.min())
     L = _directional_score(df4,df1,df15,ctx,'LONG',symbol_key)
     S = _directional_score(df4,df1,df15,ctx,'SHORT',symbol_key)
     direction = 'LONG' if L['directional']>=S['directional'] else 'SHORT'
-    vals = L if direction=='LONG' else S; opp = S if direction=='LONG' else L
+    vals = L if direction=='LONG' else S
+    opp = S if direction=='LONG' else L
     directional = vals['directional']; opposite = opp['directional']; gap = directional-opposite
 
-    stop_mult = clamp(2.4+(0.5 if c.adx<22 else 0)+(0.3 if atr_pct>0.035 else 0),2.4,3.2)
-    stop_pct = clamp(atr_pct*stop_mult,0.01,0.05)
+    if direction == 'LONG':
+        trigger = local_res + 0.10*atr
+        dist_atr = (local_res-ref_price)/atr
+        broken = ref_price > trigger and float(c.volume_ratio) >= 1.10
+        trend_ok = ref_price >= float(c.ema20) and float(df1.iloc[-2].close) >= float(df1.iloc[-2].ema20)
+        if broken:
+            phase = 'BREAKOUT_STARTED'
+            entry = ref_price
+            stretch_atr = max((ref_price-trigger)/atr, 0.0)
+        elif 0 <= dist_atr <= EARLY_TRIGGER_MAX_ATR and trend_ok:
+            phase = 'PRE_BREAKOUT'
+            entry = trigger
+            stretch_atr = 0.0
+        else:
+            phase = 'NO_EARLY_SETUP'
+            entry = trigger
+            stretch_atr = max((ref_price-trigger)/atr, 0.0)
+    else:
+        trigger = local_sup - 0.10*atr
+        dist_atr = (ref_price-local_sup)/atr
+        broken = ref_price < trigger and float(c.volume_ratio) >= 1.10
+        trend_ok = ref_price <= float(c.ema20) and float(df1.iloc[-2].close) <= float(df1.iloc[-2].ema20)
+        if broken:
+            phase = 'BREAKOUT_STARTED'
+            entry = ref_price
+            stretch_atr = max((trigger-ref_price)/atr, 0.0)
+        elif 0 <= dist_atr <= EARLY_TRIGGER_MAX_ATR and trend_ok:
+            phase = 'PRE_BREAKOUT'
+            entry = trigger
+            stretch_atr = 0.0
+        else:
+            phase = 'NO_EARLY_SETUP'
+            entry = trigger
+            stretch_atr = max((trigger-ref_price)/atr, 0.0)
+
+    # A breakout that has already run too far is not an entry signal.
+    overextended = stretch_atr > EARLY_TRIGGER_MAX_ATR
+    stop_mult = clamp(2.2+(0.5 if c.adx<22 else 0)+(0.3 if atr_pct>0.035 else 0),2.2,3.0)
+    stop_pct = clamp(atr_pct*stop_mult,0.008,0.05)
     stop = entry*(1-stop_pct) if direction=='LONG' else entry*(1+stop_pct)
     risk = abs(entry-stop)
 
     if direction == 'LONG':
-        structural_room = (res-entry)/atr
         if res > entry + 0.5*atr:
-            target = res; target_method = 'yapısal direnç'
+            target = res; target_method = 'üst yapısal direnç'
         else:
-            target = entry + max(2.0*risk, 2.5*atr)
+            target = entry + max(2.2*risk, 2.5*atr)
             target_method = 'kırılım sonrası ATR/R projeksiyonu'
         room = (target-entry)/atr
+        level_dist = max((local_res-ref_price)/atr, 0.0)
     else:
-        structural_room = (entry-sup)/atr
         if sup < entry - 0.5*atr:
-            target = sup; target_method = 'yapısal destek'
+            target = sup; target_method = 'alt yapısal destek'
         else:
-            target = entry - max(2.0*risk, 2.5*atr)
+            target = entry - max(2.2*risk, 2.5*atr)
             target_method = 'kırılım sonrası ATR/R projeksiyonu'
         room = (entry-target)/atr
+        level_dist = max((ref_price-local_sup)/atr, 0.0)
 
-    ema_dist = abs(entry-float(c.ema20))/max(atr,1e-12)
-    overextended = clamp((ema_dist-0.8)*18,0,28)
-    if room<=0: location_score=15.0
-    elif room<0.50: location_score=35.0
-    elif room<1.00: location_score=55.0
-    elif room<1.50: location_score=75.0
-    else: location_score=90.0
-    # A projected target is less certain than a real level; do not award it the
-    # same location score as a confirmed structural target.
+    ema_dist = abs(ref_price-float(c.ema20))/max(atr,1e-12)
+    extension_penalty = clamp((ema_dist-0.8)*22,0,35)
+    if room<=0: location_score=10.0
+    elif room<0.50: location_score=30.0
+    elif room<1.00: location_score=50.0
+    elif room<1.50: location_score=70.0
+    else: location_score=88.0
     if target_method.startswith('kırılım'):
         location_score = min(location_score, 72.0)
-    ema_entry_score = clamp(86-overextended + (8 if (direction=='LONG' and entry<=c.ema20*1.01) or (direction=='SHORT' and entry>=c.ema20*0.99) else 0))
+    ema_entry_score = clamp(88-extension_penalty + (6 if (direction=='LONG' and ref_price<=c.ema20*1.01) or (direction=='SHORT' and ref_price>=c.ema20*0.99) else 0))
     entry_quality = clamp(0.70*ema_entry_score + 0.30*location_score)
     room_score = clamp(room*16,0,32)
     vol_score = clamp((atr_pct/0.01)*16,0,42)
     trend_move = clamp((c.adx-18)*1.5,0,16)
     move_potential = clamp((room_score+vol_score+trend_move)/90*100)
-
     rr = ((target-entry)/risk if direction=='LONG' else (entry-target)/risk) if risk>0 else np.nan
-    rr_bonus = clamp((rr-2.0)*2.0,0,6) if pd.notna(rr) else 0
-    wide_stop_buffer = atr * WIDE_STOP_BUFFER_ATR
-    wide_stop = stop - wide_stop_buffer if direction=='LONG' else stop + wide_stop_buffer
-    raw_score = clamp(0.56*directional + 0.20*entry_quality + 0.24*move_potential + rr_bonus)
-    elite_gate = (raw_score>=90 and directional>=85 and entry_quality>=80 and move_potential>=94 and pd.notna(rr) and rr>=2.5 and gap>=15)
+    rr_bonus = clamp((rr-2.0)*2.0,0,5) if pd.notna(rr) else 0
+
+    # Readiness score rewards being near the level without rewarding a late chase.
+    proximity_score = clamp(100 - max(level_dist,0)/max(EARLY_TRIGGER_MAX_ATR,0.1)*55, 0, 100)
+    volume_score = clamp((float(c.volume_ratio)-0.8)*45,0,100)
+    readiness = clamp(0.45*proximity_score + 0.35*directional + 0.20*volume_score)
+    early_bonus = min(4.0, max(0.0, (readiness-60.0)*0.10)) if phase=='PRE_BREAKOUT' else 0.0
+    raw_score = clamp(0.56*directional + 0.20*entry_quality + 0.24*move_potential + rr_bonus + early_bonus)
+    setup_valid = phase in ('PRE_BREAKOUT','BREAKOUT_STARTED') and trend_ok and not overextended and readiness >= MIN_SETUP_READINESS
+    elite_gate = (raw_score>=90 and directional>=85 and entry_quality>=80 and move_potential>=85 and pd.notna(rr) and rr>=2.0 and gap>=15 and setup_valid)
     quality = 'ELITE' if elite_gate else 'STRONG' if raw_score>=85 else 'SELECTIVE' if raw_score>=72 else 'WEAK'
     return {'direction':direction,'score':round(raw_score,1),'quality':quality,'elite_gate':elite_gate,
-            'entry':entry,'stop':stop,'wide_stop':wide_stop,'target':target,'target_method':target_method,
-            'rr':float(rr) if pd.notna(rr) else float('nan'),'support':sup,'resistance':res,
+            'entry':float(entry),'reference_price':ref_price,'trigger':float(trigger),'phase':phase,
+            'setup_valid':bool(setup_valid),'readiness':round(readiness,1),'overextended':bool(overextended),
+            'stop':float(stop),'wide_stop':float(stop-(atr*WIDE_STOP_BUFFER_ATR) if direction=='LONG' else stop+(atr*WIDE_STOP_BUFFER_ATR)),
+            'target':float(target),'target_method':target_method,'rr':float(rr) if pd.notna(rr) else float('nan'),
+            'support':sup,'resistance':res,'local_support':local_sup,'local_resistance':local_res,
             'directional_confidence':round(directional,1),'direction_gap':round(gap,1),
             'entry_quality':round(entry_quality,1),'move_potential':round(move_potential,1),
             'breakout':round(vals['breakout'],1),'atr':atr,'atr_pct':atr_pct}
@@ -481,7 +550,9 @@ def is_new_or_upgraded(x, t, state):
     key = f"{x['symbol']}:{x['direction']}"
     prev = state.get(key)
     if prev is None: return True
-    return TIER_RANK.get(t, 0) > TIER_RANK.get(prev.get('tier'), 0)
+    phase_rank = {'PRE_BREAKOUT': 1, 'BREAKOUT_STARTED': 2}
+    return (TIER_RANK.get(t, 0) > TIER_RANK.get(prev.get('tier'), 0)
+            or phase_rank.get(x.get('phase'), 0) > phase_rank.get(prev.get('phase'), 0))
 
 def format_context_header(ctx):
     flag = '✅ hizalı' if ctx['aligned'] else '⚠️ karışık'
@@ -496,21 +567,24 @@ def format_context_header(ctx):
 
 def format_setup(x, t):
     tp = tp_levels(x)
-    lines = [t,
-        f"*{x['symbol']}*  —  {x['direction']}  |  Skor {x['score']} ({x['quality']})",
-        f"Market Cap sırası: {x.get('market_cap_label', '#' + str(x.get('market_cap_rank', 501)))}  |  Alarm eşiği: {x.get('alert_threshold', 90):.0f}+",
-        f"RR {x['rr']:.2f}  |  Yön{x['directional_confidence']:.0f} Fark{x.get('direction_gap', 0):.0f} Giriş{x['entry_quality']:.0f} "
-        f"Potansiyel{x['move_potential']:.0f} Kırılım{x['breakout']:.0f}",
-        f"Referans fiyat: {x['entry']:.6g}",
-        f"Hedef yöntemi: {x.get('target_method', 'yapısal seviye')}",
-        f"Hedef: {x['target']:.6g}",
-        f"Stop (standart): {x['stop']:.6g}",
-        f"Stop (geniş, ani sarkma payı): {x['wide_stop']:.6g}",
-        f"Destek: {x['support']:.6g}   Direnç: {x['resistance']:.6g}"]
-    if tp:
-        lines.append(f"TP1 ({tp['TP1']['r']}R): {tp['TP1']['price']:.6g}  |  "
-                      f"TP2 ({tp['TP2']['r']}R): {tp['TP2']['price']:.6g}  |  "
-                      f"TP3 ({tp['TP3']['r']}R): {tp['TP3']['price']:.6g}")
+    phase_title = ('🟡 ERKEN KIRILIM PLANI — SEVİYEYE YAKIN' if x['phase']=='PRE_BREAKOUT'
+                   else '🟢 KIRILIM YENİ BAŞLADI — GİRİŞ ADAYI')
+    entry_instruction = (f"Tetik/giriş seviyesi: {x['trigger']:.8g} | 15 dk mum kapanışı bu seviyeyi doğrulamalı"
+                         if x['phase']=='PRE_BREAKOUT' else
+                         f"Kırılım sonrası referans giriş: {x['entry']:.8g} | aşırı uzama filtresi geçti")
+    lines = [phase_title,
+        f"*{x['symbol']}* — {x['direction']} | Skor {x['score']} ({x['quality']})",
+        f"Market-cap: {x.get('market_cap_label', 'bilinmiyor')} | Gerekli eşik: {x.get('alert_threshold', 90):.0f}+",
+        f"Hazırlık {x['readiness']:.0f}/100 | Yön {x['directional_confidence']:.0f} | Giriş kalitesi {x['entry_quality']:.0f} | Hareket potansiyeli {x['move_potential']:.0f}",
+        f"Mevcut referans fiyat: {x['reference_price']:.8g}",
+        entry_instruction,
+        f"Stop: {x['stop']:.8g} | Geniş stop bölgesi: {x['wide_stop']:.8g}",
+        f"Hedef: {x['target']:.8g} ({x['target_method']}) | R:R {x['rr']:.2f}",
+        f"TP1 ({tp['TP1']['r']}R): {tp['TP1']['price']:.8g} | TP2 ({tp['TP2']['r']}R): {tp['TP2']['price']:.8g} | TP3: {tp['TP3']['price']:.8g}",
+        f"Yakın destek: {x['local_support']:.8g} | Yakın direnç: {x['local_resistance']:.8g}",
+        f"Geniş destek: {x['support']:.8g} | Geniş direnç: {x['resistance']:.8g}",
+        f"Kırılım teyidi: {'EVET' if x['phase']=='BREAKOUT_STARTED' else 'HENÜZ DEĞİL — kapanış şartı bekleniyor'}",
+        'Plan yalnızca belirtilen tetik seviyesi ve kapanış koşulu geçerliyse değerlendirilmelidir; otomatik emir gönderilmez.']
     return '\n'.join(lines)
 
 def send_telegram(text):
@@ -548,7 +622,7 @@ def write_diagnostic(all_results, ctx, spot_results=None, error_counts=None, sou
              f"ETH4h={ctx['eth']['4h']} ETH1h={ctx['eth']['1h']} | "
              f"perp_taranan={len(all_results)} | en_iyi={best} | marketcap={source} ==="]
     for r in top:
-        lines.append(f"PERP {r['symbol']:20} {r['direction']:5} score={r['score']:5.1f} rr={r['rr']:.2f} mc=#{r.get('market_cap_rank',501):4d} gate={r.get('alert_threshold',90):.0f} entry={r['entry_quality']:.0f} gap={r.get('direction_gap',0):.0f} target={r.get('target_method','?')}")
+        lines.append(f"PERP {r['symbol']:20} {r['direction']:5} phase={r.get('phase','?'):16} score={r['score']:5.1f} rr={r['rr']:.2f} mc=#{r.get('market_cap_rank',501):4d} gate={r.get('alert_threshold',90):.0f} ready={r.get('readiness',0):.0f} valid={r.get('setup_valid',False)} entry={r['entry_quality']:.0f} gap={r.get('direction_gap',0):.0f}")
     for r in (spot_results or [])[:10]:
         lines.append(f"SPOT {r['symbol']:20} {r['direction']:15} 15m={r['change_15m']:+.2f}% 1h={r['change_1h']:+.2f}% 24h={r['change_24h']:+.2f}% vol={r['volume_ratio']:.2f}x swap={r['swap_available']}")
     if error_counts:
@@ -557,18 +631,14 @@ def write_diagnostic(all_results, ctx, spot_results=None, error_counts=None, sou
     DIAG_LOG.write_text('\n'.join((existing + lines)[-DIAG_LOG_MAX_LINES:]) + '\n', encoding='utf-8')
 
 def main():
-    print('=== ALTCOIN ALERT SCANNER V4 ===')
+    print('=== ALTCOIN ALERT SCANNER V5 ===')
     ctx = market_context()
     print(f"BTC 4h={ctx['btc']['4h']} 1h={ctx['btc']['1h']} | ETH 4h={ctx['eth']['4h']} 1h={ctx['eth']['1h']}")
     symbols = liquid_usdt_swaps()
     print(f'MEXC USDT vadeli tarama: {len(symbols)} coin | minimum 24s hacim {MIN_24H_VOLUME:,.0f} USDT')
-    state = load_state()
-    new_state = {}
-    qualifying = []
-    all_results = []
-    error_counts = {}
+    state = load_state(); new_state = {}; qualifying = []; all_results = []; error_counts = {}
     market_caps, market_cap_updated_at, market_cap_source = market_cap_rankings()
-    print(f'Market-cap sıralaması: {market_cap_source} | eşik: 1-200=>80+, 201-500=>85+, 501+ veya bilinmiyor=>90+')
+    print(f'Market-cap kaynağı: {market_cap_source} | eşik: 1-200=>80+, 201-500=>85+, 501+ veya bilinmiyor=>90+')
 
     def evaluate(s, symbol_key=None):
         try:
@@ -580,20 +650,21 @@ def main():
             all_results.append(x)
             rr_ok = pd.notna(x['rr']) and x['rr'] >= MIN_CONFIRMED_RR
             quality_ok = x['entry_quality'] >= MIN_ENTRY_QUALITY and x['direction_gap'] >= MIN_DIRECTION_GAP
-            x['gate_reason'] = ('OK' if x['alert_eligible'] and rr_ok and quality_ok else
+            setup_ok = bool(x.get('setup_valid'))
+            x['gate_reason'] = ('OK' if x['alert_eligible'] and rr_ok and quality_ok and setup_ok else
+                                'ERKEN KIRILIM/TEYİT KOŞULU' if not setup_ok else
                                 'SKOR/EŞİK' if not x['alert_eligible'] else
                                 'RR<%.1f' % MIN_CONFIRMED_RR if not rr_ok else
                                 'GİRİŞ/YÖN KALİTESİ')
-            if x['alert_eligible'] and rr_ok and quality_ok:
+            if x['alert_eligible'] and rr_ok and quality_ok and setup_ok:
                 t = tier(x)
                 key = f"{s}:{x['direction']}"
-                new_state[key] = {'tier':t,'score':x['score'],'market_cap_rank':x['market_cap_rank'],
-                                  'alert_threshold':x['alert_threshold'],'last_seen':int(time.time())}
-                if is_new_or_upgraded(x, t, state):
-                    qualifying.append((x,t))
+                new_state[key] = {'tier':t,'score':x['score'],'phase':x['phase'],
+                                  'market_cap_rank':x['market_cap_rank'],'alert_threshold':x['alert_threshold'],
+                                  'last_seen':int(time.time())}
+                if is_new_or_upgraded(x, t, state): qualifying.append((x,t))
         except Exception as e:
-            name = type(e).__name__
-            error_counts[name] = error_counts.get(name, 0) + 1
+            name = type(e).__name__; error_counts[name] = error_counts.get(name, 0) + 1
             print(f'VERİ/ANALİZ HATASI {s}: {name}: {e}')
 
     evaluate('BTC/USDT:USDT', symbol_key='btc')
@@ -603,61 +674,37 @@ def main():
         if i % 25 == 0: print(f'  ... {i}/{len(symbols)} vadeli coin tarandı')
         time.sleep(SLEEP_BETWEEN_COINS)
 
-    # Separate spot discovery layer: a watch alert does not count as a perp setup.
+    # Spot radar is retained for discovery/diagnostics only. It no longer sends
+    # generic "watch this" messages; Telegram is reserved for level-based swap plans.
     spot_results = spot_early_radar(set(symbols), market_caps)
-    now = int(time.time())
-    cooldown = int(SPOT_WATCH_COOLDOWN_HOURS * 3600)
-    # Keep recent spot cooldown entries so a coin cannot spam the channel every 15m.
-    for key, val in state.items():
-        if key.startswith('SPOT:') and now - int(val.get('last_sent_ts', 0)) < cooldown:
-            new_state[key] = val
-    spot_alerts = []
-    for x in spot_results:
-        key = f"SPOT:{x['symbol']}:{x['direction']}"
-        prev = state.get(key, {})
-        if now - int(prev.get('last_sent_ts', 0)) >= cooldown:
-            spot_alerts.append(x)
-            new_state[key] = {'tier':'SPOT_WATCH','last_sent_ts':now,'last_seen':now}
-
     write_diagnostic(all_results, ctx, spot_results, error_counts, market_cap_source)
-    # Print top candidates with symbol even if no Telegram alarm was eligible.
-    top = sorted(all_results, key=lambda r: r['score'], reverse=True)[:5]
+    top = sorted(all_results, key=lambda r: r['score'], reverse=True)[:8]
     if top:
-        print('En iyi vadeli adaylar: ' + ' | '.join(f"{x['symbol']} {x['direction']} {x['score']:.1f} (eşik {x['alert_threshold']:.0f}, RR {x['rr']:.2f})" for x in top))
+        print('En iyi vadeli adaylar: ' + ' | '.join(
+            f"{x['symbol']} {x['direction']} {x['score']:.1f} eşik={x['alert_threshold']:.0f} RR={x['rr']:.2f} faz={x['phase']} valid={x['setup_valid']} neden={x.get('gate_reason','')}"
+            for x in top))
     if spot_results:
-        print('Spot erken uyarı adayları: ' + ', '.join(f"{x['symbol']} {x['direction']} (15m {x['change_15m']:+.1f}%, 1h {x['change_1h']:+.1f}%)" for x in spot_results[:8]))
+        print('Spot radar (tanı amaçlı; Telegram izleme spamı gönderilmez): ' + ', '.join(
+            f"{x['symbol']} {x['direction']} 15m={x['change_15m']:+.1f}% 1h={x['change_1h']:+.1f}%"
+            for x in spot_results[:8]))
 
     messages = [format_context_header(ctx), '']
     if qualifying:
         qualifying.sort(key=lambda p: p[0]['score'], reverse=True)
-        messages.append('✅ *DOĞRULANMIŞ VADELİ SETUP ADAYLARI*')
+        messages.append('🎯 *GİRİŞ SEVİYESİ OLAN ERKEN KIRILIM / YENİ KIRILIM PLANLARI*')
         for x, t in qualifying:
             messages.append(format_setup(x, t)); messages.append('')
-    if spot_alerts:
-        messages.append('📡 *SPOT ERKEN HAREKET RADARI — İZLEME UYARILARI*')
-        for x in spot_alerts:
-            messages.append(format_spot_watch(x)); messages.append('')
-    messages.append('⚠️ Yatırım tavsiyesi değildir. Erken uyarılar işlem sinyali değildir; doğrulanmış setup bile garanti vermez.')
-
-    has_messages = bool(qualifying or spot_alerts)
-    send_ok = True
-    if has_messages:
+        messages.append('⚠️ Otomatik emir gönderilmez. Tetik seviyesinin 15 dk kapanış koşulu sağlanmadan plan tetiklenmiş sayılmaz.')
         send_ok = send_telegram('\n'.join(messages))
-        print('Telegram bildirimi gönderildi.' if send_ok else 'Telegram bildirimi gönderilemedi; yeni alarm durumu tekrar deneme için korunuyor.')
+        print('Telegram işlem planları gönderildi.' if send_ok else 'Telegram bildirimi gönderilemedi; yeni alarm durumu tekrar deneme için korunuyor.')
+        if not send_ok:
+            for x, _t in qualifying:
+                key = f"{x['symbol']}:{x['direction']}"
+                if key in state: new_state[key] = state[key]
+                else: new_state.pop(key, None)
     else:
-        print('Bu turda yeni/yükselmiş doğrulanmış vadeli setup veya yeni spot erken uyarısı yok.')
+        print('Bu turda puan/eşik + R:R + giriş kalitesi + erken kırılım koşullarının tamamını geçen yeni plan yok. Genel spot izleme bildirimi gönderilmedi.')
 
-    # Persist only after successful delivery for newly alerted setups. This avoids
-    # marking an unsent Telegram alert as delivered. Still prune inactive perp keys.
-    if has_messages and not send_ok:
-        for x, _t in qualifying:
-            key = f"{x['symbol']}:{x['direction']}"
-            if key in state: new_state[key] = state[key]
-            else: new_state.pop(key, None)
-        for x in spot_alerts:
-            key = f"SPOT:{x['symbol']}:{x['direction']}"
-            if key in state: new_state[key] = state[key]
-            else: new_state.pop(key, None)
     save_state(new_state)
 
 if __name__ == '__main__':
