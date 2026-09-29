@@ -1,25 +1,3 @@
-  NMR/USDT:USDT        LONG  score= 75.2 mc=# 277 gate=85 (SELECTIVE)
-  ONE/USDT:USDT        SHORT score= 74.5 mc=# 369 gate=85 (SELECTIVE)
-  US30/USDT:USDT       SHORT score= 72.5 mc=# 501 gate=90 (SELECTIVE)
-  MUBARAK/USDT:USDT    LONG  score= 71.6 mc=# 425 gate=85 (WEAK)
-  TRX/USDT:USDT        SHORT score= 69.0 mc=#   8 gate=80 (WEAK)
-  MSTRSTOCK/USDT:USDT  SHORT score= 68.8 mc=# 501 gate=90 (WEAK)
-  CVX/USDT:USDT        LONG  score= 67.3 mc=# 188 gate=80 (WEAK)
-  0G/USDT:USDT         LONG  score= 66.5 mc=# 424 gate=85 (WEAK)
-=== 2026-09-29T03:31:44 | BTC4h=NEUTRAL BTC1h=BEARISH ETH4h=NEUTRAL ETH1h=BEARISH | taranan=170 | en_iyi=79.1 ===
-  QNT/USDT:USDT        LONG  score= 79.1 mc=# 501 gate=90 (SELECTIVE)
-  0G/USDT:USDT         LONG  score= 78.9 mc=# 501 gate=90 (SELECTIVE)
-  MUBARAK/USDT:USDT    LONG  score= 74.1 mc=# 501 gate=90 (SELECTIVE)
-  GRASS/USDT:USDT      LONG  score= 73.9 mc=# 501 gate=90 (SELECTIVE)
-  SPX/USDT:USDT        SHORT score= 72.5 mc=# 501 gate=90 (SELECTIVE)
-  NMR/USDT:USDT        LONG  score= 71.3 mc=# 501 gate=90 (WEAK)
-  UAI/USDT:USDT        SHORT score= 71.3 mc=# 501 gate=90 (WEAK)
-  TRUMPOFFICIAL/USDT:USDT SHORT score= 70.9 mc=# 501 gate=90 (WEAK)
-  CRV/USDT:USDT        LONG  score= 69.0 mc=# 501 gate=90 (WEAK)
-  SOONNETWORK/USDT:USDT LONG  score= 69.0 mc=# 501 gate=90 (WEAK)
-=== 2026-09-29T03:47:33 | BTC4h=NEUTRAL BTC1h=BEARISH ETH4h=NEUTRAL ETH1h=BEARISH | taranan=170 | en_iyi=78.4 ===
-  MUBARAK/USDT:USDT    LONG  score= 78.4 mc=# 501 gate=90 (SELECTIVE)
-  QNT/USDT:USDT        LONG  score= 77.5 mc=# 501 gate=90 (SELECTIVE)
   TRUMPOFFICIAL/USDT:USDT SHORT score= 73.7 mc=# 501 gate=90 (SELECTIVE)
   0G/USDT:USDT         LONG  score= 73.4 mc=# 501 gate=90 (SELECTIVE)
   NMR/USDT:USDT        LONG  score= 73.3 mc=# 501 gate=90 (SELECTIVE)
@@ -497,4 +475,26 @@ SPOT ETHFI/USDT           AŞAĞI HAREKET   15m=-2.90% 1h=-3.68% 24h=+13.43% vol
 SPOT SUI/USDT             AŞAĞI HAREKET   15m=-1.10% 1h=-2.52% 24h=-0.27% vol=3.49x swap=True
 SPOT DOGE/USDT            AŞAĞI HAREKET   15m=-1.24% 1h=-2.07% 24h=+1.19% vol=2.76x swap=True
 SPOT ADA/USDT             AŞAĞI HAREKET   15m=-1.53% 1h=-2.62% 24h=+1.52% vol=2.11x swap=True
+ERRORS {"IndexError": 2}
+=== 2026-09-29T15:44:55 | BTC4h=BULLISH BTC1h=NEUTRAL ETH4h=BULLISH ETH1h=BULLISH | perp_taranan=165 | en_iyi=SOONNETWORK/USDT:USDT 82.0 | marketcap=unavailable ===
+PERP SOONNETWORK/USDT:USDT LONG  score= 82.0 rr=1.11 mc=# 501 gate=90 entry=84 gap=69 target=yapısal direnç
+PERP ETHFI/USDT:USDT      LONG  score= 77.9 rr=1.59 mc=# 501 gate=90 entry=93 gap=42 target=yapısal direnç
+PERP ZRO/USDT:USDT        LONG  score= 77.7 rr=1.08 mc=# 501 gate=90 entry=93 gap=38 target=yapısal direnç
+PERP NEAR/USDT:USDT       LONG  score= 77.4 rr=0.82 mc=# 501 gate=90 entry=93 gap=44 target=yapısal direnç
+PERP PAXG/USDT:USDT       SHORT score= 76.9 rr=0.87 mc=# 501 gate=90 entry=88 gap=69 target=yapısal destek
+PERP CRV/USDT:USDT        LONG  score= 76.6 rr=1.01 mc=# 501 gate=90 entry=93 gap=39 target=yapısal direnç
+PERP BATON/USDT:USDT      LONG  score= 76.4 rr=3.50 mc=# 501 gate=90 entry=87 gap=42 target=yapısal direnç
+PERP NMR/USDT:USDT        LONG  score= 76.1 rr=5.34 mc=# 501 gate=90 entry=89 gap=22 target=yapısal direnç
+PERP XAU/USDT:USDT        SHORT score= 75.5 rr=0.92 mc=# 501 gate=90 entry=93 gap=66 target=yapısal destek
+PERP SOXL/USDT:USDT       LONG  score= 75.5 rr=0.88 mc=# 501 gate=90 entry=93 gap=41 target=yapısal direnç
+SPOT KRAFT/USDT           AŞAĞI HAREKET   15m=-5.18% 1h=-16.15% 24h=-9.37% vol=6.10x swap=False
+SPOT BONK/USDT            AŞAĞI HAREKET   15m=-3.60% 1h=-2.31% 24h=+8.19% vol=2.64x swap=False
+SPOT ZEC/USDT             AŞAĞI HAREKET   15m=-2.19% 1h=-3.59% 24h=-8.37% vol=3.82x swap=True
+SPOT CRV/USDT             AŞAĞI HAREKET   15m=-2.67% 1h=-0.69% 24h=+22.21% vol=2.39x swap=True
+SPOT TAO/USDT             AŞAĞI HAREKET   15m=-1.84% 1h=-2.38% 24h=+2.66% vol=2.51x swap=True
+SPOT ETHFI/USDT           AŞAĞI HAREKET   15m=-2.90% 1h=-3.68% 24h=+14.00% vol=1.58x swap=True
+SPOT SUI/USDT             AŞAĞI HAREKET   15m=-1.10% 1h=-2.52% 24h=-0.29% vol=3.49x swap=True
+SPOT DOGE/USDT            AŞAĞI HAREKET   15m=-1.24% 1h=-2.07% 24h=+0.87% vol=2.76x swap=True
+SPOT ADA/USDT             AŞAĞI HAREKET   15m=-1.53% 1h=-2.62% 24h=+0.69% vol=2.11x swap=True
+SPOT AAVE/USDT            AŞAĞI HAREKET   15m=-1.06% 1h=-2.26% 24h=+17.11% vol=2.86x swap=True
 ERRORS {"IndexError": 2}
