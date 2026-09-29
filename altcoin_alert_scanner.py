@@ -1,12 +1,12 @@
 """
-V6 çoklu-zaman-dilimi + göreceli-güç + erken kırılım işlem planı tarayıcısı -- BULUTTA çalışır (GitHub Actions),
+V7 çoklu-zaman-dilimi + göreceli-güç + erken kırılım işlem planı tarayıcısı -- BULUTTA çalışır (GitHub Actions),
 telefondaki/bilgisayardaki hiçbir şeye bağımlı değil. Mevcut MEXC trading
 bot'unuzdan TAMAMEN bağımsızdır -- hiçbir dosyasını içe aktarmaz, hiçbir
 emir göndermez. Sadece MEXC'nin herkese açık (public) piyasa verisini
 okur ve Telegram'a bildirim gönderir. API anahtarı / hesap bilgisi
 gerektirmez -- sadece TELEGRAM_BOT_TOKEN ve TELEGRAM_CHAT_ID.
 
---- V6: kısa vadeli işlem planı + BTC/ETH dışı güçlü coin ayrışmasını yakalama ---
+--- V7: kısa vadeli işlem planı + BTC/ETH dışı güçlü coin ayrışmasını yakalama ---
 
 Üç BAĞIMSIZ eksen var, hiçbiri diğerini beslemiyor / bloklamıyor:
 
@@ -54,7 +54,10 @@ from pathlib import Path
 # ---------------------------------------------------------------------
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHAT_ID   = os.getenv('TELEGRAM_CHAT_ID', '')
-MIN_24H_VOLUME      = float(os.getenv('MIN_24H_VOLUME', '1000000'))
+# Tarama evreni tüm aktif MEXC USDT perpetual marketlerdir.
+# Düşük likiditeli çiftler analiz edilir ancak işlem planı bildirimine geçemez.
+MIN_ALERT_24H_VOLUME = float(os.getenv('MIN_ALERT_24H_VOLUME', '250000'))
+SWAP_QUOTE_VOLUMES = {}
 MIN_SPOT_24H_VOLUME = float(os.getenv('MIN_SPOT_24H_VOLUME', '500000'))
 SPOT_RADAR_MAX_CANDIDATES = int(os.getenv('SPOT_RADAR_MAX_CANDIDATES', '50'))
 SPOT_WATCH_COOLDOWN_HOURS = float(os.getenv('SPOT_WATCH_COOLDOWN_HOURS', '6'))
@@ -73,6 +76,7 @@ DIAG_LOG             = Path(os.getenv('DIAG_LOG_FILE', 'scan_diagnostic.log'))
 DIAG_LOG_MAX_LINES   = 500
 WIDE_STOP_BUFFER_ATR = float(os.getenv('WIDE_STOP_BUFFER_ATR', '0.6'))  # ek "geniş stop" ATR payı
 OHLCV_LIMIT = 220
+PREFERRED_HISTORY_BARS = 60
 
 exchange = ccxt.mexc({'enableRateLimit': True, 'options': {'defaultType': 'swap'}})
 spot_exchange = ccxt.mexc({'enableRateLimit': True, 'options': {'defaultType': 'spot'}})
@@ -111,11 +115,41 @@ def add_indicators(df):
     df['volume_ratio'] = v / v.rolling(20).mean(); df['atr_pct'] = df.atr / c
     return df.dropna().reset_index(drop=True)
 
+def _ohlcv_frame(rows):
+    return pd.DataFrame(rows or [], columns=['timestamp','open','high','low','close','volume'])
+
+def _resample_ohlcv(df, rule):
+    if df.empty:
+        return df
+    tmp = df.copy()
+    tmp['dt'] = pd.to_datetime(tmp['timestamp'], unit='ms', utc=True)
+    tmp = tmp.set_index('dt')
+    agg = tmp.resample(rule).agg({
+        'timestamp':'last', 'open':'first', 'high':'max', 'low':'min',
+        'close':'last', 'volume':'sum'
+    }).dropna(subset=['open','high','low','close'])
+    agg['timestamp'] = (agg.index.astype('int64') // 10**6)
+    return agg[['timestamp','open','high','low','close','volume']].reset_index(drop=True)
+
 def candles(symbol, timeframe):
+    # Short history fallback: resample lower-timeframe candles where possible.
     rows = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=OHLCV_LIMIT)
-    if not rows:
-        raise ValueError('Mum verisi gelmedi')
-    df = pd.DataFrame(rows, columns=['timestamp','open','high','low','close','volume'])
+    df = _ohlcv_frame(rows)
+    if len(df) < PREFERRED_HISTORY_BARS:
+        fallback = {'4h': ('1h', '4h'), '1h': ('15m', '1h')}.get(timeframe)
+        if fallback:
+            lower_tf, rule = fallback
+            try:
+                lower_rows = exchange.fetch_ohlcv(symbol, timeframe=lower_tf, limit=OHLCV_LIMIT)
+                lower_df = _ohlcv_frame(lower_rows)
+                resampled = _resample_ohlcv(lower_df, rule)
+                if len(resampled) > len(df):
+                    print(f'MUM YEDEĞİ {symbol} {timeframe}: {len(df)} doğrudan mum yerine {len(resampled)} adet {lower_tf} verisinden birleştirilmiş mum kullanılıyor.')
+                    df = resampled
+            except Exception as e:
+                print(f'MUM YEDEĞİ BAŞARISIZ {symbol} {timeframe}: {type(e).__name__}: {str(e)[:100]}')
+    if len(df) < 25:
+        raise ValueError(f'Yetersiz mum verisi: {len(df)} (yedek zaman dilimi de denendi)')
     return add_indicators(df)
 
 def regime_from_row(x):
@@ -146,15 +180,21 @@ def market_context():
     return {'btc': btc, 'eth': eth, 'primary_bias': primary, 'aligned': aligned}
 
 def liquid_usdt_swaps():
+    # Discover all active USDT perpetual markets; liquidity is a separate alert safety gate.
+    global SWAP_QUOTE_VOLUMES
     markets = exchange.load_markets(); tickers = exchange.fetch_tickers(); out = []
+    SWAP_QUOTE_VOLUMES = {}
     for s, m in markets.items():
         if not (m.get('active') and m.get('swap') and m.get('quote') == 'USDT') or s in ('BTC/USDT:USDT','ETH/USDT:USDT'):
             continue
         t = tickers.get(s, {}) or {}; q = t.get('quoteVolume')
         if q is None and t.get('baseVolume') and t.get('last'):
-            q = t['baseVolume'] * t['last']
-        if q and float(q) >= MIN_24H_VOLUME:
-            out.append((s, float(q)))
+            try: q = float(t['baseVolume']) * float(t['last'])
+            except (TypeError, ValueError): q = 0.0
+        try: q = max(0.0, float(q or 0.0))
+        except (TypeError, ValueError): q = 0.0
+        SWAP_QUOTE_VOLUMES[s] = q
+        out.append((s, q))
     return [s for s, _ in sorted(out, key=lambda x: x[1], reverse=True)]
 
 def market_cap_rankings():
@@ -435,29 +475,34 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
         level_dist = max((ref_price-local_sup)/atr, 0.0)
 
     ema_dist = abs(ref_price-float(c.ema20))/max(atr,1e-12)
-    extension_penalty = clamp((ema_dist-0.8)*22,0,35)
+    extension_penalty = clamp((ema_dist-0.8)*24,0,40)
     if room<=0: location_score=10.0
-    elif room<0.50: location_score=30.0
-    elif room<1.00: location_score=50.0
-    elif room<1.50: location_score=70.0
+    elif room<0.50: location_score=25.0
+    elif room<1.00: location_score=45.0
+    elif room<1.50: location_score=68.0
     else: location_score=88.0
     if target_method.startswith('kırılım'):
-        location_score = min(location_score, 72.0)
-    ema_entry_score = clamp(88-extension_penalty + (6 if (direction=='LONG' and ref_price<=c.ema20*1.01) or (direction=='SHORT' and ref_price>=c.ema20*0.99) else 0))
-    entry_quality = clamp(0.70*ema_entry_score + 0.30*location_score)
+        location_score = min(location_score, 70.0)
+    ema_entry_score = clamp(86-extension_penalty + (6 if (direction=='LONG' and ref_price<=c.ema20*1.01) or (direction=='SHORT' and ref_price>=c.ema20*0.99) else 0))
+    rr = ((target-entry)/risk if direction=='LONG' else (entry-target)/risk) if risk>0 else np.nan
+    # Entry quality explicitly includes payoff quality; a large projected move
+    # cannot compensate for a poor stop/target geometry.
+    rr_quality = clamp((float(rr)-1.0)/2.0*100.0, 0.0, 100.0) if pd.notna(rr) else 0.0
+    entry_quality = clamp(0.40*ema_entry_score + 0.25*location_score + 0.35*rr_quality)
     room_score = clamp(room*16,0,32)
     vol_score = clamp((atr_pct/0.01)*16,0,42)
     trend_move = clamp((c.adx-18)*1.5,0,16)
     move_potential = clamp((room_score+vol_score+trend_move)/90*100)
-    rr = ((target-entry)/risk if direction=='LONG' else (entry-target)/risk) if risk>0 else np.nan
-    rr_bonus = clamp((rr-2.0)*2.0,0,5) if pd.notna(rr) else 0
+    rr_bonus = clamp((rr-2.0)*1.5,0,4) if pd.notna(rr) else 0
 
-    # Readiness score rewards being near the level without rewarding a late chase.
+    # Readiness rewards proximity, own-coin direction and volume confirmation.
     proximity_score = clamp(100 - max(level_dist,0)/max(EARLY_TRIGGER_MAX_ATR,0.1)*55, 0, 100)
     volume_score = clamp((float(c.volume_ratio)-0.8)*45,0,100)
     readiness = clamp(0.45*proximity_score + 0.35*directional + 0.20*volume_score)
-    early_bonus = min(4.0, max(0.0, (readiness-60.0)*0.10)) if phase=='PRE_BREAKOUT' else 0.0
-    raw_score = clamp(0.56*directional + 0.20*entry_quality + 0.24*move_potential + rr_bonus + early_bonus)
+    early_bonus = min(3.0, max(0.0, (readiness-65.0)*0.08)) if phase=='PRE_BREAKOUT' else 0.0
+    # Score favors direction and executable entry quality. Potential remains a
+    # separate forecast descriptor, not a way to inflate a weak setup.
+    raw_score = clamp(0.52*directional + 0.28*entry_quality + 0.12*readiness + 0.08*move_potential + rr_bonus + early_bonus)
     setup_valid = phase in ('PRE_BREAKOUT','BREAKOUT_STARTED') and trend_ok and not overextended and readiness >= MIN_SETUP_READINESS
     elite_gate = (raw_score>=90 and directional>=85 and entry_quality>=80 and move_potential>=85 and pd.notna(rr) and rr>=2.0 and gap>=15 and setup_valid)
     quality = 'ELITE' if elite_gate else 'STRONG' if raw_score>=85 else 'SELECTIVE' if raw_score>=72 else 'WEAK'
@@ -629,7 +674,7 @@ def format_setup(x, t):
     outlier_line = ('⚡ BTC/ETH zayıf olsa da coin göreceli güçlü/zayıf ayrışıyor' if x.get('relative_outlier') else 'Göreceli güç: piyasa ile uyum ayrıca değerlendirildi')
     lines = [phase_title,
         f"*{x['symbol']}* — {x['direction']} | Skor {x['score']} ({x['quality']})",
-        f"Market-cap: {x.get('market_cap_label', 'bilinmiyor')} | Gerekli eşik: {x.get('alert_threshold', 90):.0f}+",
+        f"Market-cap: {x.get('market_cap_label', 'bilinmiyor')} | Gerekli eşik: {x.get('alert_threshold', 90):.0f}+ | 24s vadeli hacim: {x.get('quote_volume_24h',0):,.0f} USDT",
         f"Hazırlık {x['readiness']:.0f}/100 | Yön {x['directional_confidence']:.0f} | Giriş kalitesi {x['entry_quality']:.0f}",
         f"Potansiyel: {x['potential_label']} ({x['move_potential']:.0f}/100) | TP1 yaklaşık {tp1_pct:+.2f}% | TP3 yaklaşık {tp3_pct:+.2f}%",
         f"BTC/ETH'ye göre getiri farkı: 1 saat {x['relative_1h']:+.2f} yüzde puan | 4 saat {x['relative_4h']:+.2f} yüzde puan | {outlier_line}",
@@ -679,7 +724,7 @@ def write_diagnostic(all_results, ctx, spot_results=None, error_counts=None, sou
              f"ETH4h={ctx['eth']['4h']} ETH1h={ctx['eth']['1h']} | "
              f"perp_taranan={len(all_results)} | en_iyi={best} | marketcap={source} ==="]
     for r in top:
-        lines.append(f"PERP {r['symbol']:20} {r['direction']:5} phase={r.get('phase','?'):16} score={r['score']:5.1f} rr={r['rr']:.2f} pot={r.get('potential_label','?'):10} rel1h={r.get('relative_1h',0):+.2f} rel4h={r.get('relative_4h',0):+.2f} outlier={r.get('relative_outlier',False)} mc=#{r.get('market_cap_rank',501):4d} gate={r.get('alert_threshold',90):.0f} ready={r.get('readiness',0):.0f} valid={r.get('setup_valid',False)} entry={r['entry_quality']:.0f} gap={r.get('direction_gap',0):.0f}")
+        lines.append(f"PERP {r['symbol']:20} {r['direction']:5} phase={r.get('phase','?'):16} score={r['score']:5.1f} rr={r['rr']:.2f} pot={r.get('potential_label','?'):10} rel1h={r.get('relative_1h',0):+.2f} rel4h={r.get('relative_4h',0):+.2f} outlier={r.get('relative_outlier',False)} mc=#{r.get('market_cap_rank',501):4d} gate={r.get('alert_threshold',90):.0f} ready={r.get('readiness',0):.0f} valid={r.get('setup_valid',False)} entry={r['entry_quality']:.0f} gap={r.get('direction_gap',0):.0f} qv={r.get('quote_volume_24h',0):.0f} reject={r.get('gate_reason','')}")
     for r in (spot_results or [])[:10]:
         lines.append(f"SPOT {r['symbol']:20} {r['direction']:15} 15m={r['change_15m']:+.2f}% 1h={r['change_1h']:+.2f}% 24h={r['change_24h']:+.2f}% vol={r['volume_ratio']:.2f}x swap={r['swap_available']}")
     if error_counts:
@@ -688,11 +733,11 @@ def write_diagnostic(all_results, ctx, spot_results=None, error_counts=None, sou
     DIAG_LOG.write_text('\n'.join((existing + lines)[-DIAG_LOG_MAX_LINES:]) + '\n', encoding='utf-8')
 
 def main():
-    print('=== ALTCOIN ALERT SCANNER V6 ===')
+    print('=== ALTCOIN ALERT SCANNER V7 ===')
     ctx = market_context()
     print(f"BTC 4h={ctx['btc']['4h']} 1h={ctx['btc']['1h']} | ETH 4h={ctx['eth']['4h']} 1h={ctx['eth']['1h']}")
     symbols = liquid_usdt_swaps()
-    print(f'MEXC USDT vadeli tarama: {len(symbols)} coin | minimum 24s hacim {MIN_24H_VOLUME:,.0f} USDT')
+    print(f'MEXC aktif USDT vadeli evreni: {len(symbols)} coin (tüm aktif USDT perpetual marketler) | işlem planı için minimum 24s hacim {MIN_ALERT_24H_VOLUME:,.0f} USDT')
     state = load_state(); new_state = {}; qualifying = []; all_results = []; error_counts = {}
     market_caps, market_cap_updated_at, market_cap_source = market_cap_rankings()
     print(f'Market-cap kaynağı: {market_cap_source} | eşik: 1-200=>80+, 201-500=>85+, 501+ veya bilinmiyor=>90+')
@@ -703,17 +748,20 @@ def main():
             x['symbol'] = s
             x['market_cap_rank'] = market_cap_rank_for_symbol(s, market_caps)
             x['market_cap_label'] = market_cap_label_for_symbol(s, market_caps)
+            x['quote_volume_24h'] = SWAP_QUOTE_VOLUMES.get(s, 0.0)
             x['alert_eligible'], x['alert_threshold'] = alert_gate_for_rank(x['score'], x['market_cap_rank'])
             all_results.append(x)
             rr_ok = pd.notna(x['rr']) and x['rr'] >= MIN_CONFIRMED_RR
             quality_ok = x['entry_quality'] >= MIN_ENTRY_QUALITY and x['direction_gap'] >= MIN_DIRECTION_GAP
             setup_ok = bool(x.get('setup_valid'))
-            x['gate_reason'] = ('OK' if x['alert_eligible'] and rr_ok and quality_ok and setup_ok else
+            liquidity_ok = x['quote_volume_24h'] >= MIN_ALERT_24H_VOLUME
+            x['gate_reason'] = ('OK' if x['alert_eligible'] and rr_ok and quality_ok and setup_ok and liquidity_ok else
+                                'LIKIDITE<%s USDT' % f'{MIN_ALERT_24H_VOLUME:,.0f}' if not liquidity_ok else
                                 'ERKEN KIRILIM/TEYİT KOŞULU' if not setup_ok else
                                 'SKOR/EŞİK' if not x['alert_eligible'] else
                                 'RR<%.1f' % MIN_CONFIRMED_RR if not rr_ok else
                                 'GİRİŞ/YÖN KALİTESİ')
-            if x['alert_eligible'] and rr_ok and quality_ok and setup_ok:
+            if x['alert_eligible'] and rr_ok and quality_ok and setup_ok and liquidity_ok:
                 t = tier(x)
                 key = f"{s}:{x['direction']}"
                 new_state[key] = {'tier':t,'score':x['score'],'phase':x['phase'],
