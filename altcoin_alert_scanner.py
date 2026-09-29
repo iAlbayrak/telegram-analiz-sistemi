@@ -1,5 +1,5 @@
 """
-V7 çoklu-zaman-dilimi + göreceli-güç + erken kırılım işlem planı tarayıcısı -- BULUTTA çalışır (GitHub Actions),
+V8 tüm likit vadeli piyasalar + çoklu-zaman-dilimi + hızlı tarama -- BULUTTA çalışır (GitHub Actions),
 telefondaki/bilgisayardaki hiçbir şeye bağımlı değil. Mevcut MEXC trading
 bot'unuzdan TAMAMEN bağımsızdır -- hiçbir dosyasını içe aktarmaz, hiçbir
 emir göndermez. Sadece MEXC'nin herkese açık (public) piyasa verisini
@@ -58,8 +58,11 @@ TELEGRAM_CHAT_ID   = os.getenv('TELEGRAM_CHAT_ID', '')
 # Düşük likiditeli çiftler analiz edilir ancak işlem planı bildirimine geçemez.
 MIN_ALERT_24H_VOLUME = float(os.getenv('MIN_ALERT_24H_VOLUME', '250000'))
 SWAP_QUOTE_VOLUMES = {}
+SWAP_PERCENTAGES = {}
+# Derin analiz, minimum hacmi geçen tüm aktif vadeli çiftlere uygulanır.
+DEEP_SCAN_MAX = int(os.getenv('DEEP_SCAN_MAX', '0'))  # 0 = limit yok
 MIN_SPOT_24H_VOLUME = float(os.getenv('MIN_SPOT_24H_VOLUME', '500000'))
-SPOT_RADAR_MAX_CANDIDATES = int(os.getenv('SPOT_RADAR_MAX_CANDIDATES', '50'))
+SPOT_RADAR_MAX_CANDIDATES = int(os.getenv('SPOT_RADAR_MAX_CANDIDATES', '12'))
 SPOT_WATCH_COOLDOWN_HOURS = float(os.getenv('SPOT_WATCH_COOLDOWN_HOURS', '6'))
 MIN_CONFIRMED_RR = float(os.getenv('MIN_CONFIRMED_RR', '2.0'))
 MIN_DIRECTION_GAP = float(os.getenv('MIN_DIRECTION_GAP', '8'))
@@ -70,7 +73,8 @@ MARKET_CAP_REFRESH_MINUTES = int(os.getenv('MARKET_CAP_REFRESH_MINUTES', '360'))
 MARKET_CAP_TOP_N = 500
 EARLY_TRIGGER_MAX_ATR = float(os.getenv('EARLY_TRIGGER_MAX_ATR', '0.85'))
 MIN_SETUP_READINESS = float(os.getenv('MIN_SETUP_READINESS', '65'))
-SLEEP_BETWEEN_COINS  = float(os.getenv('SLEEP_BETWEEN_COINS', '0.12'))
+SLEEP_BETWEEN_COINS  = float(os.getenv('SLEEP_BETWEEN_COINS', '0.02'))
+CANDLE_CACHE = {}  # aynı çalıştırmada aynı sembol/zaman dilimi ikinci kez istenmez
 STATE_FILE           = Path(os.getenv('STATE_FILE', 'alert_state.json'))
 DIAG_LOG             = Path(os.getenv('DIAG_LOG_FILE', 'scan_diagnostic.log'))
 DIAG_LOG_MAX_LINES   = 500
@@ -132,25 +136,30 @@ def _resample_ohlcv(df, rule):
     return agg[['timestamp','open','high','low','close','volume']].reset_index(drop=True)
 
 def candles(symbol, timeframe):
-    # Short history fallback: resample lower-timeframe candles where possible.
+    """Fetch each symbol/timeframe once. If history is short, try a lower-TF resample."""
+    key = (symbol, timeframe)
+    if key in CANDLE_CACHE:
+        return CANDLE_CACHE[key].copy()
     rows = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=OHLCV_LIMIT)
     df = _ohlcv_frame(rows)
-    if len(df) < PREFERRED_HISTORY_BARS:
-        fallback = {'4h': ('1h', '4h'), '1h': ('15m', '1h')}.get(timeframe)
-        if fallback:
-            lower_tf, rule = fallback
-            try:
-                lower_rows = exchange.fetch_ohlcv(symbol, timeframe=lower_tf, limit=OHLCV_LIMIT)
-                lower_df = _ohlcv_frame(lower_rows)
-                resampled = _resample_ohlcv(lower_df, rule)
-                if len(resampled) > len(df):
-                    print(f'MUM YEDEĞİ {symbol} {timeframe}: {len(df)} doğrudan mum yerine {len(resampled)} adet {lower_tf} verisinden birleştirilmiş mum kullanılıyor.')
-                    df = resampled
-            except Exception as e:
-                print(f'MUM YEDEĞİ BAŞARISIZ {symbol} {timeframe}: {type(e).__name__}: {str(e)[:100]}')
+    # Fallback also covers sparse 15m history (e.g. newly listed contracts).
+    fallback = {'4h': ('1h', '4h'), '1h': ('15m', '1h'), '15m': ('5m', '15min')}.get(timeframe)
+    if len(df) < PREFERRED_HISTORY_BARS and fallback:
+        lower_tf, rule = fallback
+        try:
+            lower_rows = exchange.fetch_ohlcv(symbol, timeframe=lower_tf, limit=OHLCV_LIMIT)
+            lower_df = _ohlcv_frame(lower_rows)
+            resampled = _resample_ohlcv(lower_df, rule)
+            if len(resampled) > len(df):
+                print(f'MUM YEDEĞİ {symbol} {timeframe}: {len(df)} doğrudan mum yerine {len(resampled)} adet {lower_tf} verisinden birleştirilmiş mum kullanılıyor.')
+                df = resampled
+        except Exception as e:
+            print(f'MUM YEDEĞİ BAŞARISIZ {symbol} {timeframe}: {type(e).__name__}: {str(e)[:100]}')
     if len(df) < 25:
-        raise ValueError(f'Yetersiz mum verisi: {len(df)} (yedek zaman dilimi de denendi)')
-    return add_indicators(df)
+        raise ValueError(f'Yetersiz mum verisi: {len(df)} (daha düşük zaman dilimi yedeği de denendi)')
+    result = add_indicators(df)
+    CANDLE_CACHE[key] = result
+    return result.copy()
 
 def regime_from_row(x):
     if x.close > x.ema50 > x.ema200 and x.rsi >= 52: return 'BULLISH'
@@ -181,9 +190,10 @@ def market_context():
 
 def liquid_usdt_swaps():
     # Discover all active USDT perpetual markets; liquidity is a separate alert safety gate.
-    global SWAP_QUOTE_VOLUMES
+    global SWAP_QUOTE_VOLUMES, SWAP_PERCENTAGES
     markets = exchange.load_markets(); tickers = exchange.fetch_tickers(); out = []
     SWAP_QUOTE_VOLUMES = {}
+    SWAP_PERCENTAGES = {}
     for s, m in markets.items():
         if not (m.get('active') and m.get('swap') and m.get('quote') == 'USDT') or s in ('BTC/USDT:USDT','ETH/USDT:USDT'):
             continue
@@ -194,8 +204,23 @@ def liquid_usdt_swaps():
         try: q = max(0.0, float(q or 0.0))
         except (TypeError, ValueError): q = 0.0
         SWAP_QUOTE_VOLUMES[s] = q
+        try: pct = float(t.get('percentage') or 0.0)
+        except (TypeError, ValueError): pct = 0.0
+        SWAP_PERCENTAGES[s] = pct
         out.append((s, q))
     return [s for s, _ in sorted(out, key=lambda x: x[1], reverse=True)]
+
+def select_deep_scan_symbols(all_symbols):
+    """Deep-analyze every active USDT perpetual pair above the liquidity floor.
+
+    All markets are still discovered at ticker level. Low-volume pairs are not
+    sent as trade plans, so their extra OHLCV requests are intentionally skipped.
+    """
+    eligible = [s for s in all_symbols if SWAP_QUOTE_VOLUMES.get(s, 0.0) >= MIN_ALERT_24H_VOLUME]
+    eligible.sort(key=lambda s: SWAP_QUOTE_VOLUMES.get(s, 0.0), reverse=True)
+    if DEEP_SCAN_MAX > 0:
+        return eligible[:DEEP_SCAN_MAX]
+    return eligible
 
 def market_cap_rankings():
     """Market-cap rank with persistent cache and provider fallbacks.
@@ -663,31 +688,31 @@ def format_context_header(ctx):
 
 def format_setup(x, t):
     tp = tp_levels(x)
-    phase_title = ('🟡 ERKEN KIRILIM PLANI — SEVİYEYE YAKIN' if x['phase']=='PRE_BREAKOUT'
-                   else '🟢 KIRILIM YENİ BAŞLADI — GİRİŞ ADAYI')
-    entry_instruction = (f"Tetik/giriş seviyesi: {x['trigger']:.8g} | 15 dk mum kapanışı bu seviyeyi doğrulamalı"
-                         if x['phase']=='PRE_BREAKOUT' else
-                         f"Kırılım sonrası referans giriş: {x['entry']:.8g} | aşırı uzama filtresi geçti")
+    phase_title = ('🟡 *ERKEN KIRILIM ADAYI*' if x['phase']=='PRE_BREAKOUT'
+                   else '🟢 *KIRILIM BAŞLADI — GİRİŞ ADAYI*')
     risk_pct = abs(x['entry']-x['stop']) / max(abs(x['entry']), 1e-12) * 100.0
     tp1_pct = (tp['TP1']['price']/x['entry']-1)*100 if x['direction']=='LONG' else (1-tp['TP1']['price']/x['entry'])*100
     tp3_pct = (tp['TP3']['price']/x['entry']-1)*100 if x['direction']=='LONG' else (1-tp['TP3']['price']/x['entry'])*100
-    outlier_line = ('⚡ BTC/ETH zayıf olsa da coin göreceli güçlü/zayıf ayrışıyor' if x.get('relative_outlier') else 'Göreceli güç: piyasa ile uyum ayrıca değerlendirildi')
-    lines = [phase_title,
-        f"*{x['symbol']}* — {x['direction']} | Skor {x['score']} ({x['quality']})",
-        f"Market-cap: {x.get('market_cap_label', 'bilinmiyor')} | Gerekli eşik: {x.get('alert_threshold', 90):.0f}+ | 24s vadeli hacim: {x.get('quote_volume_24h',0):,.0f} USDT",
-        f"Hazırlık {x['readiness']:.0f}/100 | Yön {x['directional_confidence']:.0f} | Giriş kalitesi {x['entry_quality']:.0f}",
-        f"Potansiyel: {x['potential_label']} ({x['move_potential']:.0f}/100) | TP1 yaklaşık {tp1_pct:+.2f}% | TP3 yaklaşık {tp3_pct:+.2f}%",
-        f"BTC/ETH'ye göre getiri farkı: 1 saat {x['relative_1h']:+.2f} yüzde puan | 4 saat {x['relative_4h']:+.2f} yüzde puan | {outlier_line}",
-        f"Mevcut referans fiyat: {x['reference_price']:.8g}",
-        entry_instruction,
-        f"Stop: {x['stop']:.8g} ({x['stop_method']}, risk yaklaşık {risk_pct:.2f}%) | Geniş stop bölgesi: {x['wide_stop']:.8g}",
-        f"Hedef: {x['target']:.8g} ({x['target_method']}) | R:R {x['rr']:.2f}",
-        f"TP1 ({tp['TP1']['r']}R): {tp['TP1']['price']:.8g} | TP2 ({tp['TP2']['r']}R): {tp['TP2']['price']:.8g} | TP3: {tp['TP3']['price']:.8g}",
-        f"Yakın destek: {x['local_support']:.8g} | Yakın direnç: {x['local_resistance']:.8g}",
-        f"Geniş destek: {x['support']:.8g} | Geniş direnç: {x['resistance']:.8g}",
-        f"Kırılım teyidi: {'EVET' if x['phase']=='BREAKOUT_STARTED' else 'HENÜZ DEĞİL — kapanış şartı bekleniyor'}",
-        'Plan yalnızca belirtilen tetik seviyesi ve kapanış koşulu geçerliyse değerlendirilmelidir; otomatik emir gönderilmez.']
-    return '\n'.join(lines)
+    entry_text = (f"*Planlanan tetik:* {x['trigger']:.8g} (15 dk mum bu seviyeyi kapatıp doğrulamalı)"
+                  if x['phase']=='PRE_BREAKOUT' else
+                  f"*Referans giriş:* {x['entry']:.8g} (kırılım kapanışı; fiyat değişebilir)")
+    mc = x.get('market_cap_label', 'bilinmiyor')
+    return '\n'.join([
+        phase_title,
+        f"*{x['symbol']} — {x['direction']}* | *Skor {x['score']:.1f}/100* ({x['quality']})",
+        f"Market-cap: {mc} | Gerekli puan: {x.get('alert_threshold',90):.0f}+ | 24s vadeli hacim: {x.get('quote_volume_24h',0):,.0f} USDT",
+        f"*Potansiyel:* {x['potential_label']} ({x['move_potential']:.0f}/100) | *Giriş kalitesi:* {x['entry_quality']:.0f}/100 | Hazırlık: {x['readiness']:.0f}/100",
+        f"*Mevcut referans fiyat:* {x['reference_price']:.8g}",
+        entry_text,
+        f"*Stop:* {x['stop']:.8g} (yaklaşık %{risk_pct:.2f} risk mesafesi) | Geniş stop: {x['wide_stop']:.8g}",
+        f"*Hedefler:* TP1 {tp['TP1']['price']:.8g} ({tp1_pct:+.2f}%) | TP2 {tp['TP2']['price']:.8g} | TP3 {tp['TP3']['price']:.8g} ({tp3_pct:+.2f}%)",
+        f"*Risk/getiri:* 1'e {x['rr']:.2f} — hedefe kadar hesaplanan mesafe, stop mesafesinin {x['rr']:.2f} katı.",
+        f"*Yakın destek/direnç:* {x['local_support']:.8g} / {x['local_resistance']:.8g}",
+        f"*Geniş destek/direnç:* {x['support']:.8g} / {x['resistance']:.8g}",
+        f"*BTC/ETH'ye göre fark:* 1s {x['relative_1h']:+.2f} puan | 4s {x['relative_4h']:+.2f} puan",
+        f"*Kırılım teyidi:* {'EVET' if x['phase']=='BREAKOUT_STARTED' else 'HENÜZ YOK — tetik seviyesi kapanışla doğrulanmalı'}",
+        '⚠️ Bu analizdir, otomatik emir gönderilmez. Mum kapanışı ve fiyat güncelliği kontrol edilmelidir.'
+    ])
 
 def send_telegram(text):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
@@ -733,11 +758,14 @@ def write_diagnostic(all_results, ctx, spot_results=None, error_counts=None, sou
     DIAG_LOG.write_text('\n'.join((existing + lines)[-DIAG_LOG_MAX_LINES:]) + '\n', encoding='utf-8')
 
 def main():
-    print('=== ALTCOIN ALERT SCANNER V7 ===')
+    print('=== ALTCOIN ALERT SCANNER V8 — TÜM LİKİT VADELİLER ===')
     ctx = market_context()
     print(f"BTC 4h={ctx['btc']['4h']} 1h={ctx['btc']['1h']} | ETH 4h={ctx['eth']['4h']} 1h={ctx['eth']['1h']}")
-    symbols = liquid_usdt_swaps()
-    print(f'MEXC aktif USDT vadeli evreni: {len(symbols)} coin (tüm aktif USDT perpetual marketler) | işlem planı için minimum 24s hacim {MIN_ALERT_24H_VOLUME:,.0f} USDT')
+    all_symbols = liquid_usdt_swaps()
+    symbols = select_deep_scan_symbols(all_symbols)
+    eligible_count = sum(1 for s in all_symbols if SWAP_QUOTE_VOLUMES.get(s, 0.0) >= MIN_ALERT_24H_VOLUME)
+    print(f'MEXC aktif USDT vadeli evreni: {len(all_symbols)} coin ticker/fiyat-hacim aşamasında tarandı.')
+    print(f'Derin mum analizi: {len(symbols)}/{len(all_symbols)} coin; minimum 24s vadeli hacim {MIN_ALERT_24H_VOLUME:,.0f} USDT; eşiği geçen tüm coinler analiz ediliyor (toplam {eligible_count}).')
     state = load_state(); new_state = {}; qualifying = []; all_results = []; error_counts = {}
     market_caps, market_cap_updated_at, market_cap_source = market_cap_rankings()
     print(f'Market-cap kaynağı: {market_cap_source} | eşik: 1-200=>80+, 201-500=>85+, 501+ veya bilinmiyor=>90+')
@@ -779,9 +807,8 @@ def main():
         if i % 25 == 0: print(f'  ... {i}/{len(symbols)} vadeli coin tarandı')
         time.sleep(SLEEP_BETWEEN_COINS)
 
-    # Spot radar is retained for discovery/diagnostics only. It no longer sends
-    # generic "watch this" messages; Telegram is reserved for level-based swap plans.
-    spot_results = spot_early_radar(set(symbols), market_caps)
+    # Spot radar is retained for discovery/diagnostics only. It sends no generic watch spam.
+    spot_results = spot_early_radar(set(all_symbols), market_caps)
     write_diagnostic(all_results, ctx, spot_results, error_counts, market_cap_source)
     top = sorted(all_results, key=lambda r: r['score'], reverse=True)[:8]
     if top:
