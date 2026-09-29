@@ -703,32 +703,97 @@ def format_context_header(ctx):
             f"BTC 4h: {ctx['btc']['4h']}  |  BTC 1h: {ctx['btc']['1h']}\n"
             f"ETH 4h: {ctx['eth']['4h']}  |  ETH 1h: {ctx['eth']['1h']}")
 
-def format_setup(x, t):
+def format_setup(x, t, ctx=None):
+    """Readable Telegram alert layout; strategy/scoring calculations stay unchanged."""
     tp = tp_levels(x)
-    phase_title = ('🟡 *ERKEN KIRILIM PLANI*' if x['phase']=='PRE_BREAKOUT'
-                   else '🟢 *KIRILIM TEYİTLİ GİRİŞ ADAYI*')
-    risk_pct = abs(x['entry']-x['stop']) / max(abs(x['entry']), 1e-12) * 100.0
-    tp1_pct = (tp['TP1']['price']/x['entry']-1)*100 if x['direction']=='LONG' else (1-tp['TP1']['price']/x['entry'])*100
-    tp3_pct = (tp['TP3']['price']/x['entry']-1)*100 if x['direction']=='LONG' else (1-tp['TP3']['price']/x['entry'])*100
-    entry_text = (f"*Giriş koşulu:* {x['trigger']:.8g} — 15 dk mum bu seviyenin ötesinde kapanıp teyit etmeli"
-                  if x['phase']=='PRE_BREAKOUT' else
-                  f"*Referans giriş:* {x['entry']:.8g} — kapanmış kırılım mumu; anlık fiyat farklı olabilir")
+    if not tp:
+        return f"⚠️ {x['symbol']}: risk/stop hesaplanamadığı için plan oluşturulamadı."
+
+    is_long = x['direction'] == 'LONG'
+    side_emoji = '🟢' if is_long else '🔴'
+    side_arrow = '↗️' if is_long else '↘️'
+    phase_label = ('🟡 TETİK BEKLENİYOR · erken kırılım planı'
+                   if x['phase'] == 'PRE_BREAKOUT'
+                   else '✅ KIRILIM TEYİTLİ · yeni kırılım')
+
+    # This is the price's directional progress relative to the existing trigger,
+    # not a separate signal score and not proof of a retest by itself.
+    trigger = float(x['trigger'])
+    ref = float(x['reference_price'])
+    if trigger > 0:
+        level_progress = ((ref / trigger) - 1.0) * 100.0
+        if not is_long:
+            level_progress *= -1.0
+    else:
+        level_progress = 0.0
+
+    atr = max(float(x.get('atr', 0.0) or 0.0), 0.0)
+    zone_pad = 0.10 * atr
+    zone_low = max(float(x['entry']) - zone_pad, 0.0)
+    zone_high = float(x['entry']) + zone_pad
+    stop_signed_pct = (float(x['stop']) / max(float(x['entry']), 1e-12) - 1.0) * 100.0
+
+    def target_pct(price):
+        return ((float(price) / float(x['entry'])) - 1.0) * 100.0
+
+    tp1_pct = target_pct(tp['TP1']['price'])
+    tp2_pct = target_pct(tp['TP2']['price'])
+    tp3_pct = target_pct(tp['TP3']['price'])
+
+    if ctx:
+        btc_1h, btc_4h = ctx['btc'].get('1h', 'NÖTR'), ctx['btc'].get('4h', 'NÖTR')
+        eth_1h, eth_4h = ctx['eth'].get('1h', 'NÖTR'), ctx['eth'].get('4h', 'NÖTR')
+    else:
+        btc_1h = btc_4h = eth_1h = eth_4h = 'BİLİNMİYOR'
+
+    def trend_icon(value):
+        return '🟢' if value == 'BULLISH' else '🔴' if value == 'BEARISH' else '⚪'
+
+    if is_long:
+        commentary = ('Fiyatın yukarı yönlü kurulumu izleniyor. Giriş bölgesi ve tetik kapanışı takip edilmeli.'
+                      if x['phase'] == 'PRE_BREAKOUT' else
+                      'Yukarı yönlü kırılım kapanışla görüldü. Güncel fiyatın giriş planından uzaklaşmadığı kontrol edilmeli.')
+    else:
+        commentary = ('Fiyatın aşağı yönlü kurulumu izleniyor. Giriş bölgesi ve tetik kapanışı takip edilmeli.'
+                      if x['phase'] == 'PRE_BREAKOUT' else
+                      'Aşağı yönlü kırılım kapanışla görüldü. Güncel fiyatın giriş planından uzaklaşmadığı kontrol edilmeli.')
+
     mc = x.get('market_cap_label', 'bilinmiyor')
     threshold = x.get('alert_threshold', 90)
     return '\n'.join([
-        phase_title,
-        f"*{x['symbol']} — {x['direction']}* | *BÜTÜNSEL SKOR: {x['score']:.1f}/100*",
-        f"Market-cap: {mc} | Gerekli skor: {threshold:.0f}+ | 24s vadeli hacim: {x.get('quote_volume_24h',0):,.0f} USDT",
-        f"*Referans kapanış:* {x['reference_price']:.8g}",
-        entry_text,
-        f"*Stop:* {x['stop']:.8g} (girişten yaklaşık %{risk_pct:.2f})",
-        f"*Hedefler:* TP1 {tp['TP1']['price']:.8g} ({tp1_pct:+.2f}%) | TP2 {tp['TP2']['price']:.8g} | TP3 {tp['TP3']['price']:.8g} ({tp3_pct:+.2f}%)",
-        f"*Yakın destek / direnç:* {x['local_support']:.8g} / {x['local_resistance']:.8g}",
-        f"*Geniş destek / direnç:* {x['support']:.8g} / {x['resistance']:.8g}",
-        f"*Piyasa bağlamına göre fark:* 1s {x['relative_1h']:+.2f} puan | 4s {x['relative_4h']:+.2f} puan",
-        f"*Durum:* {'Kapanışla kırılım görüldü' if x['phase']=='BREAKOUT_STARTED' else 'Kırılım henüz teyit edilmedi; koşul bekleniyor'}",
-        'Skor; yön, trend, mum/hacim, göreceli güç, giriş konumu ve hedefe kalan alanı tek puanda birleştirir.',
-        '⚠️ Bu bir analiz planıdır; otomatik emir gönderilmez. Referans fiyat ile güncel fiyat farklı olabilir.'
+        '━━━━━━━━━━━━━━━━━━',
+        f"{side_emoji} *{x['symbol']}  |  {x['direction']} {side_arrow}*",
+        f"⏱️ *Zaman dilimi:* 15 dk giriş teyidi · 1s / 4s analiz",
+        phase_label,
+        '',
+        '📊 *1. PİYASA YÖNÜ*',
+        f"{trend_icon(btc_1h)} *BTC:* {btc_1h} (1s)  |  {trend_icon(btc_4h)} {btc_4h} (4s)",
+        f"{trend_icon(eth_1h)} *ETH:* {eth_1h} (1s)  |  {trend_icon(eth_4h)} {eth_4h} (4s)",
+        '',
+        '📈 *2. ANALİZ SONUCU*',
+        f"🏆 *Bütünsel skor:* {x['score']:.1f}/100  |  Eşik: {threshold:.0f}+",
+        f"🔁 *Retest / seviye durumu:* {('KIRILIM TEYİTLİ' if x['phase'] == 'BREAKOUT_STARTED' else 'TETİK BEKLENİYOR')}",
+        f"📍 *Tetik seviyesine göre ilerleme:* {level_progress:+.2f}%",
+        f"🏷️ *Piyasa değeri sırası:* {mc}",
+        '',
+        '🎯 *3. GİRİŞ PLANI*',
+        f"💠 *İdeal giriş:* {float(x['entry']):.8g}",
+        f"↔️ *Giriş bölgesi:* {zone_low:.8g} – {zone_high:.8g}",
+        f"🛑 *Stop-loss:* {float(x['stop']):.8g} ({stop_signed_pct:+.2f}%)",
+        f"📏 *Tetik seviyesi:* {trigger:.8g}",
+        '',
+        '💰 *4. KÂR HEDEFLERİ*',
+        f"🟩 *TP1:* {tp['TP1']['price']:.8g} ({tp1_pct:+.2f}%)",
+        f"🟩 *TP2:* {tp['TP2']['price']:.8g} ({tp2_pct:+.2f}%)",
+        f"🟩 *TP3:* {tp['TP3']['price']:.8g} ({tp3_pct:+.2f}%)",
+        '',
+        '📝 *5. KISA YORUM*',
+        commentary,
+        f"Yakın destek/direnç: {float(x['local_support']):.8g} / {float(x['local_resistance']):.8g}",
+        f"Geniş destek/direnç: {float(x['support']):.8g} / {float(x['resistance']):.8g}",
+        '',
+        '⚠️ Bu bir analiz bildirimidir; otomatik emir gönderilmez. Referans kapanış ile anlık fiyat farklı olabilir.',
+        '━━━━━━━━━━━━━━━━━━'
     ])
 
 def send_telegram(text):
@@ -840,7 +905,7 @@ def main():
         qualifying.sort(key=lambda p: p[0]['score'], reverse=True)
         messages.append('🎯 *GİRİŞ SEVİYESİ OLAN ERKEN KIRILIM / YENİ KIRILIM PLANLARI*')
         for x, t in qualifying:
-            messages.append(format_setup(x, t)); messages.append('')
+            messages.append(format_setup(x, t, ctx)); messages.append('')
         messages.append('⚠️ Otomatik emir gönderilmez. Tetik seviyesinin 15 dk kapanış koşulu sağlanmadan plan tetiklenmiş sayılmaz.')
         send_ok = send_telegram('\n'.join(messages))
         print('Telegram işlem planları gönderildi.' if send_ok else 'Telegram bildirimi gönderilemedi; yeni alarm durumu tekrar deneme için korunuyor.')
