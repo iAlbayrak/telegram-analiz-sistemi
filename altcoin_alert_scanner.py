@@ -105,7 +105,11 @@ def add_indicators(df):
     d = c.diff()
     g = d.clip(lower=0).ewm(alpha=1/14, adjust=False).mean()
     loss = (-d.clip(upper=0)).ewm(alpha=1/14, adjust=False).mean()
-    rs = g / loss.replace(0, np.nan); df['rsi'] = 100 - 100/(1+rs)
+    rs = g / loss.replace(0, np.nan)
+    rsi = 100 - 100/(1+rs)
+    rsi = rsi.where(loss > 0, np.where(g > 0, 100.0, 50.0))
+    rsi = rsi.where(g > 0, np.where(loss > 0, 0.0, 50.0))
+    df['rsi'] = rsi
     e12 = c.ewm(span=12, adjust=False).mean(); e26 = c.ewm(span=26, adjust=False).mean()
     df['macd'] = e12 - e26; df['macd_signal'] = df.macd.ewm(span=9, adjust=False).mean()
     pc = c.shift(1)
@@ -117,13 +121,23 @@ def add_indicators(df):
     atrv = tr.ewm(alpha=1/14, adjust=False).mean().replace(0, np.nan)
     pdi = 100*plus.ewm(alpha=1/14, adjust=False).mean()/atrv
     mdi = 100*minus.ewm(alpha=1/14, adjust=False).mean()/atrv
-    dx = 100*(pdi-mdi).abs()/(pdi+mdi).replace(0, np.nan)
+    di_sum = pdi + mdi
+    dx = 100*(pdi-mdi).abs()/di_sum.replace(0, np.nan)
+    dx = dx.where(di_sum > 0, 0.0)
     df['adx'] = dx.ewm(alpha=1/14, adjust=False).mean()
     df['volume_ratio'] = v / v.rolling(20).mean(); df['atr_pct'] = df.atr / c
     return df.dropna().reset_index(drop=True)
 
 def _ohlcv_frame(rows):
-    return pd.DataFrame(rows or [], columns=['timestamp','open','high','low','close','volume'])
+    df = pd.DataFrame(rows or [], columns=['timestamp','open','high','low','close','volume'])
+    if df.empty:
+        return df
+    for col in ('timestamp','open','high','low','close','volume'):
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+    df = df.replace([np.inf, -np.inf], np.nan).dropna(subset=['timestamp','open','high','low','close','volume'])
+    df = df[df['timestamp'] > 0]
+    df = df.sort_values('timestamp').drop_duplicates(subset=['timestamp'], keep='last')
+    return df.reset_index(drop=True)
 
 def _resample_ohlcv(df, rule):
     if df.empty:
@@ -738,7 +752,7 @@ def _validate_plan_geometry(x):
 
 
 def refresh_live_price_and_validate(x):
-    """Refresh ticker just before alert; block chased or materially invalidated entries."""
+    """Refresh price and reject pending triggers already crossed or stale breakouts."""
     try:
         ticker = exchange.fetch_ticker(x['symbol'])
         live = ticker.get('last')
@@ -752,25 +766,31 @@ def refresh_live_price_and_validate(x):
         return False, f'Canlı fiyat kontrolü başarısız: {type(exc).__name__}'
 
     entry = float(x['entry'])
+    trigger = float(x.get('trigger', entry))
     atr = max(float(x.get('atr', 0.0) or 0.0), entry * 0.0001)
     zone_pad = max(0.15 * atr, entry * 0.0010)
-    chase_limit = zone_pad + max(0.05 * atr, entry * 0.0005)
-    invalidation_limit = max(1.0 * atr, entry * 0.008)
-    if x['direction'] == 'LONG':
-        if live > entry + chase_limit:
-            return False, f'Fiyat giriş bölgesini yukarı geçti; kovalamama filtresi (son={_price(live)}, giriş={_price(entry)})'
-        if live < entry - invalidation_limit:
-            return False, f'Fiyat plan seviyesinden fazla aşağıda; kurulum eskidi (son={_price(live)})'
+    # Pending alerts are only useful before the trigger is crossed; wait for the
+    # next closed 15m candle rather than labeling an intrabar cross as pending.
+    if x.get('phase') == 'PRE_BREAKOUT':
+        if x['direction'] == 'LONG' and live >= trigger:
+            return False, 'LONG tetik seviyesi canlı fiyatta aşıldı; 15 dk kapanış teyidi beklenmeli'
+        if x['direction'] == 'SHORT' and live <= trigger:
+            return False, 'SHORT tetik seviyesi canlı fiyatta aşıldı; 15 dk kapanış teyidi beklenmeli'
+        # Do not send a pending setup if it has moved materially away from the level.
+        if abs(live-trigger) > max(EARLY_TRIGGER_MAX_ATR * atr, entry * 0.008):
+            return False, 'Fiyat tetik seviyesinden fazla uzak; kurulum güncelliğini yitirdi'
     else:
-        if live < entry - chase_limit:
-            return False, f'Fiyat giriş bölgesini aşağı geçti; kovalamama filtresi (son={_price(live)}, giriş={_price(entry)})'
-        if live > entry + invalidation_limit:
-            return False, f'Fiyat plan seviyesinden fazla yukarıda; kurulum eskidi (son={_price(live)})'
+        # Confirmed breakout: entry must remain within the displayed entry zone.
+        if abs(live-entry) > zone_pad:
+            return False, f'Kırılım fiyatı giriş bölgesinden çıktı (son={_price(live)}, giriş={_price(entry)})'
+        # If the live price falls back through the trigger, the breakout failed before alert.
+        if x['direction'] == 'LONG' and live < trigger - 0.10*atr:
+            return False, 'LONG kırılımı canlı fiyatta geri verildi'
+        if x['direction'] == 'SHORT' and live > trigger + 0.10*atr:
+            return False, 'SHORT kırılımı canlı fiyatta geri verildi'
 
     x['live_price'] = live
     x['zone_pad'] = zone_pad
-    trigger = float(x.get('trigger', entry))
-    # Negative means price has not yet moved through the trigger in the setup direction.
     raw = ((live / trigger) - 1.0) * 100.0 if trigger > 0 else 0.0
     x['level_progress'] = raw if x['direction'] == 'LONG' else -raw
     x['live_price_checked_at'] = datetime.now(timezone.utc).isoformat(timespec='seconds')
@@ -778,8 +798,8 @@ def refresh_live_price_and_validate(x):
 
 
 def render_signal_card(x, ctx):
-    """Render one compact dark-mode signal card as a PNG for Telegram."""
-    W, H = 1000, 1460
+    """Render a compact, clean green LONG / red SHORT Telegram signal card."""
+    W, H = 1000, 1200
     bg = (10, 15, 25); panel = (19, 29, 43); panel2 = (23, 37, 53)
     white = (239, 244, 250); muted = (166, 181, 198); border = (43, 59, 77)
     green = (24, 190, 111); green_bg = (10, 68, 49)
@@ -788,8 +808,8 @@ def render_signal_card(x, ctx):
     accent = green if x['direction'] == 'LONG' else red
     accent_bg = green_bg if x['direction'] == 'LONG' else red_bg
     im = Image.new('RGB', (W, H), bg); d = ImageDraw.Draw(im)
-    f_title = _font(44, True); f_sub = _font(23); f_section = _font(27, True)
-    f_label = _font(22); f_value = _font(29, True); f_big = _font(52, True)
+    f_title = _font(43, True); f_sub = _font(22); f_section = _font(26, True)
+    f_label = _font(22); f_value = _font(29, True); f_big = _font(50, True)
     f_small = _font(19); f_badge = _font(25, True)
     m = 36
     def card(box, fill=panel, outline=border, radius=22, width=2):
@@ -801,66 +821,61 @@ def render_signal_card(x, ctx):
     def trend_color(v):
         return green if v == 'BULLISH' else red if v == 'BEARISH' else muted
 
-    # Header
-    card((m, 28, W-m, 145), fill=panel, outline=accent, radius=26, width=4)
-    txt((m+28, 48), x['symbol'], f_title)
-    badge = x['direction']
-    badge_box = (W-245, 50, W-m-22, 108)
+    # Header: symbol and direction only; no explanatory paragraph.
+    card((m, 24, W-m, 132), fill=panel, outline=accent, radius=25, width=4)
+    txt((m+26, 43), x['symbol'], f_title)
+    badge_box = (W-250, 43, W-m-20, 100)
     d.rounded_rectangle(badge_box, radius=18, fill=accent_bg, outline=accent, width=2)
-    txt(((badge_box[0]+badge_box[2])//2, 79), ('↗  LONG' if badge == 'LONG' else '↘  SHORT'), f_badge, accent, anchor='mm')
-    phase = 'KIRILIM TEYİTLİ' if x['phase'] == 'BREAKOUT_STARTED' else 'TETİK BEKLENİYOR'
-    txt((m+30, 112), f'15 dk giriş teyidi  ·  {phase}', f_sub, muted)
+    txt(((badge_box[0]+badge_box[2])//2, 71), ('↗  LONG' if x['direction'] == 'LONG' else '↘  SHORT'), f_badge, accent, anchor='mm')
+    txt((m+28, 96), f"Fiyat: {_price(x['live_price'])}", f_sub, muted)
 
-    # BTC / ETH context cards
-    section(174, '1.  PİYASA YÖNÜ')
-    col_gap = 18; cw = (W-2*m-col_gap)//2; top = 220; ch = 176
+    # BTC / ETH context
+    section(154, 'BTC / ETH YÖNÜ')
+    col_gap = 18; cw = (W-2*m-col_gap)//2; top = 195; ch = 135
     for i, name in enumerate(('btc', 'eth')):
         xx = m + i*(cw+col_gap)
-        card((xx, top, xx+cw, top+ch), fill=panel2, radius=20)
-        label = name.upper(); ctx_item = ctx[name]
-        txt((xx+22, top+17), label, f_label, muted)
+        card((xx, top, xx+cw, top+ch), fill=panel2, radius=18)
+        ctx_item = ctx[name]
+        txt((xx+22, top+14), name.upper(), f_label, muted)
         for j, tf in enumerate(('1h','4h')):
-            yy = top+56+j*49
+            yy = top+52+j*38
             val = ctx_item.get(tf, 'NEUTRAL')
             txt((xx+22, yy), tf.upper(), f_small, muted)
-            txt((xx+115, yy-3), val, f_value, trend_color(val))
+            txt((xx+115, yy-4), val, f_value, trend_color(val))
 
-    # Score / setup state
-    section(421, '2.  ANALİZ SONUCU')
-    card((m, 464, W-m, 660), fill=panel, radius=22)
-    txt((m+26, 486), 'BÜTÜNSEL SKOR', f_label, muted)
-    txt((m+25, 518), f"{float(x['score']):.1f}/100", f_big, accent)
-    status = 'KIRILIM TEYİTLİ' if x['phase'] == 'BREAKOUT_STARTED' else 'RETEST / TETİK BEKLENİYOR'
+    # One holistic score + exact trigger distance; percentage is not presented as win probability.
+    section(354, 'ANALİZ SKORU')
+    card((m, 392, W-m, 520), fill=panel, radius=20)
+    txt((m+24, 410), f"{float(x['score']):.1f}/100", f_big, accent)
+    status = 'KIRILIM TEYİTLİ' if x['phase'] == 'BREAKOUT_STARTED' else 'TETİK BEKLENİYOR'
     status_color = accent if x['phase'] == 'BREAKOUT_STARTED' else yellow
-    txt((m+475, 490), 'SEVİYE DURUMU', f_label, muted)
-    txt((m+475, 527), status, _font(22, True), status_color)
+    txt((m+390, 412), status, _font(23, True), status_color)
     prog = float(x.get('level_progress', 0.0))
-    txt((m+475, 578), f'Tetik seviyesine göre: {prog:+.2f}%', f_sub, white)
+    txt((m+390, 463), f'Retest / seviye farkı: {prog:+.2f}%', f_sub, white)
 
-    # Entry plan
-    section(685, '3.  GİRİŞ PLANI')
-    card((m, 730, W-m, 1030), fill=panel, radius=22)
+    # Entry / stop levels
+    section(542, 'GİRİŞ PLANI')
+    card((m, 580, W-m, 838), fill=panel, radius=20)
     entry = float(x['entry']); live = float(x['live_price']); pad = float(x['zone_pad'])
     stop = float(x['stop'])
     stop_pct = ((entry-stop)/entry*100.0) if x['direction']=='LONG' else ((stop-entry)/entry*100.0)
     rows = [
-        ('SON FİYAT KONTROLÜ', _price(live), blue),
         ('İDEAL GİRİŞ', _price(entry), white),
-        ('GİRİŞ BÖLGESİ', f'{_price(max(entry-pad, 1e-12))}  –  {_price(entry+pad)}', white),
-        ('STOP-LOSS', f'{_price(stop)}  ({stop_pct:.2f}% mesafe)', red),
+        ('GİRİŞ BÖLGESİ', f'{_price(max(entry-pad, 1e-12))} – {_price(entry+pad)}', white),
+        ('STOP-LOSS', f'{_price(stop)}  ({stop_pct:.2f}%)', red),
     ]
     for i,(lab,val,col) in enumerate(rows):
-        yy = 748 + i*66
-        if i: d.line((m+24, yy-7, W-m-24, yy-7), fill=border, width=1)
-        txt((m+25, yy+5), lab, f_label, muted)
-        txt((W-m-25, yy+5), val, _font(24 if len(val)<26 else 21, True), col, anchor='ra')
+        yy = 602 + i*78
+        if i: d.line((m+22, yy-9, W-m-22, yy-9), fill=border, width=1)
+        txt((m+24, yy+8), lab, f_label, muted)
+        txt((W-m-24, yy+7), val, _font(25 if len(val)<25 else 21, True), col, anchor='ra')
 
     # Targets
-    section(1055, '4.  KÂR HEDEFLERİ')
-    card((m, 1100, W-m, 1378), fill=panel, radius=22)
+    section(862, 'KÂR HEDEFLERİ')
+    card((m, 900, W-m, 1168), fill=panel, radius=20)
     tps = tp_levels(x)
     for i, lab in enumerate(('TP1','TP2','TP3')):
-        yy = 1120 + i*78
+        yy = 920 + i*78
         if i: d.line((m+22, yy-8, W-m-22, yy-8), fill=border, width=1)
         d.rounded_rectangle((m+22, yy+1, m+122, yy+52), radius=12, fill=accent_bg, outline=accent, width=1)
         txt((m+72, yy+26), lab, f_badge, accent, anchor='mm')
@@ -868,7 +883,6 @@ def render_signal_card(x, ctx):
         move = ((px/entry)-1.0)*100.0
         txt((W-m-25, yy+8), _price(px), f_value, white, anchor='ra')
         txt((W-m-25, yy+42), f'{move:+.2f}%', f_small, accent, anchor='ra')
-    txt((m, 1410), 'MEXC  ·  USDT PERPETUAL  ·  ALTCOIN ALERT SCANNER', f_small, muted)
     out = BytesIO(); im.save(out, format='PNG', optimize=True); out.seek(0)
     return out
 
@@ -1080,7 +1094,7 @@ def main():
                 if key in state: new_state[key] = state[key]
                 else: new_state.pop(key, None)
     else:
-        print('Bu turda yeni plan yok veya plan canlı fiyat / stop-hedef güvenlik kontrolünden geçmedi. Bildirim gönderilmedi.')
+        print('Bu turda gönderilebilir yeni plan yok. Uygun kurulum çıkmaması normaldir; elenen planlar için yukarıdaki SİNYAL ELENDİ nedenlerine bakın. Bildirim gönderilmedi.')
 
     save_state(new_state)
 
