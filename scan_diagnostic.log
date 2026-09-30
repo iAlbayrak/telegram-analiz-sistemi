@@ -1,15 +1,3 @@
-PERP ICP/USDT:USDT        LONG  score= 72.3 rr=0.80 mc=# 501 gate=90 entry=93 gap=46 target=yapısal direnç
-PERP NBISSTOCK/USDT:USDT  LONG  score= 72.2 rr=1.13 mc=# 501 gate=90 entry=93 gap=51 target=yapısal direnç
-SPOT EVT/USDT             AŞAĞI HAREKET   15m=-18.90% 1h=-30.24% 24h=-64.31% vol=16.73x swap=False
-SPOT MODA/USDT            AŞAĞI HAREKET   15m=-17.65% 1h=-30.71% 24h=-45.28% vol=7.60x swap=False
-SPOT MBK/USDT             AŞAĞI HAREKET   15m=-15.09% 1h=-14.67% 24h=+18.32% vol=7.31x swap=False
-SPOT MINT/USDT            AŞAĞI HAREKET   15m=-10.17% 1h=-8.81% 24h=-7.86% vol=3.66x swap=False
-SPOT OKAI/USDT            AŞAĞI HAREKET   15m=-4.26% 1h=-3.67% 24h=-20.34% vol=2.63x swap=False
-SPOT CNPY/USDT            AŞAĞI HAREKET   15m=-0.97% 1h=-3.01% 24h=-13.46% vol=1.63x swap=False
-ERRORS {"IndexError": 2}
-=== 2026-09-29T16:20:44 | BTC4h=NEUTRAL BTC1h=NEUTRAL ETH4h=NEUTRAL ETH1h=NEUTRAL | perp_taranan=164 | en_iyi=NBISSTOCK/USDT:USDT 81.1 | marketcap=unavailable ===
-PERP NBISSTOCK/USDT:USDT  LONG  score= 81.1 rr=0.91 mc=# 501 gate=90 entry=83 gap=77 target=yapısal direnç
-PERP 0G/USDT:USDT         SHORT score= 75.8 rr=4.97 mc=# 501 gate=90 entry=87 gap=10 target=yapısal destek
 PERP NMR/USDT:USDT        LONG  score= 72.8 rr=5.30 mc=# 501 gate=90 entry=93 gap=13 target=yapısal direnç
 PERP ETHFI/USDT:USDT      LONG  score= 72.7 rr=1.24 mc=# 501 gate=90 entry=87 gap=46 target=yapısal direnç
 PERP ZRO/USDT:USDT        LONG  score= 72.6 rr=0.94 mc=# 501 gate=90 entry=87 gap=46 target=yapısal direnç
@@ -497,4 +485,16 @@ PERP AXS/USDT:USDT        LONG  phase=PRE_BREAKOUT     score= 74.1 rr_internal=2
 PERP CXMTSTOCK/USDT:USDT  SHORT phase=BREAKOUT_STARTED score= 74.1 rr_internal=2.95 rel1h=-0.16 rel4h=-0.03 mc=# 501 gate=90 valid=False qv=270499 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
 PERP PENGU/USDT:USDT      LONG  phase=NO_EARLY_SETUP   score= 72.8 rr_internal=2.20 rel1h=+0.56 rel4h=+1.48 mc=# 107 gate=80 valid=False qv=15046883 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
 PERP PROM/USDT:USDT       SHORT phase=PRE_BREAKOUT     score= 72.8 rr_internal=5.07 rel1h=+0.88 rel4h=+0.61 mc=# 260 gate=85 valid=True qv=256212 reject=SKOR/EŞİK
+ERRORS {"ValueError": 3}
+=== 2026-09-30T02:02:08 | BTC4h=NEUTRAL BTC1h=BEARISH ETH4h=NEUTRAL ETH1h=NEUTRAL | perp_taranan=338 | en_iyi=MEW/USDT:USDT 82.4 | marketcap=cache ===
+PERP MEW/USDT:USDT        LONG  phase=BREAKOUT_STARTED score= 82.4 rr_internal=2.20 rel1h=+7.03 rel4h=+2.28 mc=# 451 gate=85 valid=False qv=307320 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP UB/USDT:USDT         LONG  phase=BREAKOUT_STARTED score= 78.5 rr_internal=3.57 rel1h=+2.11 rel4h=+0.14 mc=# 139 gate=80 valid=False qv=435106 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP AEHRSTOCK/USDT:USDT  LONG  phase=PRE_BREAKOUT     score= 76.7 rr_internal=5.31 rel1h=+0.87 rel4h=+0.52 mc=# 501 gate=90 valid=False qv=285547 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP DEEP/USDT:USDT       LONG  phase=PRE_BREAKOUT     score= 76.5 rr_internal=2.20 rel1h=+1.72 rel4h=+2.22 mc=# 385 gate=85 valid=True qv=342073 reject=SKOR/EŞİK
+PERP ROBIN/USDT:USDT      SHORT phase=PRE_BREAKOUT     score= 75.8 rr_internal=2.20 rel1h=-18.10 rel4h=-15.33 mc=# 501 gate=90 valid=True qv=403073 reject=SKOR/EŞİK
+PERP UNITREE/USDT:USDT    SHORT phase=BREAKOUT_STARTED score= 75.2 rr_internal=2.20 rel1h=-1.03 rel4h=+0.06 mc=# 501 gate=90 valid=False qv=370460 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP XPT/USDT:USDT        SHORT phase=NO_EARLY_SETUP   score= 74.8 rr_internal=4.49 rel1h=-0.10 rel4h=+0.66 mc=# 501 gate=90 valid=False qv=505733 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP WIF/USDT:USDT        LONG  phase=PRE_BREAKOUT     score= 74.2 rr_internal=2.20 rel1h=+0.76 rel4h=+1.07 mc=# 176 gate=80 valid=True qv=4640593 reject=SKOR/EŞİK
+PERP AXS/USDT:USDT        LONG  phase=PRE_BREAKOUT     score= 74.1 rr_internal=2.20 rel1h=+0.46 rel4h=+0.71 mc=# 192 gate=80 valid=True qv=1175803 reject=SKOR/EŞİK
+PERP US/USDT:USDT         LONG  phase=NO_EARLY_SETUP   score= 73.2 rr_internal=18.10 rel1h=+6.32 rel4h=-9.06 mc=# 501 gate=90 valid=False qv=920972 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
 ERRORS {"ValueError": 3}
