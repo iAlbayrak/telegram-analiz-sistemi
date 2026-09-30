@@ -1,15 +1,3 @@
-PERP ARK/USDT:USDT        LONG  phase=BREAKOUT_STARTED score= 80.2 rr_internal=2.20 rel1h=+7.94 rel4h=+9.80 mc=# 325 gate=85 valid=True qv=2422499 reject=SKOR/EŞİK
-PERP QNT/USDT:USDT        LONG  phase=BREAKOUT_STARTED score= 78.2 rr_internal=2.20 rel1h=+3.85 rel4h=-3.72 mc=#  39 gate=80 valid=False qv=363717485 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-PERP NIGHT/USDT:USDT      LONG  phase=PRE_BREAKOUT     score= 77.1 rr_internal=2.20 rel1h=+8.00 rel4h=+0.41 mc=# 109 gate=80 valid=True qv=2662695 reject=SKOR/EŞİK
-PERP HBAR/USDT:USDT       LONG  phase=BREAKOUT_STARTED score= 75.1 rr_internal=6.48 rel1h=+0.49 rel4h=+1.38 mc=#  32 gate=80 valid=True qv=93133075 reject=SKOR/EŞİK
-PERP MNT/USDT:USDT        LONG  phase=BREAKOUT_STARTED score= 74.8 rr_internal=2.20 rel1h=+0.13 rel4h=+0.87 mc=#  52 gate=80 valid=True qv=572203 reject=SKOR/EŞİK
-PERP 1000000BABYDOGE/USDT:USDT LONG  phase=PRE_BREAKOUT     score= 74.6 rr_internal=1.09 rel1h=+0.43 rel4h=+0.57 mc=# 501 gate=90 valid=True qv=277759 reject=SKOR/EŞİK
-PERP WIF/USDT:USDT        LONG  phase=PRE_BREAKOUT     score= 74.3 rr_internal=2.20 rel1h=+1.34 rel4h=+2.86 mc=# 171 gate=80 valid=True qv=4887214 reject=SKOR/EŞİK
-PERP SYRUP/USDT:USDT      LONG  phase=NO_EARLY_SETUP   score= 73.2 rr_internal=4.45 rel1h=-0.55 rel4h=+1.11 mc=# 160 gate=80 valid=False qv=2039132 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-PERP ASTER/USDT:USDT      LONG  phase=NO_EARLY_SETUP   score= 72.8 rr_internal=2.20 rel1h=-0.92 rel4h=+1.57 mc=#  71 gate=80 valid=False qv=24246726 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-SPOT QNT/USDT             YUKARI HAREKET  15m=+2.80% 1h=+8.70% 24h=+30.96% vol=3.24x swap=True
-SPOT SOON/USDT            AŞAĞI HAREKET   15m=-3.33% 1h=-4.96% 24h=+32.96% vol=1.73x swap=False
-ERRORS {"ValueError": 3}
 === 2026-09-30T12:02:26 | BTC4h=NEUTRAL BTC1h=NEUTRAL ETH4h=NEUTRAL ETH1h=NEUTRAL | perp_taranan=324 | en_iyi=NOM/USDT:USDT 80.8 | marketcap=cache ===
 PERP NOM/USDT:USDT        LONG  phase=BREAKOUT_STARTED score= 80.8 rr_internal=2.20 rel1h=+3.04 rel4h=+10.09 mc=# 501 gate=90 valid=True qv=391093 reject=SKOR/EŞİK
 PERP SHROOM/USDT:USDT     SHORT phase=PRE_BREAKOUT     score= 80.6 rr_internal=1.06 rel1h=-1.59 rel4h=-4.86 mc=# 501 gate=90 valid=True qv=252020 reject=SKOR/EŞİK
@@ -497,4 +485,16 @@ PERP SYRUP/USDT:USDT      LONG  phase=NO_EARLY_SETUP   score= 71.6 rr_internal=3
 PERP PLUME/USDT:USDT      LONG  phase=BREAKOUT_STARTED score= 71.6 rr_internal=2.20 rel1h=+0.29 rel4h=+0.69 mc=# 488 gate=85 valid=True qv=667002 reject=SKOR/EŞİK
 PERP HK50/USDT:USDT       SHORT phase=NO_EARLY_SETUP   score= 71.6 rr_internal=5.60 rel1h=-0.08 rel4h=+0.39 mc=# 501 gate=90 valid=False qv=271951 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
 PERP TRB/USDT:USDT        LONG  phase=NO_EARLY_SETUP   score= 71.5 rr_internal=2.20 rel1h=-2.49 rel4h=+2.83 mc=# 387 gate=85 valid=False qv=3398152 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+ERRORS {"ValueError": 4}
+=== 2026-09-30T22:59:43 | BTC4h=NEUTRAL BTC1h=NEUTRAL ETH4h=NEUTRAL ETH1h=NEUTRAL | perp_taranan=329 | en_iyi=PHAROS/USDT:USDT 74.3 | marketcap=cache ===
+PERP PHAROS/USDT:USDT     LONG  phase=NO_EARLY_SETUP   score= 74.3 rr_internal=3.14 rel1h=+0.84 rel4h=+1.68 mc=# 501 gate=90 valid=False qv=384728 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP ZRO/USDT:USDT        LONG  phase=BREAKOUT_STARTED score= 74.1 rr_internal=2.31 rel1h=+2.97 rel4h=-2.79 mc=# 198 gate=80 valid=False qv=9945729 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP SOMI/USDT:USDT       LONG  phase=PRE_BREAKOUT     score= 73.6 rr_internal=3.05 rel1h=+1.63 rel4h=-3.90 mc=# 499 gate=85 valid=False qv=454889 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP NICKEL/USDT:USDT     SHORT phase=PRE_BREAKOUT     score= 72.3 rr_internal=2.20 rel1h=+0.29 rel4h=-0.02 mc=# 501 gate=90 valid=True qv=2041340 reject=SKOR/EŞİK
+PERP LITESTOCK/USDT:USDT  LONG  phase=NO_EARLY_SETUP   score= 72.2 rr_internal=3.24 rel1h=-0.41 rel4h=+3.21 mc=# 501 gate=90 valid=False qv=270874 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP LIT/USDT:USDT        LONG  phase=NO_EARLY_SETUP   score= 71.6 rr_internal=4.06 rel1h=+4.62 rel4h=-3.87 mc=#  90 gate=80 valid=False qv=18879255 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP SYRUP/USDT:USDT      LONG  phase=NO_EARLY_SETUP   score= 71.6 rr_internal=3.98 rel1h=-0.62 rel4h=-0.65 mc=# 167 gate=80 valid=False qv=794470 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP PLUME/USDT:USDT      LONG  phase=BREAKOUT_STARTED score= 71.6 rr_internal=2.20 rel1h=+0.29 rel4h=+0.69 mc=# 488 gate=85 valid=True qv=682596 reject=SKOR/EŞİK
+PERP HK50/USDT:USDT       SHORT phase=NO_EARLY_SETUP   score= 71.6 rr_internal=5.60 rel1h=-0.08 rel4h=+0.39 mc=# 501 gate=90 valid=False qv=272680 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP TRB/USDT:USDT        LONG  phase=NO_EARLY_SETUP   score= 71.5 rr_internal=2.20 rel1h=-2.49 rel4h=+2.83 mc=# 387 gate=85 valid=False qv=3461600 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
 ERRORS {"ValueError": 4}
