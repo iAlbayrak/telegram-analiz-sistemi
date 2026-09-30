@@ -1,16 +1,3 @@
-PERP NBISSTOCK/USDT:USDT  LONG  score= 70.4 rr=1.20 mc=# 501 gate=90 entry=93 gap=46 target=yapısal direnç
-PERP BNB/USDT:USDT        SHORT score= 69.8 rr=2.00 mc=# 501 gate=90 entry=71 gap=65 target=kırılım sonrası ATR/R projeksiyonu
-PERP UAI/USDT:USDT        LONG  score= 69.5 rr=0.86 mc=# 501 gate=90 entry=87 gap=32 target=yapısal direnç
-SPOT HBAR/USDT            AŞAĞI HAREKET   15m=-1.76% 1h=-5.88% 24h=-16.65% vol=5.25x swap=True
-ERRORS {"IndexError": 2}
-=== 2026-09-29T17:19:14 | BTC4h=NEUTRAL BTC1h=NEUTRAL ETH4h=NEUTRAL ETH1h=NEUTRAL | perp_taranan=165 | en_iyi=PUMPFUN/USDT:USDT 74.4 | marketcap=coinpaprika ===
-PERP PUMPFUN/USDT:USDT    LONG  phase=NO_EARLY_SETUP   score= 74.4 rr=2.20 mc=# 501 gate=90 ready=22 valid=False entry=87 gap=46
-PERP NIGHT/USDT:USDT      LONG  phase=NO_EARLY_SETUP   score= 73.8 rr=2.20 mc=# 117 gate=80 ready=45 valid=False entry=67 gap=55
-PERP NMR/USDT:USDT        LONG  phase=NO_EARLY_SETUP   score= 71.6 rr=4.02 mc=# 273 gate=85 ready=17 valid=False entry=92 gap=17
-PERP SOONNETWORK/USDT:USDT LONG  phase=PRE_BREAKOUT     score= 70.9 rr=2.20 mc=# 501 gate=90 ready=76 valid=True entry=59 gap=33
-PERP OKTASTOCK/USDT:USDT  LONG  phase=NO_EARLY_SETUP   score= 70.3 rr=2.20 mc=# 501 gate=90 ready=23 valid=False entry=87 gap=51
-PERP SPX/USDT:USDT        SHORT phase=PRE_BREAKOUT     score= 70.2 rr=1.61 mc=# 136 gate=80 ready=46 valid=False entry=90 gap=57
-PERP 0G/USDT:USDT         LONG  phase=NO_EARLY_SETUP   score= 69.7 rr=2.20 mc=# 330 gate=85 ready=17 valid=False entry=87 gap=30
 PERP TWSTSTOCK/USDT:USDT  LONG  phase=NO_EARLY_SETUP   score= 69.3 rr=2.20 mc=# 501 gate=90 ready=22 valid=False entry=87 gap=46
 PERP PHA/USDT:USDT        LONG  phase=NO_EARLY_SETUP   score= 68.8 rr=0.77 mc=# 376 gate=85 ready=45 valid=False entry=92 gap=39
 PERP PLTRSTOCK/USDT:USDT  SHORT phase=NO_EARLY_SETUP   score= 68.6 rr=2.20 mc=# 501 gate=90 ready=52 valid=False entry=80 gap=59
@@ -497,4 +484,17 @@ PERP UAI/USDT:USDT        SHORT phase=BREAKOUT_STARTED score= 73.2 rr_internal=2
 SPOT OKAI/USDT            YUKARI HAREKET  15m=+22.90% 1h=+24.91% 24h=+132.79% vol=3.43x swap=False
 SPOT MBK/USDT             AŞAĞI HAREKET   15m=-5.44% 1h=-6.03% 24h=+36.92% vol=3.28x swap=False
 SPOT KRAFT/USDT           YUKARI HAREKET  15m=+2.08% 1h=+1.72% 24h=-33.94% vol=2.14x swap=False
+ERRORS {"ValueError": 3}
+=== 2026-09-30T03:33:16 | BTC4h=NEUTRAL BTC1h=BEARISH ETH4h=NEUTRAL ETH1h=BEARISH | perp_taranan=327 | en_iyi=UNI/USDT:USDT 79.4 | marketcap=cache ===
+PERP UNI/USDT:USDT        SHORT phase=NO_EARLY_SETUP   score= 79.4 rr_internal=2.37 rel1h=-0.45 rel4h=-0.66 mc=#  27 gate=80 valid=False qv=24691283 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP DEEP/USDT:USDT       LONG  phase=BREAKOUT_STARTED score= 79.4 rr_internal=2.20 rel1h=+0.26 rel4h=+2.22 mc=# 385 gate=85 valid=False qv=340581 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP RARE/USDT:USDT       LONG  phase=PRE_BREAKOUT     score= 78.9 rr_internal=0.70 rel1h=+0.49 rel4h=+4.22 mc=# 501 gate=90 valid=True qv=286191 reject=SKOR/EŞİK
+PERP LONGXIA/USDT:USDT    SHORT phase=PRE_BREAKOUT     score= 78.8 rr_internal=2.20 rel1h=-3.88 rel4h=-1.55 mc=# 501 gate=90 valid=True qv=749772 reject=SKOR/EŞİK
+PERP UB/USDT:USDT         LONG  phase=PRE_BREAKOUT     score= 76.9 rr_internal=4.07 rel1h=+0.26 rel4h=+0.14 mc=# 139 gate=80 valid=True qv=392989 reject=SKOR/EŞİK
+PERP ROBIN/USDT:USDT      SHORT phase=PRE_BREAKOUT     score= 76.7 rr_internal=2.20 rel1h=+4.37 rel4h=-15.33 mc=# 501 gate=90 valid=False qv=405336 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP ZAMA/USDT:USDT       SHORT phase=PRE_BREAKOUT     score= 74.4 rr_internal=2.20 rel1h=-0.44 rel4h=+0.39 mc=# 501 gate=90 valid=True qv=660364 reject=SKOR/EŞİK
+PERP QNT/USDT:USDT        LONG  phase=NO_EARLY_SETUP   score= 74.1 rr_internal=2.20 rel1h=+0.18 rel4h=+0.54 mc=#  41 gate=80 valid=False qv=363316128 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP RIVER/USDT:USDT      SHORT phase=BREAKOUT_STARTED score= 73.6 rr_internal=1.74 rel1h=-0.54 rel4h=+0.28 mc=# 501 gate=90 valid=True qv=1278829 reject=SKOR/EŞİK
+PERP BR/USDT:USDT         SHORT phase=PRE_BREAKOUT     score= 72.7 rr_internal=2.20 rel1h=+0.49 rel4h=+2.28 mc=# 208 gate=85 valid=True qv=2446978 reject=SKOR/EŞİK
+SPOT 龙虾/USDT              AŞAĞI HAREKET   15m=-1.95% 1h=-5.07% 24h=-21.06% vol=1.77x swap=False
 ERRORS {"ValueError": 3}
