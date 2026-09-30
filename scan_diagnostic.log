@@ -1,17 +1,3 @@
-PERP SOXL/USDT:USDT       LONG  score= 75.5 rr=0.88 mc=# 501 gate=90 entry=93 gap=41 target=yapısal direnç
-SPOT KRAFT/USDT           AŞAĞI HAREKET   15m=-5.18% 1h=-16.15% 24h=-9.37% vol=6.10x swap=False
-SPOT BONK/USDT            AŞAĞI HAREKET   15m=-3.60% 1h=-2.31% 24h=+8.19% vol=2.64x swap=False
-SPOT ZEC/USDT             AŞAĞI HAREKET   15m=-2.19% 1h=-3.59% 24h=-8.37% vol=3.82x swap=True
-SPOT CRV/USDT             AŞAĞI HAREKET   15m=-2.67% 1h=-0.69% 24h=+22.21% vol=2.39x swap=True
-SPOT TAO/USDT             AŞAĞI HAREKET   15m=-1.84% 1h=-2.38% 24h=+2.66% vol=2.51x swap=True
-SPOT ETHFI/USDT           AŞAĞI HAREKET   15m=-2.90% 1h=-3.68% 24h=+14.00% vol=1.58x swap=True
-SPOT SUI/USDT             AŞAĞI HAREKET   15m=-1.10% 1h=-2.52% 24h=-0.29% vol=3.49x swap=True
-SPOT DOGE/USDT            AŞAĞI HAREKET   15m=-1.24% 1h=-2.07% 24h=+0.87% vol=2.76x swap=True
-SPOT ADA/USDT             AŞAĞI HAREKET   15m=-1.53% 1h=-2.62% 24h=+0.69% vol=2.11x swap=True
-SPOT AAVE/USDT            AŞAĞI HAREKET   15m=-1.06% 1h=-2.26% 24h=+17.11% vol=2.86x swap=True
-ERRORS {"IndexError": 2}
-=== 2026-09-29T16:00:47 | BTC4h=BULLISH BTC1h=NEUTRAL ETH4h=BULLISH ETH1h=BULLISH | perp_taranan=166 | en_iyi=ZRO/USDT:USDT 86.1 | marketcap=unavailable ===
-PERP ZRO/USDT:USDT        LONG  score= 86.1 rr=0.88 mc=# 501 gate=90 entry=85 gap=81 target=yapısal direnç
 PERP SOONNETWORK/USDT:USDT LONG  score= 84.4 rr=0.37 mc=# 501 gate=90 entry=60 gap=90 target=yapısal direnç
 PERP NEAR/USDT:USDT       LONG  score= 82.3 rr=0.52 mc=# 501 gate=90 entry=83 gap=81 target=yapısal direnç
 PERP FILECOIN/USDT:USDT   LONG  score= 80.0 rr=1.14 mc=# 501 gate=90 entry=93 gap=64 target=yapısal direnç
@@ -497,4 +483,18 @@ PERP LONGXIA/USDT:USDT    SHORT phase=NO_EARLY_SETUP   score= 73.7 rr_internal=2
 PERP ZHIPUSTOCK/USDT:USDT LONG  phase=PRE_BREAKOUT     score= 71.9 rr_internal=4.77 rel1h=+0.84 rel4h=+0.52 mc=# 501 gate=90 valid=True qv=466558 reject=SKOR/EŞİK
 PERP ZRO/USDT:USDT        LONG  phase=NO_EARLY_SETUP   score= 71.4 rr_internal=2.20 rel1h=+5.15 rel4h=+6.46 mc=# 198 gate=80 valid=False qv=5437285 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
 SPOT PAID/USDT            YUKARI HAREKET  15m=+17.23% 1h=+13.09% 24h=-22.95% vol=1.72x swap=True
+ERRORS {"ValueError": 3}
+=== 2026-09-30T01:22:08 | BTC4h=NEUTRAL BTC1h=BEARISH ETH4h=NEUTRAL ETH1h=NEUTRAL | perp_taranan=331 | en_iyi=SILVER/USDT:USDT 83.4 | marketcap=cache ===
+PERP SILVER/USDT:USDT     SHORT phase=BREAKOUT_STARTED score= 83.4 rr_internal=3.13 rel1h=-0.17 rel4h=+0.30 mc=# 501 gate=90 valid=False qv=201603750 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP AEHRSTOCK/USDT:USDT  LONG  phase=PRE_BREAKOUT     score= 82.1 rr_internal=3.78 rel1h=-0.03 rel4h=+0.52 mc=# 501 gate=90 valid=True qv=282460 reject=SKOR/EŞİK
+PERP 1000BONK/USDT:USDT   LONG  phase=PRE_BREAKOUT     score= 80.8 rr_internal=2.63 rel1h=+1.24 rel4h=-1.09 mc=# 501 gate=90 valid=True qv=6380681 reject=SKOR/EŞİK
+PERP XAUT/USDT:USDT       SHORT phase=NO_EARLY_SETUP   score= 80.6 rr_internal=5.52 rel1h=+0.05 rel4h=+0.36 mc=#  85 gate=80 valid=False qv=227725468 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP PAXG/USDT:USDT       SHORT phase=NO_EARLY_SETUP   score= 80.6 rr_internal=5.78 rel1h=+0.05 rel4h=+0.38 mc=#  56 gate=80 valid=False qv=1305922 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP WIF/USDT:USDT        LONG  phase=PRE_BREAKOUT     score= 80.1 rr_internal=2.20 rel1h=+0.76 rel4h=+1.07 mc=# 176 gate=80 valid=True qv=4521235 reject=OK
+PERP XAU/USDT:USDT        SHORT phase=NO_EARLY_SETUP   score= 79.8 rr_internal=5.54 rel1h=+0.04 rel4h=+0.36 mc=# 501 gate=90 valid=False qv=336208506 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP PENGU/USDT:USDT      LONG  phase=BREAKOUT_STARTED score= 78.7 rr_internal=2.20 rel1h=+0.56 rel4h=+1.48 mc=# 107 gate=80 valid=True qv=14770469 reject=SKOR/EŞİK
+PERP ZRO/USDT:USDT        LONG  phase=BREAKOUT_STARTED score= 78.6 rr_internal=2.20 rel1h=+5.15 rel4h=+6.46 mc=# 198 gate=80 valid=True qv=5500074 reject=SKOR/EŞİK
+PERP JUP/USDT:USDT        LONG  phase=BREAKOUT_STARTED score= 77.4 rr_internal=2.20 rel1h=+1.10 rel4h=-0.08 mc=#  83 gate=80 valid=True qv=11496278 reject=SKOR/EŞİK
+SPOT PUMP/USDT            YUKARI HAREKET  15m=+1.95% 1h=+1.95% 24h=+21.71% vol=1.81x swap=False
+SPOT PAID/USDT            YUKARI HAREKET  15m=+2.08% 1h=+14.97% 24h=-17.98% vol=1.53x swap=True
 ERRORS {"ValueError": 3}
