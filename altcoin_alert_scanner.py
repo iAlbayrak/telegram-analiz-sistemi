@@ -42,12 +42,14 @@ süs değil -- doğrudan directional skoruna giriyor (tam hizalıysa tam
 puan, kısmi hizalıysa yarım, ters yönde ise sıfır).
 """
 import os, json, time
-from datetime import datetime
+from io import BytesIO
+from datetime import datetime, timezone
 import ccxt
 import numpy as np
 import pandas as pd
 import requests
 from pathlib import Path
+from PIL import Image, ImageDraw, ImageFont
 
 # ---------------------------------------------------------------------
 # Config
@@ -75,6 +77,8 @@ MIN_SETUP_READINESS = float(os.getenv('MIN_SETUP_READINESS', '65'))
 SLEEP_BETWEEN_COINS  = float(os.getenv('SLEEP_BETWEEN_COINS', '0.02'))
 CANDLE_CACHE = {}  # aynı çalıştırmada aynı sembol/zaman dilimi ikinci kez istenmez
 STATE_FILE           = Path(os.getenv('STATE_FILE', 'alert_state.json'))
+OUTCOME_FILE         = Path(os.getenv('OUTCOME_FILE', 'signal_outcomes.json'))
+MAX_STOP_DISTANCE_PCT = float(os.getenv('MAX_STOP_DISTANCE_PCT', '0.08'))
 DIAG_LOG             = Path(os.getenv('DIAG_LOG_FILE', 'scan_diagnostic.log'))
 DIAG_LOG_MAX_LINES   = 500
 WIDE_STOP_BUFFER_ATR = float(os.getenv('WIDE_STOP_BUFFER_ATR', '0.6'))  # ek "geniş stop" ATR payı
@@ -692,135 +696,278 @@ def is_new_or_upgraded(x, t, state):
     return (TIER_RANK.get(t, 0) > TIER_RANK.get(prev.get('tier'), 0)
             or phase_rank.get(x.get('phase'), 0) > phase_rank.get(prev.get('phase'), 0))
 
-def format_context_header(ctx):
-    flag = '✅ hizalı' if ctx['aligned'] else '⚠️ karışık'
-    bias = ctx['primary_bias']
-    bias_line = ('🟢 Genel yön: YUKARI (BTC öncülüğünde)' if bias=='BULLISH'
-                 else '🔴 Genel yön: AŞAĞI (BTC öncülüğünde)' if bias=='BEARISH'
-                 else '⚪ Genel yön: NÖTR (BTC yatay)')
-    return (f"{bias_line}\n"
-            f"*PİYASA BAĞLAMI* ({flag})\n"
-            f"BTC 4h: {ctx['btc']['4h']}  |  BTC 1h: {ctx['btc']['1h']}\n"
-            f"ETH 4h: {ctx['eth']['4h']}  |  ETH 1h: {ctx['eth']['1h']}")
-
-def format_setup(x, t, ctx=None):
-    """Readable Telegram alert layout; strategy/scoring calculations stay unchanged."""
-    tp = tp_levels(x)
-    if not tp:
-        return f"⚠️ {x['symbol']}: risk/stop hesaplanamadığı için plan oluşturulamadı."
-
-    is_long = x['direction'] == 'LONG'
-    side_emoji = '🟢' if is_long else '🔴'
-    side_arrow = '↗️' if is_long else '↘️'
-    phase_label = ('🟡 TETİK BEKLENİYOR · erken kırılım planı'
-                   if x['phase'] == 'PRE_BREAKOUT'
-                   else '✅ KIRILIM TEYİTLİ · yeni kırılım')
-
-    # This is the price's directional progress relative to the existing trigger,
-    # not a separate signal score and not proof of a retest by itself.
-    trigger = float(x['trigger'])
-    ref = float(x['reference_price'])
-    if trigger > 0:
-        level_progress = ((ref / trigger) - 1.0) * 100.0
-        if not is_long:
-            level_progress *= -1.0
-    else:
-        level_progress = 0.0
-
-    atr = max(float(x.get('atr', 0.0) or 0.0), 0.0)
-    zone_pad = 0.10 * atr
-    zone_low = max(float(x['entry']) - zone_pad, 0.0)
-    zone_high = float(x['entry']) + zone_pad
-    stop_signed_pct = (float(x['stop']) / max(float(x['entry']), 1e-12) - 1.0) * 100.0
-
-    def target_pct(price):
-        return ((float(price) / float(x['entry'])) - 1.0) * 100.0
-
-    tp1_pct = target_pct(tp['TP1']['price'])
-    tp2_pct = target_pct(tp['TP2']['price'])
-    tp3_pct = target_pct(tp['TP3']['price'])
-
-    if ctx:
-        btc_1h, btc_4h = ctx['btc'].get('1h', 'NÖTR'), ctx['btc'].get('4h', 'NÖTR')
-        eth_1h, eth_4h = ctx['eth'].get('1h', 'NÖTR'), ctx['eth'].get('4h', 'NÖTR')
-    else:
-        btc_1h = btc_4h = eth_1h = eth_4h = 'BİLİNMİYOR'
-
-    def trend_icon(value):
-        return '🟢' if value == 'BULLISH' else '🔴' if value == 'BEARISH' else '⚪'
-
-    if is_long:
-        commentary = ('Fiyatın yukarı yönlü kurulumu izleniyor. Giriş bölgesi ve tetik kapanışı takip edilmeli.'
-                      if x['phase'] == 'PRE_BREAKOUT' else
-                      'Yukarı yönlü kırılım kapanışla görüldü. Güncel fiyatın giriş planından uzaklaşmadığı kontrol edilmeli.')
-    else:
-        commentary = ('Fiyatın aşağı yönlü kurulumu izleniyor. Giriş bölgesi ve tetik kapanışı takip edilmeli.'
-                      if x['phase'] == 'PRE_BREAKOUT' else
-                      'Aşağı yönlü kırılım kapanışla görüldü. Güncel fiyatın giriş planından uzaklaşmadığı kontrol edilmeli.')
-
-    mc = x.get('market_cap_label', 'bilinmiyor')
-    threshold = x.get('alert_threshold', 90)
-    return '\n'.join([
-        '━━━━━━━━━━━━━━━━━━',
-        f"{side_emoji} *{x['symbol']}  |  {x['direction']} {side_arrow}*",
-        f"⏱️ *Zaman dilimi:* 15 dk giriş teyidi · 1s / 4s analiz",
-        phase_label,
-        '',
-        '📊 *1. PİYASA YÖNÜ*',
-        f"{trend_icon(btc_1h)} *BTC:* {btc_1h} (1s)  |  {trend_icon(btc_4h)} {btc_4h} (4s)",
-        f"{trend_icon(eth_1h)} *ETH:* {eth_1h} (1s)  |  {trend_icon(eth_4h)} {eth_4h} (4s)",
-        '',
-        '📈 *2. ANALİZ SONUCU*',
-        f"🏆 *Bütünsel skor:* {x['score']:.1f}/100  |  Eşik: {threshold:.0f}+",
-        f"🔁 *Retest / seviye durumu:* {('KIRILIM TEYİTLİ' if x['phase'] == 'BREAKOUT_STARTED' else 'TETİK BEKLENİYOR')}",
-        f"📍 *Tetik seviyesine göre ilerleme:* {level_progress:+.2f}%",
-        f"🏷️ *Piyasa değeri sırası:* {mc}",
-        '',
-        '🎯 *3. GİRİŞ PLANI*',
-        f"💠 *İdeal giriş:* {float(x['entry']):.8g}",
-        f"↔️ *Giriş bölgesi:* {zone_low:.8g} – {zone_high:.8g}",
-        f"🛑 *Stop-loss:* {float(x['stop']):.8g} ({stop_signed_pct:+.2f}%)",
-        f"📏 *Tetik seviyesi:* {trigger:.8g}",
-        '',
-        '💰 *4. KÂR HEDEFLERİ*',
-        f"🟩 *TP1:* {tp['TP1']['price']:.8g} ({tp1_pct:+.2f}%)",
-        f"🟩 *TP2:* {tp['TP2']['price']:.8g} ({tp2_pct:+.2f}%)",
-        f"🟩 *TP3:* {tp['TP3']['price']:.8g} ({tp3_pct:+.2f}%)",
-        '',
-        '📝 *5. KISA YORUM*',
-        commentary,
-        f"Yakın destek/direnç: {float(x['local_support']):.8g} / {float(x['local_resistance']):.8g}",
-        f"Geniş destek/direnç: {float(x['support']):.8g} / {float(x['resistance']):.8g}",
-        '',
-        '⚠️ Bu bir analiz bildirimidir; otomatik emir gönderilmez. Referans kapanış ile anlık fiyat farklı olabilir.',
-        '━━━━━━━━━━━━━━━━━━'
+def _font(size, bold=False):
+    candidates = ([
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+        '/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf',
+    ] if bold else [
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        '/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf',
     ])
+    for name in candidates:
+        if Path(name).exists():
+            try: return ImageFont.truetype(name, size=size)
+            except Exception: pass
+    return ImageFont.load_default()
 
-def send_telegram(text):
+
+def _price(value):
+    return f'{float(value):.8g}'
+
+
+def _validate_plan_geometry(x):
+    """Reject inverted/implausibly wide plans before considering a live alert."""
+    entry, stop, target = float(x['entry']), float(x['stop']), float(x['target'])
+    if not all(np.isfinite(v) and v > 0 for v in (entry, stop, target)):
+        return False, 'Giriş/stop/hedef fiyatı geçersiz'
+    if x['direction'] == 'LONG':
+        if not stop < entry < target:
+            return False, 'LONG stop/hedef geometrisi ters'
+        stop_pct = (entry - stop) / entry
+        rr = (target - entry) / (entry - stop)
+    else:
+        if not target < entry < stop:
+            return False, 'SHORT stop/hedef geometrisi ters'
+        stop_pct = (stop - entry) / entry
+        rr = (entry - target) / (stop - entry)
+    if stop_pct > MAX_STOP_DISTANCE_PCT:
+        return False, f'Stop mesafesi çok geniş (%{stop_pct*100:.2f})'
+    if not np.isfinite(rr) or rr < MIN_CONFIRMED_RR:
+        return False, f'Hedef/stop oranı yetersiz ({rr:.2f})'
+    return True, 'OK'
+
+
+def refresh_live_price_and_validate(x):
+    """Refresh ticker just before alert; block chased or materially invalidated entries."""
+    try:
+        ticker = exchange.fetch_ticker(x['symbol'])
+        live = ticker.get('last')
+        if live is None or not np.isfinite(float(live)) or float(live) <= 0:
+            bid, ask = ticker.get('bid'), ticker.get('ask')
+            if bid and ask: live = (float(bid) + float(ask)) / 2.0
+        live = float(live)
+        if not np.isfinite(live) or live <= 0:
+            return False, 'Canlı fiyat alınamadı'
+    except Exception as exc:
+        return False, f'Canlı fiyat kontrolü başarısız: {type(exc).__name__}'
+
+    entry = float(x['entry'])
+    atr = max(float(x.get('atr', 0.0) or 0.0), entry * 0.0001)
+    zone_pad = max(0.15 * atr, entry * 0.0010)
+    chase_limit = zone_pad + max(0.05 * atr, entry * 0.0005)
+    invalidation_limit = max(1.0 * atr, entry * 0.008)
+    if x['direction'] == 'LONG':
+        if live > entry + chase_limit:
+            return False, f'Fiyat giriş bölgesini yukarı geçti; kovalamama filtresi (son={_price(live)}, giriş={_price(entry)})'
+        if live < entry - invalidation_limit:
+            return False, f'Fiyat plan seviyesinden fazla aşağıda; kurulum eskidi (son={_price(live)})'
+    else:
+        if live < entry - chase_limit:
+            return False, f'Fiyat giriş bölgesini aşağı geçti; kovalamama filtresi (son={_price(live)}, giriş={_price(entry)})'
+        if live > entry + invalidation_limit:
+            return False, f'Fiyat plan seviyesinden fazla yukarıda; kurulum eskidi (son={_price(live)})'
+
+    x['live_price'] = live
+    x['zone_pad'] = zone_pad
+    trigger = float(x.get('trigger', entry))
+    # Negative means price has not yet moved through the trigger in the setup direction.
+    raw = ((live / trigger) - 1.0) * 100.0 if trigger > 0 else 0.0
+    x['level_progress'] = raw if x['direction'] == 'LONG' else -raw
+    x['live_price_checked_at'] = datetime.now(timezone.utc).isoformat(timespec='seconds')
+    return True, 'OK'
+
+
+def render_signal_card(x, ctx):
+    """Render one compact dark-mode signal card as a PNG for Telegram."""
+    W, H = 1000, 1460
+    bg = (10, 15, 25); panel = (19, 29, 43); panel2 = (23, 37, 53)
+    white = (239, 244, 250); muted = (166, 181, 198); border = (43, 59, 77)
+    green = (24, 190, 111); green_bg = (10, 68, 49)
+    red = (242, 76, 91); red_bg = (82, 25, 38)
+    blue = (92, 165, 255); yellow = (246, 190, 70)
+    accent = green if x['direction'] == 'LONG' else red
+    accent_bg = green_bg if x['direction'] == 'LONG' else red_bg
+    im = Image.new('RGB', (W, H), bg); d = ImageDraw.Draw(im)
+    f_title = _font(44, True); f_sub = _font(23); f_section = _font(27, True)
+    f_label = _font(22); f_value = _font(29, True); f_big = _font(52, True)
+    f_small = _font(19); f_badge = _font(25, True)
+    m = 36
+    def card(box, fill=panel, outline=border, radius=22, width=2):
+        d.rounded_rectangle(box, radius=radius, fill=fill, outline=outline, width=width)
+    def txt(pos, text, font, fill=white, anchor=None):
+        d.text(pos, str(text), font=font, fill=fill, anchor=anchor)
+    def section(y, label):
+        txt((m+2, y), label, f_section, white)
+    def trend_color(v):
+        return green if v == 'BULLISH' else red if v == 'BEARISH' else muted
+
+    # Header
+    card((m, 28, W-m, 145), fill=panel, outline=accent, radius=26, width=4)
+    txt((m+28, 48), x['symbol'], f_title)
+    badge = x['direction']
+    badge_box = (W-245, 50, W-m-22, 108)
+    d.rounded_rectangle(badge_box, radius=18, fill=accent_bg, outline=accent, width=2)
+    txt(((badge_box[0]+badge_box[2])//2, 79), ('↗  LONG' if badge == 'LONG' else '↘  SHORT'), f_badge, accent, anchor='mm')
+    phase = 'KIRILIM TEYİTLİ' if x['phase'] == 'BREAKOUT_STARTED' else 'TETİK BEKLENİYOR'
+    txt((m+30, 112), f'15 dk giriş teyidi  ·  {phase}', f_sub, muted)
+
+    # BTC / ETH context cards
+    section(174, '1.  PİYASA YÖNÜ')
+    col_gap = 18; cw = (W-2*m-col_gap)//2; top = 220; ch = 176
+    for i, name in enumerate(('btc', 'eth')):
+        xx = m + i*(cw+col_gap)
+        card((xx, top, xx+cw, top+ch), fill=panel2, radius=20)
+        label = name.upper(); ctx_item = ctx[name]
+        txt((xx+22, top+17), label, f_label, muted)
+        for j, tf in enumerate(('1h','4h')):
+            yy = top+56+j*49
+            val = ctx_item.get(tf, 'NEUTRAL')
+            txt((xx+22, yy), tf.upper(), f_small, muted)
+            txt((xx+115, yy-3), val, f_value, trend_color(val))
+
+    # Score / setup state
+    section(421, '2.  ANALİZ SONUCU')
+    card((m, 464, W-m, 660), fill=panel, radius=22)
+    txt((m+26, 486), 'BÜTÜNSEL SKOR', f_label, muted)
+    txt((m+25, 518), f"{float(x['score']):.1f}/100", f_big, accent)
+    status = 'KIRILIM TEYİTLİ' if x['phase'] == 'BREAKOUT_STARTED' else 'RETEST / TETİK BEKLENİYOR'
+    status_color = accent if x['phase'] == 'BREAKOUT_STARTED' else yellow
+    txt((m+475, 490), 'SEVİYE DURUMU', f_label, muted)
+    txt((m+475, 527), status, _font(22, True), status_color)
+    prog = float(x.get('level_progress', 0.0))
+    txt((m+475, 578), f'Tetik seviyesine göre: {prog:+.2f}%', f_sub, white)
+
+    # Entry plan
+    section(685, '3.  GİRİŞ PLANI')
+    card((m, 730, W-m, 1030), fill=panel, radius=22)
+    entry = float(x['entry']); live = float(x['live_price']); pad = float(x['zone_pad'])
+    stop = float(x['stop'])
+    stop_pct = ((entry-stop)/entry*100.0) if x['direction']=='LONG' else ((stop-entry)/entry*100.0)
+    rows = [
+        ('SON FİYAT KONTROLÜ', _price(live), blue),
+        ('İDEAL GİRİŞ', _price(entry), white),
+        ('GİRİŞ BÖLGESİ', f'{_price(max(entry-pad, 1e-12))}  –  {_price(entry+pad)}', white),
+        ('STOP-LOSS', f'{_price(stop)}  ({stop_pct:.2f}% mesafe)', red),
+    ]
+    for i,(lab,val,col) in enumerate(rows):
+        yy = 748 + i*66
+        if i: d.line((m+24, yy-7, W-m-24, yy-7), fill=border, width=1)
+        txt((m+25, yy+5), lab, f_label, muted)
+        txt((W-m-25, yy+5), val, _font(24 if len(val)<26 else 21, True), col, anchor='ra')
+
+    # Targets
+    section(1055, '4.  KÂR HEDEFLERİ')
+    card((m, 1100, W-m, 1378), fill=panel, radius=22)
+    tps = tp_levels(x)
+    for i, lab in enumerate(('TP1','TP2','TP3')):
+        yy = 1120 + i*78
+        if i: d.line((m+22, yy-8, W-m-22, yy-8), fill=border, width=1)
+        d.rounded_rectangle((m+22, yy+1, m+122, yy+52), radius=12, fill=accent_bg, outline=accent, width=1)
+        txt((m+72, yy+26), lab, f_badge, accent, anchor='mm')
+        px = float(tps[lab]['price'])
+        move = ((px/entry)-1.0)*100.0
+        txt((W-m-25, yy+8), _price(px), f_value, white, anchor='ra')
+        txt((W-m-25, yy+42), f'{move:+.2f}%', f_small, accent, anchor='ra')
+    txt((m, 1410), 'MEXC  ·  USDT PERPETUAL  ·  ALTCOIN ALERT SCANNER', f_small, muted)
+    out = BytesIO(); im.save(out, format='PNG', optimize=True); out.seek(0)
+    return out
+
+
+def send_telegram_card(x, ctx):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print('TELEGRAM AYARLI DEĞİL: TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID secret olarak ekleyin.')
         return False
-    # Split only between lines so Telegram Markdown entities such as *bold*
-    # are not cut in half by a fixed-character slice.
-    chunks = []
-    current = ''
-    for line in text.splitlines(keepends=True):
-        if current and len(current) + len(line) > 3500:
-            chunks.append(current)
-            current = ''
-        current += line
-    if current or not chunks:
-        chunks.append(current or text)
-    ok = True
-    for chunk in chunks:
+    image = None
+    try:
+        image = render_signal_card(x, ctx)
+        caption = f"{'🟢' if x['direction']=='LONG' else '🔴'} {x['symbol']} · {x['direction']} · {x['score']:.1f}/100"
+        r = requests.post(
+            f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto',
+            data={'chat_id': TELEGRAM_CHAT_ID, 'caption': caption},
+            files={'photo': ('signal.png', image.getvalue(), 'image/png')}, timeout=25)
+        try: body = r.json()
+        except Exception: body = {}
+        if r.status_code != 200 or not body.get('ok', False):
+            print(f"TELEGRAM GÖNDERİM HATASI: {r.status_code} {str(body or r.text)[:240]}")
+            return False
+        print(f"Telegram görsel bildirimi gönderildi: {x['symbol']} {x['direction']}")
+        return True
+    except Exception as exc:
+        print(f'TELEGRAM GÖNDERİM HATASI: {type(exc).__name__}: {str(exc)[:180]}')
+        return False
+    finally:
+        if image:
+            image.close()
+
+
+def load_outcomes():
+    if not OUTCOME_FILE.exists(): return []
+    try:
+        data = json.loads(OUTCOME_FILE.read_text(encoding='utf-8'))
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def update_signal_outcomes():
+    """Measure first target/stop touch using closed 15m candles; stop wins same-candle ties."""
+    records = load_outcomes()
+    now_ms = int(time.time() * 1000)
+    changed = False
+    # Rotate through open signals so outcome tracking cannot overwhelm the scan.
+    open_records = sorted(
+        (r for r in records if r.get('status') == 'OPEN'),
+        key=lambda r: int(r.get('last_checked_ms', 0))
+    )[:25]
+    for rec in open_records:
+        rec['last_checked_ms'] = now_ms
+        changed = True
+        age_ms = now_ms - int(rec.get('signal_ts_ms', now_ms))
+        if age_ms > 72 * 60 * 60 * 1000:
+            rec['status'] = 'EXPIRED'; rec['resolved_at'] = datetime.now(timezone.utc).isoformat(timespec='seconds')
+            changed = True; continue
         try:
-            r = requests.post(f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage',
-                               json={'chat_id':TELEGRAM_CHAT_ID,'text':chunk,'parse_mode':'Markdown'}, timeout=15)
-            if r.status_code != 200:
-                print(f'TELEGRAM HATASI: {r.status_code} {r.text[:200]}'); ok=False
-        except Exception as e:
-            print(f'TELEGRAM GÖNDERİM HATASI: {e}'); ok=False
-    return ok
+            df = candles(rec['symbol'], '15m')
+        except Exception as exc:
+            print(f"SONUÇ TAKİBİ ATLANDI {rec.get('symbol')}: {type(exc).__name__}")
+            continue
+        closed = df.iloc[:-1] if len(df) > 1 else df.iloc[0:0]
+        after = closed[closed['timestamp'].astype('int64') > int(rec.get('signal_ts_ms', 0))]
+        for _, candle in after.iterrows():
+            high, low = float(candle.high), float(candle.low)
+            stop = float(rec['stop']); direction = rec['direction']
+            targets = [float(rec[k]) for k in ('tp1','tp2','tp3')]
+            stop_hit = (low <= stop) if direction == 'LONG' else (high >= stop)
+            hit = [i+1 for i,t in enumerate(targets) if (high >= t if direction == 'LONG' else low <= t)]
+            if stop_hit and hit:
+                rec['status'] = 'STOP_SAME_CANDLE'; rec['resolved_at_ms'] = int(candle.timestamp); changed = True; break
+            if stop_hit:
+                rec['status'] = 'STOP'; rec['resolved_at_ms'] = int(candle.timestamp); changed = True; break
+            if hit:
+                rec['status'] = f'TP{max(hit)}'; rec['resolved_at_ms'] = int(candle.timestamp); changed = True; break
+    if changed:
+        OUTCOME_FILE.write_text(json.dumps(records[-500:], ensure_ascii=False, indent=2), encoding='utf-8')
+    counts = {}
+    for rec in records:
+        counts[rec.get('status','?')] = counts.get(rec.get('status','?'), 0) + 1
+    if records:
+        print('SİNYAL SONUÇ TAKİBİ: ' + ', '.join(f'{k}={v}' for k,v in sorted(counts.items())))
+    return records
+
+
+def record_sent_signal(x):
+    """Persist a sent signal for later outcome measurement."""
+    records = load_outcomes()
+    tps = tp_levels(x)
+    if not tps: return
+    records.append({
+        'symbol': x['symbol'], 'direction': x['direction'], 'score': float(x['score']),
+        'entry': float(x['entry']), 'stop': float(x['stop']),
+        'tp1': float(tps['TP1']['price']), 'tp2': float(tps['TP2']['price']), 'tp3': float(tps['TP3']['price']),
+        'signal_ts_ms': int(time.time()*1000), 'status': 'OPEN'
+    })
+    OUTCOME_FILE.write_text(json.dumps(records[-500:], ensure_ascii=False, indent=2), encoding='utf-8')
+
 
 def write_diagnostic(all_results, ctx, spot_results=None, error_counts=None, source='live'):
     """Keep a bounded log of top perp candidates, spot watch candidates and gate reasons."""
@@ -900,22 +1047,40 @@ def main():
             f"{x['symbol']} {x['direction']} 15m={x['change_15m']:+.1f}% 1h={x['change_1h']:+.1f}%"
             for x in spot_results[:8]))
 
-    messages = [format_context_header(ctx), '']
-    if qualifying:
-        qualifying.sort(key=lambda p: p[0]['score'], reverse=True)
-        messages.append('🎯 *GİRİŞ SEVİYESİ OLAN ERKEN KIRILIM / YENİ KIRILIM PLANLARI*')
-        for x, t in qualifying:
-            messages.append(format_setup(x, t, ctx)); messages.append('')
-        messages.append('⚠️ Otomatik emir gönderilmez. Tetik seviyesinin 15 dk kapanış koşulu sağlanmadan plan tetiklenmiş sayılmaz.')
-        send_ok = send_telegram('\n'.join(messages))
-        print('Telegram işlem planları gönderildi.' if send_ok else 'Telegram bildirimi gönderilemedi; yeni alarm durumu tekrar deneme için korunuyor.')
-        if not send_ok:
-            for x, _t in qualifying:
-                key = f"{x['symbol']}:{x['direction']}"
+    # Resolve prior signals from closed 15m candles before adding this scan's alerts.
+    update_signal_outcomes()
+
+    # Re-check plan geometry and live price immediately before sending; do not chase stale breakouts.
+    sendable = []
+    for x, t in sorted(qualifying, key=lambda p: p[0]['score'], reverse=True):
+        geometry_ok, geometry_reason = _validate_plan_geometry(x)
+        if not geometry_ok:
+            print(f"SİNYAL ELENDİ {x['symbol']} {x['direction']}: {geometry_reason}")
+            key = f"{x['symbol']}:{x['direction']}"
+            if key in state: new_state[key] = state[key]
+            else: new_state.pop(key, None)
+            continue
+        live_ok, live_reason = refresh_live_price_and_validate(x)
+        if not live_ok:
+            print(f"SİNYAL ELENDİ {x['symbol']} {x['direction']}: {live_reason}")
+            key = f"{x['symbol']}:{x['direction']}"
+            if key in state: new_state[key] = state[key]
+            else: new_state.pop(key, None)
+            continue
+        sendable.append((x,t))
+
+    if sendable:
+        for x, _t in sendable:
+            send_ok = send_telegram_card(x, ctx)
+            key = f"{x['symbol']}:{x['direction']}"
+            if send_ok:
+                record_sent_signal(x)
+            else:
+                print(f"Telegram bildirimi gönderilemedi; tekrar denenebilmesi için alarm durumu geri alınıyor: {x['symbol']}")
                 if key in state: new_state[key] = state[key]
                 else: new_state.pop(key, None)
     else:
-        print('Bu turda bütünsel skor/eşik + güvenli hedef-stop geometrisi + kırılım koşullarının tamamını geçen yeni plan yok. Genel spot izleme bildirimi gönderilmedi.')
+        print('Bu turda yeni plan yok veya plan canlı fiyat / stop-hedef güvenlik kontrolünden geçmedi. Bildirim gönderilmedi.')
 
     save_state(new_state)
 
