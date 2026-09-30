@@ -1,19 +1,3 @@
-PERP ASXSTOCK/USDT:USDT   LONG  phase=BREAKOUT_STARTED score= 72.7 rr_internal=2.20 rel1h=+0.05 rel4h=-1.30 mc=# 501 gate=90 valid=True qv=314482 reject=SKOR/EŞİK
-PERP MOVR/USDT:USDT       LONG  phase=NO_EARLY_SETUP   score= 71.0 rr_internal=2.20 rel1h=-0.38 rel4h=+9.28 mc=# 501 gate=90 valid=False qv=314676 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-PERP US/USDT:USDT         SHORT phase=BREAKOUT_STARTED score= 70.7 rr_internal=2.20 rel1h=-4.21 rel4h=-4.79 mc=# 501 gate=90 valid=True qv=879744 reject=SKOR/EŞİK
-PERP TUT/USDT:USDT        SHORT phase=NO_EARLY_SETUP   score= 70.5 rr_internal=3.25 rel1h=+0.04 rel4h=-1.79 mc=# 501 gate=90 valid=False qv=402332 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-ERRORS {"ValueError": 2}
-=== 2026-09-29T22:57:32 | BTC4h=NEUTRAL BTC1h=NEUTRAL ETH4h=NEUTRAL ETH1h=NEUTRAL | perp_taranan=337 | en_iyi=AEHRSTOCK/USDT:USDT 79.5 | marketcap=cache ===
-PERP AEHRSTOCK/USDT:USDT  LONG  phase=PRE_BREAKOUT     score= 79.5 rr_internal=4.83 rel1h=+0.27 rel4h=-1.42 mc=# 501 gate=90 valid=False qv=284667 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-PERP PHA/USDT:USDT        LONG  phase=PRE_BREAKOUT     score= 78.0 rr_internal=2.20 rel1h=+0.93 rel4h=+3.14 mc=# 376 gate=85 valid=True qv=3213216 reject=SKOR/EŞİK
-PERP MTSISTOCK/USDT:USDT  LONG  phase=PRE_BREAKOUT     score= 75.5 rr_internal=4.22 rel1h=-0.02 rel4h=-0.53 mc=# 501 gate=90 valid=False qv=275062 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-PERP BTW/USDT:USDT        LONG  phase=BREAKOUT_STARTED score= 75.1 rr_internal=2.20 rel1h=+1.08 rel4h=+2.64 mc=#  44 gate=80 valid=True qv=14587281 reject=SKOR/EŞİK
-PERP TOKYOELSTOCK/USDT:USDT SHORT phase=NO_EARLY_SETUP   score= 74.8 rr_internal=7.76 rel1h=+0.41 rel4h=-0.40 mc=# 501 gate=90 valid=False qv=381087 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-PERP OPENAI/USDT:USDT     LONG  phase=PRE_BREAKOUT     score= 73.1 rr_internal=7.85 rel1h=+0.49 rel4h=-2.29 mc=# 501 gate=90 valid=False qv=766821 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-PERP SOFTBANKSTOCK/USDT:USDT SHORT phase=BREAKOUT_STARTED score= 71.6 rr_internal=8.89 rel1h=+0.08 rel4h=-0.59 mc=# 501 gate=90 valid=False qv=281808 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-PERP PAXG/USDT:USDT       SHORT phase=NO_EARLY_SETUP   score= 71.4 rr_internal=3.36 rel1h=+0.21 rel4h=-0.17 mc=#  56 gate=80 valid=False qv=1313158 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-PERP GRASS/USDT:USDT      LONG  phase=NO_EARLY_SETUP   score= 71.3 rr_internal=2.20 rel1h=+0.78 rel4h=+9.91 mc=# 128 gate=80 valid=False qv=12625340 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-PERP MOVR/USDT:USDT       LONG  phase=PRE_BREAKOUT     score= 70.7 rr_internal=2.20 rel1h=-0.38 rel4h=+9.28 mc=# 501 gate=90 valid=False qv=317487 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
 ERRORS {"ValueError": 2}
 === 2026-09-29T23:12:36 | BTC4h=NEUTRAL BTC1h=NEUTRAL ETH4h=NEUTRAL ETH1h=NEUTRAL | perp_taranan=333 | en_iyi=UNITREE/USDT:USDT 86.0 | marketcap=cache ===
 PERP UNITREE/USDT:USDT    SHORT phase=PRE_BREAKOUT     score= 86.0 rr_internal=5.24 rel1h=-0.24 rel4h=-0.63 mc=# 501 gate=90 valid=True qv=319959 reject=SKOR/EŞİK
@@ -497,4 +481,20 @@ PERP RARE/USDT:USDT       LONG  phase=PRE_BREAKOUT     score= 75.9 rr_internal=2
 PERP ROSE/USDT:USDT       LONG  phase=PRE_BREAKOUT     score= 75.8 rr_internal=1.61 rel1h=+0.58 rel4h=+0.74 mc=# 364 gate=85 valid=True qv=563703 reject=SKOR/EŞİK
 SPOT DUST/USDT            YUKARI HAREKET  15m=+28.67% 1h=+62.65% 24h=+146.62% vol=2.45x swap=False
 SPOT MOVR/USDT            YUKARI HAREKET  15m=+5.52% 1h=+14.05% 24h=+100.67% vol=1.82x swap=True
+ERRORS {"ValueError": 3}
+=== 2026-09-30T09:35:18 | BTC4h=NEUTRAL BTC1h=BEARISH ETH4h=NEUTRAL ETH1h=BEARISH | perp_taranan=324 | en_iyi=JST/USDT:USDT 78.0 | marketcap=cache ===
+PERP JST/USDT:USDT        LONG  phase=PRE_BREAKOUT     score= 78.0 rr_internal=2.08 rel1h=+0.35 rel4h=+0.72 mc=#  71 gate=80 valid=True qv=440398 reject=SKOR/EŞİK
+PERP ARK/USDT:USDT        LONG  phase=NO_EARLY_SETUP   score= 75.8 rr_internal=2.20 rel1h=+6.96 rel4h=+9.80 mc=# 411 gate=85 valid=False qv=1049590 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP SUSHI/USDT:USDT      LONG  phase=BREAKOUT_STARTED score= 75.4 rr_internal=2.20 rel1h=+1.60 rel4h=-0.24 mc=# 402 gate=85 valid=True qv=255626 reject=SKOR/EŞİK
+PERP SOONNETWORK/USDT:USDT LONG  phase=PRE_BREAKOUT     score= 75.3 rr_internal=2.20 rel1h=+2.07 rel4h=+9.00 mc=# 501 gate=90 valid=False qv=5426904 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP ESPORTS/USDT:USDT    LONG  phase=NO_EARLY_SETUP   score= 74.5 rr_internal=6.34 rel1h=+0.76 rel4h=-2.63 mc=# 501 gate=90 valid=False qv=689868 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP US30/USDT:USDT       SHORT phase=NO_EARLY_SETUP   score= 74.4 rr_internal=4.62 rel1h=+0.05 rel4h=+0.04 mc=# 501 gate=90 valid=False qv=794149 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP RARE/USDT:USDT       LONG  phase=NO_EARLY_SETUP   score= 74.1 rr_internal=2.20 rel1h=+3.36 rel4h=+1.43 mc=# 501 gate=90 valid=False qv=382893 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP MOVR/USDT:USDT       LONG  phase=PRE_BREAKOUT     score= 73.5 rr_internal=2.20 rel1h=+15.67 rel4h=+33.12 mc=# 501 gate=90 valid=False qv=2134388 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP NIGHT/USDT:USDT      LONG  phase=BREAKOUT_STARTED score= 73.1 rr_internal=2.20 rel1h=+1.93 rel4h=+0.41 mc=# 117 gate=80 valid=True qv=1741780 reject=SKOR/EŞİK
+PERP ETH/USDT:USDT        LONG  phase=BREAKOUT_STARTED score= 72.1 rr_internal=3.71 rel1h=+0.17 rel4h=+0.12 mc=#   2 gate=80 valid=False qv=0 reject=LIKIDITE<250,000 USDT
+SPOT OKAI/USDT            YUKARI HAREKET  15m=+11.94% 1h=+8.16% 24h=+36.04% vol=14.49x swap=False
+SPOT 9BIT/USDT            YUKARI HAREKET  15m=+6.34% 1h=+6.33% 24h=+17.70% vol=1.68x swap=False
+SPOT KRAFT/USDT           YUKARI HAREKET  15m=+2.13% 1h=+4.06% 24h=-23.87% vol=3.99x swap=False
+SPOT PHA/USDT             YUKARI HAREKET  15m=+1.40% 1h=+2.76% 24h=+27.05% vol=1.56x swap=True
 ERRORS {"ValueError": 3}
