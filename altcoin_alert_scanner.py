@@ -950,9 +950,22 @@ def update_signal_outcomes():
         for _, candle in after.iterrows():
             high, low = float(candle.high), float(candle.low)
             stop = float(rec['stop']); direction = rec['direction']
+            entry = float(rec.get('entry', 0.0))
+            # Older records predate activation tracking; preserve their historical
+            # interpretation. New PRE_BREAKOUT alerts must touch entry first.
+            activated = bool(rec.get('activated', True))
+            if not activated:
+                entry_touched = (high >= entry) if direction == 'LONG' else (low <= entry)
+                if not entry_touched:
+                    continue
+                rec['activated'] = True
+                rec['activated_at_ms'] = int(candle.timestamp)
+                changed = True
             targets = [float(rec[k]) for k in ('tp1','tp2','tp3')]
             stop_hit = (low <= stop) if direction == 'LONG' else (high >= stop)
             hit = [i+1 for i,t in enumerate(targets) if (high >= t if direction == 'LONG' else low <= t)]
+            # OHLC candles cannot reveal the intrabar path; count stop-first if
+            # stop and any target were touched in the same candle.
             if stop_hit and hit:
                 rec['status'] = 'STOP_SAME_CANDLE'; rec['resolved_at_ms'] = int(candle.timestamp); changed = True; break
             if stop_hit:
@@ -978,6 +991,9 @@ def record_sent_signal(x):
         'symbol': x['symbol'], 'direction': x['direction'], 'score': float(x['score']),
         'entry': float(x['entry']), 'stop': float(x['stop']),
         'tp1': float(tps['TP1']['price']), 'tp2': float(tps['TP2']['price']), 'tp3': float(tps['TP3']['price']),
+        'phase': x.get('phase', 'BREAKOUT_STARTED'),
+        'trigger': float(x.get('trigger', x['entry'])),
+        'activated': x.get('phase', 'BREAKOUT_STARTED') != 'PRE_BREAKOUT',
         'signal_ts_ms': int(time.time()*1000), 'status': 'OPEN'
     })
     OUTCOME_FILE.write_text(json.dumps(records[-500:], ensure_ascii=False, indent=2), encoding='utf-8')
