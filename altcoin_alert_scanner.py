@@ -58,14 +58,14 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHAT_ID   = os.getenv('TELEGRAM_CHAT_ID', '')
 # Tarama evreni tüm aktif MEXC USDT perpetual marketlerdir.
 # Düşük likiditeli çiftler analiz edilir ancak işlem planı bildirimine geçemez.
-MIN_ALERT_24H_VOLUME = float(os.getenv('MIN_ALERT_24H_VOLUME', '250000'))
+MIN_ALERT_24H_VOLUME = float(os.getenv('MIN_ALERT_24H_VOLUME', '500000'))
 SWAP_QUOTE_VOLUMES = {}
 SWAP_PERCENTAGES = {}
 # Derin analiz, minimum hacmi geçen tüm aktif vadeli çiftlere uygulanır.
 DEEP_SCAN_MAX = int(os.getenv('DEEP_SCAN_MAX', '0'))  # 0 = limit yok
 MIN_SPOT_24H_VOLUME = float(os.getenv('MIN_SPOT_24H_VOLUME', '500000'))
 SPOT_RADAR_MAX_CANDIDATES = int(os.getenv('SPOT_RADAR_MAX_CANDIDATES', '0'))  # 0 = no fixed candidate cap
-MIN_SPOT_DISCOVERY_PERP_VOLUME = float(os.getenv('MIN_SPOT_DISCOVERY_PERP_VOLUME', '100000'))
+MIN_SPOT_DISCOVERY_PERP_VOLUME = float(os.getenv('MIN_SPOT_DISCOVERY_PERP_VOLUME', '250000'))
 SPOT_RELATIVE_MOVER_SHARE = float(os.getenv('SPOT_RELATIVE_MOVER_SHARE', '0.20'))  # dynamic top share, not a fixed % move threshold
 MIN_SPOT_DISCOVERY_1H_MOVE = float(os.getenv('MIN_SPOT_DISCOVERY_1H_MOVE', '2.5'))
 MIN_SPOT_DISCOVERY_VOLUME_RATIO = float(os.getenv('MIN_SPOT_DISCOVERY_VOLUME_RATIO', '1.15'))
@@ -160,35 +160,55 @@ def _resample_ohlcv(df, rule):
     return agg[['timestamp','open','high','low','close','volume']].reset_index(drop=True)
 
 def candles(symbol, timeframe):
-    """Fetch each symbol/timeframe once. If history is short, try a lower-TF resample."""
+    """Fetch candles once; choose fallback by usable indicator rows, not raw row count.
+
+    No synthetic candles are created. A lower-timeframe resample is accepted only
+    when it produces more usable rows than the direct source. If neither source
+    supports the strategy's minimum history, the symbol is explicitly skipped.
+    """
     key = (symbol, timeframe)
     if key in CANDLE_CACHE:
         return CANDLE_CACHE[key].copy()
+
     rows = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=OHLCV_LIMIT)
-    df = _ohlcv_frame(rows)
-    # Fallback also covers sparse 15m history (e.g. newly listed contracts).
+    direct_df = _ohlcv_frame(rows)
+
+    def process_if_usable(raw_df):
+        if raw_df is None or len(raw_df) < 25:
+            return pd.DataFrame()
+        try:
+            return add_indicators(raw_df)
+        except InsufficientCandleDataError:
+            return pd.DataFrame()
+
+    best_raw = direct_df
+    best_result = process_if_usable(direct_df)
+    # The old fallback condition looked only at raw candle count. Rolling-volume
+    # and indicator cleanup can leave <25 usable rows even when raw history >=60.
     fallback = {'4h': ('1h', '4h'), '1h': ('15m', '1h'), '15m': ('5m', '15min')}.get(timeframe)
-    if len(df) < PREFERRED_HISTORY_BARS and fallback:
+    if len(best_result) < 25 and fallback:
         lower_tf, rule = fallback
         try:
-            # Fetch enough lower-timeframe bars to build up to ~200 target bars.
-            # A 220-bar fallback was too short for 15m candles resampled from 5m.
             source_limit = min(1000, OHLCV_LIMIT * {'4h': 4, '1h': 4, '15min': 3}.get(rule, 4))
             lower_rows = exchange.fetch_ohlcv(symbol, timeframe=lower_tf, limit=source_limit)
             lower_df = _ohlcv_frame(lower_rows)
             resampled = _resample_ohlcv(lower_df, rule)
-            if len(resampled) > len(df):
-                print(f'MUM YEDEĞİ {symbol} {timeframe}: {len(df)} doğrudan mum yerine {len(resampled)} adet {lower_tf} verisinden birleştirilmiş mum kullanılıyor.')
-                df = resampled
+            resampled_result = process_if_usable(resampled)
+            if len(resampled_result) > len(best_result):
+                print(f'MUM YEDEĞİ {symbol} {timeframe}: doğrudan kaynakta {len(best_result)} kullanılabilir, {lower_tf} yedeğinde {len(resampled_result)} kullanılabilir gösterge satırı; yedek seçildi.')
+                best_raw, best_result = resampled, resampled_result
+            else:
+                print(f'MUM YEDEĞİ {symbol} {timeframe}: doğrudan={len(best_result)}, {lower_tf} yedeği={len(resampled_result)} kullanılabilir satır; daha iyi kaynak seçildi.')
         except Exception as e:
             print(f'MUM YEDEĞİ BAŞARISIZ {symbol} {timeframe}: {type(e).__name__}: {str(e)[:100]}')
-    if len(df) < 25:
-        raise InsufficientCandleDataError(f'Yetersiz mum verisi: {len(df)} (daha düşük zaman dilimi yedeği de denendi)')
-    result = add_indicators(df)
-    if len(result) < 25:
-        raise InsufficientCandleDataError(f'Yetersiz gösterge sonrası mum verisi: {len(result)} (kaynak mum: {len(df)})')
-    CANDLE_CACHE[key] = result
-    return result.copy()
+
+    if len(best_result) < 25:
+        raise InsufficientCandleDataError(
+            f'Yetersiz gösterge sonrası mum verisi: {len(best_result)} kullanılabilir satır '
+            f'(doğrudan kaynak={len(direct_df)} ham mum); daha düşük zaman dilimi yedeği de denendi'
+        )
+    CANDLE_CACHE[key] = best_result
+    return best_result.copy()
 
 def regime_from_row(x):
     if x.close > x.ema50 > x.ema200 and x.rsi >= 52: return 'BULLISH'
@@ -781,12 +801,21 @@ def save_state(state):
     STATE_FILE.write_text(json.dumps(state, indent=2), encoding='utf-8')
 
 def is_new_or_upgraded(x, t, state):
+    """Alert on a new setup, meaningful upgrade, or a controlled 12h refresh."""
     key = f"{x['symbol']}:{x['direction']}"
     prev = state.get(key)
-    if prev is None: return True
+    if prev is None:
+        return True
     phase_rank = {'PRE_BREAKOUT': 1, 'BREAKOUT_STARTED': 2}
-    return (TIER_RANK.get(t, 0) > TIER_RANK.get(prev.get('tier'), 0)
-            or phase_rank.get(x.get('phase'), 0) > phase_rank.get(prev.get('phase'), 0))
+    if (TIER_RANK.get(t, 0) > TIER_RANK.get(prev.get('tier_at_alert', prev.get('tier')), 0)
+            or phase_rank.get(x.get('phase'), 0) > phase_rank.get(prev.get('phase_at_alert', prev.get('phase')), 0)):
+        return True
+    # Compare against the last actually sent score, not the previous scan's score.
+    score_at_alert = float(prev.get('score_at_alert', prev.get('score', x['score'])))
+    if float(x['score']) >= score_at_alert + 5.0:
+        return True
+    last_alert_at = float(prev.get('last_alert_at', 0) or 0)
+    return bool(last_alert_at and time.time() - last_alert_at >= 12 * 3600)
 
 def _font(size, bold=False):
     candidates = ([
@@ -1170,7 +1199,7 @@ def main():
     ctx = market_context()
     print(f"BTC 4h={ctx['btc']['4h']} 1h={ctx['btc']['1h']} | ETH 4h={ctx['eth']['4h']} 1h={ctx['eth']['1h']}")
     all_symbols = list(dict.fromkeys(liquid_usdt_swaps()))
-    state = load_state(); new_state = {}; qualifying = []; all_results = []; error_counts = {}; data_skips = {}
+    state = load_state(); now_ts = int(time.time()); state = {k: v for k, v in state.items() if isinstance(v, dict) and now_ts - int(v.get('last_seen', v.get('last_alert_at', now_ts)) or now_ts) <= 30 * 86400}; new_state = dict(state); qualifying = []; all_results = []; error_counts = {}; data_skips = {}
     market_caps, market_cap_updated_at, market_cap_source = market_cap_rankings()
     print(f'Market-cap kaynağı: {market_cap_source} | eşik: 1-200=>80+, 201-500=>85+, 501+ veya bilinmiyor=>90+')
 
@@ -1223,9 +1252,16 @@ def main():
             if x['alert_eligible'] and rr_ok and setup_ok and liquidity_ok:
                 t = tier(x)
                 key = f"{s}:{x['direction']}"
-                new_state[key] = {'tier':t,'score':x['score'],'phase':x['phase'],
-                                  'market_cap_rank':x['market_cap_rank'],'alert_threshold':x['alert_threshold'],
-                                  'last_seen':int(time.time())}
+                previous = state.get(key, {})
+                new_state[key] = {
+                    'tier': t, 'score': x['score'], 'phase': x['phase'],
+                    'market_cap_rank': x['market_cap_rank'], 'alert_threshold': x['alert_threshold'],
+                    'last_seen': int(time.time()),
+                    'last_alert_at': previous.get('last_alert_at', 0),
+                    'score_at_alert': previous.get('score_at_alert', previous.get('score', x['score'])),
+                    'tier_at_alert': previous.get('tier_at_alert', previous.get('tier', t)),
+                    'phase_at_alert': previous.get('phase_at_alert', previous.get('phase', x['phase'])),
+                }
                 if is_new_or_upgraded(x, t, state): qualifying.append((x,t))
         except InsufficientCandleDataError as e:
             data_skips['YETERSIZ_MUM'] = data_skips.get('YETERSIZ_MUM', 0) + 1
@@ -1281,6 +1317,12 @@ def main():
             key = f"{x['symbol']}:{x['direction']}"
             if send_ok:
                 record_sent_signal(x)
+                entry = new_state.setdefault(key, {})
+                entry.update({
+                    'last_alert_at': int(time.time()), 'score_at_alert': float(x['score']),
+                    'tier_at_alert': _t, 'phase_at_alert': x.get('phase'),
+                    'last_seen': int(time.time()),
+                })
             else:
                 print(f"Telegram bildirimi gönderilemedi; tekrar denenebilmesi için alarm durumu geri alınıyor: {x['symbol']}")
                 if key in state: new_state[key] = state[key]
