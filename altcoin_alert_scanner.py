@@ -6,7 +6,7 @@ emir göndermez. Sadece MEXC'nin herkese açık (public) piyasa verisini
 okur ve Telegram'a bildirim gönderir. API anahtarı / hesap bilgisi
 gerektirmez -- sadece TELEGRAM_BOT_TOKEN ve TELEGRAM_CHAT_ID.
 
---- V9: tek bütünsel skor, daha dayanıklı mum yedeği ve sade Telegram planı ---
+--- V10: spot fırsat keşfi + vadeli doğrulama, erken kurulum, kalite filtresi ve kaçırılan fırsat tanısı ---
 
 Üç BAĞIMSIZ eksen var, hiçbiri diğerini beslemiyor / bloklamıyor:
 
@@ -64,7 +64,11 @@ SWAP_PERCENTAGES = {}
 # Derin analiz, minimum hacmi geçen tüm aktif vadeli çiftlere uygulanır.
 DEEP_SCAN_MAX = int(os.getenv('DEEP_SCAN_MAX', '0'))  # 0 = limit yok
 MIN_SPOT_24H_VOLUME = float(os.getenv('MIN_SPOT_24H_VOLUME', '500000'))
-SPOT_RADAR_MAX_CANDIDATES = int(os.getenv('SPOT_RADAR_MAX_CANDIDATES', '12'))
+SPOT_RADAR_MAX_CANDIDATES = int(os.getenv('SPOT_RADAR_MAX_CANDIDATES', '0'))  # 0 = no fixed candidate cap
+MIN_SPOT_DISCOVERY_PERP_VOLUME = float(os.getenv('MIN_SPOT_DISCOVERY_PERP_VOLUME', '100000'))
+SPOT_RELATIVE_MOVER_SHARE = float(os.getenv('SPOT_RELATIVE_MOVER_SHARE', '0.20'))  # dynamic top share, not a fixed % move threshold
+MIN_SPOT_DISCOVERY_1H_MOVE = float(os.getenv('MIN_SPOT_DISCOVERY_1H_MOVE', '2.5'))
+MIN_SPOT_DISCOVERY_VOLUME_RATIO = float(os.getenv('MIN_SPOT_DISCOVERY_VOLUME_RATIO', '1.15'))
 SPOT_WATCH_COOLDOWN_HOURS = float(os.getenv('SPOT_WATCH_COOLDOWN_HOURS', '6'))
 MIN_CONFIRMED_RR = float(os.getenv('MIN_CONFIRMED_RR', '1.8'))
 MIN_DIRECTION_GAP = float(os.getenv('MIN_DIRECTION_GAP', '5'))  # yalnızca çok kararsız yönleri engelleyen emniyet tabanı
@@ -88,6 +92,9 @@ PREFERRED_HISTORY_BARS = 60
 exchange = ccxt.mexc({'enableRateLimit': True, 'options': {'defaultType': 'swap'}})
 spot_exchange = ccxt.mexc({'enableRateLimit': True, 'options': {'defaultType': 'spot'}})
 
+class InsufficientCandleDataError(ValueError):
+    """Market has too little candle history for reliable indicators; skip, do not fabricate."""
+
 def clamp(v, lo=0.0, hi=100.0):
     return max(lo, min(float(v), hi))
 
@@ -97,7 +104,7 @@ def clamp(v, lo=0.0, hi=100.0):
 def add_indicators(df):
     df = df.copy()
     if df.empty or len(df) < 25:
-        raise ValueError(f'Yetersiz mum verisi: {len(df)}')
+        raise InsufficientCandleDataError(f'Yetersiz mum verisi: {len(df)}')
     h, l, c, v = df.high, df.low, df.close, df.volume
     df['ema20'] = c.ewm(span=20, adjust=False).mean()
     df['ema50'] = c.ewm(span=50, adjust=False).mean()
@@ -176,8 +183,10 @@ def candles(symbol, timeframe):
         except Exception as e:
             print(f'MUM YEDEĞİ BAŞARISIZ {symbol} {timeframe}: {type(e).__name__}: {str(e)[:100]}')
     if len(df) < 25:
-        raise ValueError(f'Yetersiz mum verisi: {len(df)} (daha düşük zaman dilimi yedeği de denendi)')
+        raise InsufficientCandleDataError(f'Yetersiz mum verisi: {len(df)} (daha düşük zaman dilimi yedeği de denendi)')
     result = add_indicators(df)
+    if len(result) < 25:
+        raise InsufficientCandleDataError(f'Yetersiz gösterge sonrası mum verisi: {len(result)} (kaynak mum: {len(df)})')
     CANDLE_CACHE[key] = result
     return result.copy()
 
@@ -245,7 +254,7 @@ def select_deep_scan_symbols(all_symbols):
 def market_cap_rankings():
     """Market-cap rank with persistent cache and provider fallbacks.
 
-    Tries CoinGecko first, then CoinPaprika and CoinCap. A provider failure
+    Uses CoinPaprika first, then CoinCap, then CoinGecko as fallback. A provider failure
     never prevents scanning; a previous cache is retained. Unknown ranks use
     the conservative 90+ tier. Symbols with ambiguous duplicate tickers are
     removed rather than assigned a potentially wrong rank.
@@ -263,7 +272,7 @@ def market_cap_rankings():
         return cache, cache_ts, 'cache'
 
     providers = []
-    # Provider 1: CoinGecko API (may deny requests from some cloud IP ranges).
+    # CoinGecko API fallback (may deny requests from some cloud IP ranges).
     def get_coingecko():
         out = []
         for page in (1, 2):
@@ -281,7 +290,7 @@ def market_cap_rankings():
                        for x in rows if x.get('symbol') and x.get('market_cap_rank'))
         return out
 
-    # Provider 2: CoinPaprika public tickers; ranks are supplied by the API.
+    # CoinPaprika public tickers; ranks are supplied by the API.
     def get_coinpaprika():
         r = requests.get('https://api.coinpaprika.com/v1/tickers', params={'quotes':'USD'},
                          timeout=25, headers={'accept':'application/json','user-agent':'altcoin-alert-scanner/5.0'})
@@ -291,7 +300,7 @@ def market_cap_rankings():
         return [(str(x.get('symbol') or '').upper(), int(x['rank']))
                 for x in rows if x.get('symbol') and x.get('rank') and int(x['rank']) > 0 and int(x['rank']) <= 500]
 
-    # Provider 3: CoinCap assets endpoint as a separate fallback.
+    # CoinCap assets endpoint as a separate fallback.
     def get_coincap():
         r = requests.get('https://api.coincap.io/v2/assets', params={'limit':500},
                          timeout=20, headers={'accept':'application/json','user-agent':'altcoin-alert-scanner/5.0'})
@@ -442,7 +451,7 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
     atr_pct = float(c.atr_pct)
     local = df15.iloc[-22:-2]
     if len(local) < 10:
-        raise ValueError('Yeterli kapalı mum yok: yapı seviyeleri hesaplanamadı')
+        raise InsufficientCandleDataError('Yeterli kapalı mum yok: yapı seviyeleri hesaplanamadı')
     local_res = float(local.high.max())
     local_sup = float(local.low.min())
     L = _directional_score(df4,df1,df15,ctx,'LONG',symbol_key)
@@ -617,10 +626,10 @@ def spot_quote_volume(ticker):
     except (TypeError, ValueError): return 0.0
 
 def spot_early_radar(swap_symbols, market_caps):
-    """Independent spot discovery layer. It emits WATCH alerts, never trade orders.
+    """Spot is a discovery layer; only the matched perpetual setup can alert.
 
-    Selects a blend of high-volume and high-24h-move spot pairs, then checks
-    closed 15m/1h candles for aligned momentum and relative volume.
+    Return reviewed candidates as well as active momentum flags, so a large 24h
+    mover is still sent to perpetual analysis even if its 15m momentum paused.
     """
     try:
         markets = spot_exchange.load_markets()
@@ -634,25 +643,68 @@ def spot_early_radar(swap_symbols, market_caps):
         if not (m.get('active') and m.get('spot') and m.get('quote') == 'USDT'):
             continue
         base = str(m.get('base') or sym.split('/')[0]).upper()
-        if base in stable_bases: continue
+        if base in stable_bases:
+            continue
         t = tickers.get(sym) or {}
         qv = spot_quote_volume(t)
-        if qv < MIN_SPOT_24H_VOLUME: continue
-        try: pct = float(t.get('percentage') or 0.0)
-        except (TypeError, ValueError): pct = 0.0
-        pool.append({'symbol':sym,'base':base,'quote_volume':qv,'pct24':pct,'last':float(t.get('last') or 0)})
-    # Avoid scanning every spot pair: blend the most active pairs with the
-    # strongest movers so early movers and already-visible movers both appear.
-    by_move = sorted(pool, key=lambda x: abs(x['pct24']), reverse=True)[:25]
-    by_volume = sorted(pool, key=lambda x: x['quote_volume'], reverse=True)[:25]
-    selected = {x['symbol']:x for x in by_move + by_volume}
-    candidates = sorted(selected.values(), key=lambda x: (abs(x['pct24']), x['quote_volume']), reverse=True)[:SPOT_RADAR_MAX_CANDIDATES]
+        if qv < MIN_SPOT_24H_VOLUME:
+            continue
+        try:
+            pct = float(t.get('percentage') or 0.0)
+            last = float(t.get('last') or 0.0)
+        except (TypeError, ValueError):
+            continue
+        if not np.isfinite(pct) or not np.isfinite(last) or last <= 0:
+            continue
+        pool.append({'symbol':sym,'base':base,'quote_volume':qv,'pct24':pct,'last':last})
+
+    # Every spot USDT pair above the spot-liquidity floor is checked; there is
+    # no fixed 40-coin cap. A nonzero env override can cap OHLCV work if needed.
+    by_move = sorted(pool, key=lambda x: abs(x['pct24']), reverse=True)
+    mover_count = max(1, int(np.ceil(len(by_move) * clamp(SPOT_RELATIVE_MOVER_SHARE, 0.05, 1.0)))) if by_move else 0
+    relative_mover_symbols = {x['symbol'] for x in by_move[:mover_count]}
+    if SPOT_RADAR_MAX_CANDIDATES > 0 and len(pool) > SPOT_RADAR_MAX_CANDIDATES:
+        by_volume = sorted(pool, key=lambda x: x['quote_volume'], reverse=True)
+        limit = SPOT_RADAR_MAX_CANDIDATES
+        move_quota = (limit + 1) // 2
+        volume_quota = limit // 2
+        selected = {x['symbol']:x for x in by_move[:move_quota] + by_volume[:volume_quota]}
+        if len(selected) < limit:
+            for item in sorted(pool, key=lambda x: (abs(x['pct24']), x['quote_volume']), reverse=True):
+                selected.setdefault(item['symbol'], item)
+                if len(selected) >= limit:
+                    break
+        candidates = list(selected.values())[:limit]
+    else:
+        candidates = sorted(pool, key=lambda x: (abs(x['pct24']), x['quote_volume']), reverse=True)
     out = []
     for item in candidates:
         sym = item['symbol']
         try:
-            d15 = add_indicators(pd.DataFrame(spot_exchange.fetch_ohlcv(sym, timeframe='15m', limit=OHLCV_LIMIT), columns=['timestamp','open','high','low','close','volume']))
-            if len(d15) < 10: continue
+            rows = spot_exchange.fetch_ohlcv(sym, timeframe='15m', limit=OHLCV_LIMIT)
+            raw = _ohlcv_frame(rows)
+            if len(raw) < 60:
+                print(f'SPOT RADAR VERİ ATLANDI {sym}: yetersiz 15m mum ({len(raw)}; en az 60 gerekli); ticker hareketi keşif için korunuyor.')
+                perp_symbol = next((ps for ps in swap_symbols if ps.split('/')[0].upper() == item['base']), None)
+                perp_qv = float(SWAP_QUOTE_VOLUMES.get(perp_symbol, 0.0)) if perp_symbol else 0.0
+                if sym in relative_mover_symbols:
+                    out.append({
+                        'symbol':sym, 'base':item['base'],
+                        'direction':'YUKARI HAREKET' if item['pct24'] >= 0 else 'AŞAĞI HAREKET',
+                        'price':item['last'], 'change_15m':0.0, 'change_1h':0.0,
+                        'change_24h':item['pct24'], 'volume_ratio':0.0,
+                        'quote_volume':item['quote_volume'],
+                        'market_cap_rank':market_cap_rank_for_symbol(sym, market_caps),
+                        'market_cap_label':market_cap_label_for_symbol(sym, market_caps),
+                        'swap_available':bool(perp_symbol), 'perp_symbol':perp_symbol,
+                        'perp_quote_volume':perp_qv, 'breakout':False,
+                        'momentum_flag':False, 'discovery_candidate':True,
+                        'discovery_reason':'spot göreli 24h hareketli; spot mum geçmişi yetersiz'
+                    })
+                continue
+            d15 = add_indicators(raw)
+            if len(d15) < 10:
+                continue
             c = d15.iloc[-2]
             prev = d15.iloc[-3]
             old1h = d15.iloc[-6]
@@ -660,25 +712,51 @@ def spot_early_radar(swap_symbols, market_caps):
             ch15 = (px/float(prev.close)-1)*100 if prev.close else 0.0
             ch1h = (px/float(old1h.close)-1)*100 if old1h.close else 0.0
             vr = float(c.volume_ratio) if pd.notna(c.volume_ratio) else 0.0
-            # Direction agreement reduces noisy one-candle reversals. Two
-            # routes allow either a steady move or a sharp, volume-backed burst.
             aligned = (ch15 > 0 and ch1h > 0) or (ch15 < 0 and ch1h < 0)
             steady = abs(ch15) >= 0.8 and abs(ch1h) >= 1.8 and vr >= 1.5
             burst = abs(ch15) >= 1.4 and vr >= 2.0
-            if not aligned or not (steady or burst): continue
-            side = 'YUKARI HAREKET' if ch15 > 0 else 'AŞAĞI HAREKET'
-            out.append({'symbol':sym,'base':item['base'],'direction':side,'price':px,
-                        'change_15m':ch15,'change_1h':ch1h,'change_24h':item['pct24'],
-                        'volume_ratio':vr,'quote_volume':item['quote_volume'],
-                        'market_cap_rank':market_cap_rank_for_symbol(sym, market_caps),
-                        'market_cap_label':market_cap_label_for_symbol(sym, market_caps),
-                        'swap_available':sym in swap_symbols or f"{item['base']}/USDT:USDT" in swap_symbols,
-                        'breakout': bool((px > float(d15.iloc[-22:-2].high.max())) if ch15 > 0 else (px < float(d15.iloc[-22:-2].low.min())))})
+            momentum_flag = bool(aligned and (steady or burst))
+            side = 'YUKARI HAREKET' if ch15 >= 0 else 'AŞAĞI HAREKET'
+            local = d15.iloc[-22:-2]
+            local_high = float(local.high.max()) if len(local) else px
+            local_low = float(local.low.min()) if len(local) else px
+            breakout = bool(len(local) and (px > local_high if ch15 >= 0 else px < local_low))
+            atr_pct = float(c.atr_pct) if pd.notna(c.atr_pct) else 0.0
+            near_band = max(0.005, 0.5 * atr_pct)
+            near_high = bool(len(local) and 0 <= (local_high - px) / max(px, 1e-12) <= near_band)
+            near_low = bool(len(local) and 0 <= (px - local_low) / max(px, 1e-12) <= near_band)
+            near_breakout = bool((near_high or near_low) and vr >= 1.0)
+            discovery_flag = bool(
+                momentum_flag
+                or sym in relative_mover_symbols
+                or near_breakout
+                or (abs(ch1h) >= MIN_SPOT_DISCOVERY_1H_MOVE and vr >= MIN_SPOT_DISCOVERY_VOLUME_RATIO)
+            )
+            perp_symbol = next((ps for ps in swap_symbols if ps.split('/')[0].upper() == item['base']), None)
+            perp_qv = float(SWAP_QUOTE_VOLUMES.get(perp_symbol, 0.0)) if perp_symbol else 0.0
+            out.append({
+                'symbol':sym, 'base':item['base'], 'direction':side, 'price':px,
+                'change_15m':ch15, 'change_1h':ch1h, 'change_24h':item['pct24'],
+                'volume_ratio':vr, 'quote_volume':item['quote_volume'],
+                'market_cap_rank':market_cap_rank_for_symbol(sym, market_caps),
+                'market_cap_label':market_cap_label_for_symbol(sym, market_caps),
+                'swap_available':bool(perp_symbol), 'perp_symbol':perp_symbol,
+                'perp_quote_volume':perp_qv, 'breakout':breakout,
+                'momentum_flag':momentum_flag, 'discovery_candidate':discovery_flag,
+                'near_breakout':near_breakout,
+                'discovery_reason':('spot 15m/1h momentum' if momentum_flag else
+                                    'spot göreli 24h hareket' if sym in relative_mover_symbols else
+                                    'yakın kırılım bölgesi' if near_breakout else
+                                    'spot 1h impulse' if abs(ch1h) >= MIN_SPOT_DISCOVERY_1H_MOVE else 'radar only')
+            })
         except Exception as e:
             print(f'SPOT RADAR {sym}: {type(e).__name__}: {e}')
-        time.sleep(0.08)
-    out.sort(key=lambda x: (abs(x['change_15m']) * min(x['volume_ratio'],4), abs(x['change_1h'])), reverse=True)
-    print(f'SPOT RADARI: {len(pool)} likit aday içinden {len(candidates)} mumla kontrol edildi, {len(out)} erken uyarı bulundu.')
+        time.sleep(0.05)
+    out.sort(key=lambda x: (bool(x.get('discovery_candidate')), abs(x['change_24h']),
+                            abs(x['change_1h']) * min(x['volume_ratio'],4)), reverse=True)
+    flagged = sum(1 for x in out if x.get('discovery_candidate'))
+    cap_label = SPOT_RADAR_MAX_CANDIDATES if SPOT_RADAR_MAX_CANDIDATES > 0 else 'yok'
+    print(f'SPOT RADARI: {len(pool)} likit spot USDT çifti bulundu; {len(candidates)} çiftin 15m mumları kontrol edildi (sabit limit={cap_label}); {flagged} vadeli keşif adayı.')
     return out
 
 def format_spot_watch(x):
@@ -955,8 +1033,9 @@ def update_signal_outcomes():
             # interpretation. New PRE_BREAKOUT alerts must touch entry first.
             activated = bool(rec.get('activated', True))
             if not activated:
-                entry_touched = (high >= entry) if direction == 'LONG' else (low <= entry)
-                if not entry_touched:
+                close_price = float(candle.close)
+                entry_confirmed = (close_price >= entry) if direction == 'LONG' else (close_price <= entry)
+                if not entry_confirmed:
                     continue
                 rec['activated'] = True
                 rec['activated_at_ms'] = int(candle.timestamp)
@@ -999,7 +1078,7 @@ def record_sent_signal(x):
     OUTCOME_FILE.write_text(json.dumps(records[-500:], ensure_ascii=False, indent=2), encoding='utf-8')
 
 
-def write_diagnostic(all_results, ctx, spot_results=None, error_counts=None, source='live'):
+def write_diagnostic(all_results, ctx, spot_results=None, error_counts=None, source='live', missed_candidates=None, data_skips=None):
     """Keep a bounded log of top perp candidates, spot watch candidates and gate reasons."""
     stamp = datetime.now().isoformat(timespec='seconds')
     top = sorted(all_results, key=lambda r: r['score'], reverse=True)[:10]
@@ -1010,24 +1089,113 @@ def write_diagnostic(all_results, ctx, spot_results=None, error_counts=None, sou
     for r in top:
         lines.append(f"PERP {r['symbol']:20} {r['direction']:5} phase={r.get('phase','?'):16} score={r['score']:5.1f} rr_internal={r['rr']:.2f} rel1h={r.get('relative_1h',0):+.2f} rel4h={r.get('relative_4h',0):+.2f} mc=#{r.get('market_cap_rank',501):4d} gate={r.get('alert_threshold',90):.0f} valid={r.get('setup_valid',False)} qv={r.get('quote_volume_24h',0):.0f} reject={r.get('gate_reason','')}")
     for r in (spot_results or [])[:10]:
-        lines.append(f"SPOT {r['symbol']:20} {r['direction']:15} 15m={r['change_15m']:+.2f}% 1h={r['change_1h']:+.2f}% 24h={r['change_24h']:+.2f}% vol={r['volume_ratio']:.2f}x swap={r['swap_available']}")
+        lines.append(f"SPOT {r['symbol']:20} {r['direction']:15} 15m={r['change_15m']:+.2f}% 1h={r['change_1h']:+.2f}% 24h={r['change_24h']:+.2f}% vol={r['volume_ratio']:.2f}x swap={r['swap_available']} discovery={r.get('discovery_candidate',False)}")
+    for r in (missed_candidates or [])[:20]:
+        lines.append(f"FIRSAT_KONTROL {r.get('symbol','?'):20} 24h={r.get('change_24h',0):+.2f}% perp_qv={r.get('perp_quote_volume',0):.0f} spot_qv={r.get('spot_quote_volume',0):.0f} score={r.get('score','n/a')} faz={r.get('phase','n/a')} neden={r.get('reason','')}")
+    if data_skips:
+        lines.append('DATA_SKIPS ' + json.dumps(data_skips, ensure_ascii=False, sort_keys=True))
     if error_counts:
         lines.append('ERRORS ' + json.dumps(error_counts, ensure_ascii=False, sort_keys=True))
     existing = DIAG_LOG.read_text(encoding='utf-8').splitlines() if DIAG_LOG.exists() else []
     DIAG_LOG.write_text('\n'.join((existing + lines)[-DIAG_LOG_MAX_LINES:]) + '\n', encoding='utf-8')
 
+
+def collect_missed_candidates(all_symbols, analyzed_symbols, all_results, spot_results):
+    """Record large movers that were not alerted, including scan/liquidity exclusions."""
+    result_by_symbol = {r.get('symbol'): r for r in all_results}
+    spot_by_base = {str(r.get('base','')).upper(): r for r in (spot_results or [])}
+    rows = []
+    for sym in all_symbols:
+        pct = float(SWAP_PERCENTAGES.get(sym, 0.0) or 0.0)
+        qv = float(SWAP_QUOTE_VOLUMES.get(sym, 0.0) or 0.0)
+        base = sym.split('/')[0].upper()
+        spot = spot_by_base.get(base)
+        spot_qv = float(spot.get('quote_volume', 0.0)) if spot else 0.0
+        r = result_by_symbol.get(sym)
+        # Focus the log on meaningful movers, not every low-volume market.
+        notable = abs(pct) >= 8.0 or (abs(pct) >= 5.0 and spot and spot.get('discovery_candidate'))
+        if not notable:
+            continue
+        if r:
+            reason = r.get('gate_reason', 'analiz edildi; sinyal gönderilmedi')
+            if reason == 'OK':
+                reason = 'uygun plan bulunduysa canlı fiyat/tekrar alarm filtresi ayrıca kontrol edilir'
+            rows.append({'symbol':sym,'change_24h':pct,'perp_quote_volume':qv,
+                         'spot_quote_volume':spot_qv,'score':r.get('score'),'phase':r.get('phase'),
+                         'reason':reason})
+        elif sym not in analyzed_symbols:
+            if spot and spot.get('discovery_candidate') and qv < MIN_SPOT_DISCOVERY_PERP_VOLUME:
+                reason = f'spot hareketli fakat vadeli hacim güvenlik tabanının altında (<{MIN_SPOT_DISCOVERY_PERP_VOLUME:.0f})'
+            elif qv < MIN_ALERT_24H_VOLUME:
+                reason = 'detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok'
+            else:
+                reason = 'detaylı analiz listesine girmedi; evren/seçim kontrolü gerekli'
+            rows.append({'symbol':sym,'change_24h':pct,'perp_quote_volume':qv,
+                         'spot_quote_volume':spot_qv,'score':'analiz yok','phase':'n/a','reason':reason})
+    # Also retain major spot movers even when the perpetual ticker's reported
+    # 24h percentage is missing/different; this is the explicit missed-opportunity audit.
+    seen = {r.get('symbol') for r in rows}
+    for spot in (spot_results or []):
+        spot_pct = float(spot.get('change_24h', 0.0) or 0.0)
+        if abs(spot_pct) < 8.0 and not spot.get('discovery_candidate'):
+            continue
+        ps = spot.get('perp_symbol')
+        if not ps or ps in seen:
+            continue
+        perp_qv = float(SWAP_QUOTE_VOLUMES.get(ps, 0.0) or 0.0)
+        result = result_by_symbol.get(ps)
+        if result:
+            reason = result.get('gate_reason', 'analiz edildi; sinyal gönderilmedi')
+            score = result.get('score')
+            phase = result.get('phase')
+        elif perp_qv < MIN_SPOT_DISCOVERY_PERP_VOLUME:
+            reason = f'spot büyük hareket yaptı; vadeli hacim güvenlik tabanının altında (<{MIN_SPOT_DISCOVERY_PERP_VOLUME:.0f})'
+            score, phase = 'analiz yok', 'n/a'
+        elif not spot.get('discovery_candidate'):
+            reason = 'spot 24s hareketi görüldü ancak erken-momentum keşif koşulları oluşmadı'
+            score, phase = 'analiz yok', 'radar koşulu yok'
+        else:
+            reason = 'spot adayı vadeli derin tarama listesinde; sonuç kontrol edilmeli'
+            score, phase = 'analiz yok', 'n/a'
+        rows.append({'symbol':ps,'change_24h':spot_pct,'perp_quote_volume':perp_qv,
+                     'spot_quote_volume':float(spot.get('quote_volume',0.0) or 0.0),
+                     'score':score,'phase':phase,'reason':reason})
+        seen.add(ps)
+    rows.sort(key=lambda r: (abs(float(r.get('change_24h',0))), float(r.get('perp_quote_volume',0))), reverse=True)
+    return rows[:30]
+
+
 def main():
-    print('=== ALTCOIN ALERT SCANNER V9 — TEK BÜTÜNSEL SKOR ===')
+    print('=== ALTCOIN ALERT SCANNER V10 — SPOT KEŞİF + VADELİ DOĞRULAMA ===')
     ctx = market_context()
     print(f"BTC 4h={ctx['btc']['4h']} 1h={ctx['btc']['1h']} | ETH 4h={ctx['eth']['4h']} 1h={ctx['eth']['1h']}")
     all_symbols = list(dict.fromkeys(liquid_usdt_swaps()))
-    symbols = list(dict.fromkeys(select_deep_scan_symbols(all_symbols)))
-    eligible_count = len(symbols)
-    print(f'MEXC aktif USDT vadeli evreni: {len(all_symbols)} benzersiz coin ticker/fiyat-hacim aşamasında tarandı.')
-    print(f'Derin mum analizi: {eligible_count}/{len(all_symbols)} benzersiz coin; minimum 24s vadeli hacim {MIN_ALERT_24H_VOLUME:,.0f} USDT; eşiği geçen listenin tamamı analiz ediliyor.')
-    state = load_state(); new_state = {}; qualifying = []; all_results = []; error_counts = {}
+    state = load_state(); new_state = {}; qualifying = []; all_results = []; error_counts = {}; data_skips = {}
     market_caps, market_cap_updated_at, market_cap_source = market_cap_rankings()
     print(f'Market-cap kaynağı: {market_cap_source} | eşik: 1-200=>80+, 201-500=>85+, 501+ veya bilinmiyor=>90+')
+
+    # Spot discovers unusual movers first; the corresponding perpetual contract
+    # is then analyzed with futures candles and futures prices, never spot prices.
+    spot_results = spot_early_radar(set(all_symbols), market_caps)
+    regular_symbols = select_deep_scan_symbols(all_symbols)
+    spot_discovery_symbols = set()
+    spot_discovery_by_perp = {}
+    for sr in spot_results:
+        ps = sr.get('perp_symbol')
+        if not ps or not sr.get('discovery_candidate'):
+            continue
+        perp_qv = float(SWAP_QUOTE_VOLUMES.get(ps, 0.0))
+        if float(sr.get('quote_volume', 0.0)) < MIN_SPOT_24H_VOLUME:
+            continue
+        if perp_qv < MIN_SPOT_DISCOVERY_PERP_VOLUME:
+            continue
+        spot_discovery_symbols.add(ps)
+        spot_discovery_by_perp[ps] = sr
+    symbols = list(dict.fromkeys(regular_symbols + [s for s in all_symbols if s in spot_discovery_symbols]))
+    eligible_count = len(symbols)
+    extra_count = len(set(symbols) - set(regular_symbols))
+    print(f'MEXC aktif USDT vadeli evreni: {len(all_symbols)} benzersiz sözleşme ticker/fiyat-hacim aşamasında tarandı.')
+    print(f'Derin mum analizi: {eligible_count} sözleşme; normal vadeli hacim eşiği {MIN_ALERT_24H_VOLUME:,.0f} USDT; spot radarıyla eklenen {extra_count} aday (spot hacim >= {MIN_SPOT_24H_VOLUME:,.0f}, vadeli hacim >= {MIN_SPOT_DISCOVERY_PERP_VOLUME:,.0f} USDT; sabit %6 hareket şartı yok).')
 
     def evaluate(s, symbol_key=None):
         try:
@@ -1036,13 +1204,19 @@ def main():
             x['market_cap_rank'] = market_cap_rank_for_symbol(s, market_caps)
             x['market_cap_label'] = market_cap_label_for_symbol(s, market_caps)
             x['quote_volume_24h'] = SWAP_QUOTE_VOLUMES.get(s, 0.0)
+            x['spot_discovered'] = s in spot_discovery_symbols
+            x['spot_discovery_change_24h'] = float(spot_discovery_by_perp.get(s, {}).get('change_24h', 0.0))
             x['alert_eligible'], x['alert_threshold'] = alert_gate_for_rank(x['score'], x['market_cap_rank'])
             all_results.append(x)
             rr_ok = pd.notna(x['rr']) and x['rr'] >= MIN_CONFIRMED_RR
             setup_ok = bool(x.get('setup_valid'))
-            liquidity_ok = x['quote_volume_24h'] >= MIN_ALERT_24H_VOLUME
+            if x['spot_discovered']:
+                spot_qv_ok = float(spot_discovery_by_perp[s].get('quote_volume', 0.0)) >= MIN_SPOT_24H_VOLUME
+                liquidity_ok = spot_qv_ok and x['quote_volume_24h'] >= MIN_SPOT_DISCOVERY_PERP_VOLUME
+            else:
+                liquidity_ok = x['quote_volume_24h'] >= MIN_ALERT_24H_VOLUME
             x['gate_reason'] = ('OK' if x['alert_eligible'] and rr_ok and setup_ok and liquidity_ok else
-                                'LIKIDITE<%s USDT' % f'{MIN_ALERT_24H_VOLUME:,.0f}' if not liquidity_ok else
+                                (f'SPOT KEŞİF LİKİDİTE FİLTRESİ (spot>={MIN_SPOT_24H_VOLUME:,.0f}, vadeli>={MIN_SPOT_DISCOVERY_PERP_VOLUME:,.0f})' if x.get('spot_discovered') else f'LIKIDITE<{MIN_ALERT_24H_VOLUME:,.0f} USDT') if not liquidity_ok else
                                 'ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ' if not setup_ok else
                                 'SKOR/EŞİK' if not x['alert_eligible'] else
                                 'HEDEF/STOP GEOMETRİSİ UYGUN DEĞİL')
@@ -1053,6 +1227,9 @@ def main():
                                   'market_cap_rank':x['market_cap_rank'],'alert_threshold':x['alert_threshold'],
                                   'last_seen':int(time.time())}
                 if is_new_or_upgraded(x, t, state): qualifying.append((x,t))
+        except InsufficientCandleDataError as e:
+            data_skips['YETERSIZ_MUM'] = data_skips.get('YETERSIZ_MUM', 0) + 1
+            print(f'VERİ ATLANDI {s}: {e}; bu coin bu turda puanlanmadı, diğer tarama sürüyor.')
         except Exception as e:
             name = type(e).__name__; error_counts[name] = error_counts.get(name, 0) + 1
             print(f'VERİ/ANALİZ HATASI {s}: {name}: {e}')
@@ -1064,9 +1241,8 @@ def main():
         if i % 25 == 0: print(f'  ... {i}/{len(symbols)} vadeli coin tarandı')
         time.sleep(SLEEP_BETWEEN_COINS)
 
-    # Spot radar is retained for discovery/diagnostics only. It sends no generic watch spam.
-    spot_results = spot_early_radar(set(all_symbols), market_caps)
-    write_diagnostic(all_results, ctx, spot_results, error_counts, market_cap_source)
+    missed_candidates = collect_missed_candidates(all_symbols, {r.get('symbol') for r in all_results}, all_results, spot_results)
+    write_diagnostic(all_results, ctx, spot_results, error_counts, market_cap_source, missed_candidates, data_skips)
     top = sorted(all_results, key=lambda r: r['score'], reverse=True)[:8]
     if top:
         print('En iyi vadeli adaylar: ' + ' | '.join(
