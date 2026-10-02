@@ -67,7 +67,7 @@
     "activated": false,
     "signal_ts_ms": 1790924519370,
     "status": "OPEN",
-    "last_checked_ms": 1790944724504
+    "last_checked_ms": 1790946102988
   },
   {
     "symbol": "PYTH/USDT:USDT",
@@ -82,8 +82,9 @@
     "trigger": 0.07748856661828045,
     "activated": true,
     "signal_ts_ms": 1790940677347,
-    "status": "OPEN",
-    "last_checked_ms": 1790944724504
+    "status": "TP1",
+    "last_checked_ms": 1790946102988,
+    "resolved_at_ms": 1790944200000
   },
   {
     "symbol": "NIGHT/USDT:USDT",
