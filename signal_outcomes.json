@@ -66,9 +66,10 @@
     "trigger": 1.9314734820238184,
     "activated": true,
     "signal_ts_ms": 1790924519370,
-    "status": "OPEN",
-    "last_checked_ms": 1790950552154,
-    "activated_at_ms": 1790948700000
+    "status": "STOP",
+    "last_checked_ms": 1790951668697,
+    "activated_at_ms": 1790948700000,
+    "resolved_at_ms": 1790925300000
   },
   {
     "symbol": "PYTH/USDT:USDT",
@@ -118,6 +119,6 @@
     "activated": false,
     "signal_ts_ms": 1790949627194,
     "status": "OPEN",
-    "last_checked_ms": 1790950552154
+    "last_checked_ms": 1790951668697
   }
 ]
