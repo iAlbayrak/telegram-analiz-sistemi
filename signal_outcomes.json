@@ -67,7 +67,7 @@
     "activated": false,
     "signal_ts_ms": 1790924519370,
     "status": "OPEN",
-    "last_checked_ms": 1790948296534
+    "last_checked_ms": 1790949623568
   },
   {
     "symbol": "PYTH/USDT:USDT",
@@ -102,5 +102,20 @@
     "status": "TP1",
     "last_checked_ms": 1790944724504,
     "resolved_at_ms": 1790943300000
+  },
+  {
+    "symbol": "RENDER/USDT:USDT",
+    "direction": "LONG",
+    "score": 80.5,
+    "entry": 1.99915193349031,
+    "stop": 1.9715055297228672,
+    "tp1": 2.0267983372577527,
+    "tp2": 2.0406215391414744,
+    "tp3": 2.0599740217786846,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 1.99915193349031,
+    "activated": false,
+    "signal_ts_ms": 1790949627194,
+    "status": "OPEN"
   }
 ]
