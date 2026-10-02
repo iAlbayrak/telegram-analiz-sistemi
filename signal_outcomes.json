@@ -67,7 +67,7 @@
     "activated": false,
     "signal_ts_ms": 1790924519370,
     "status": "OPEN",
-    "last_checked_ms": 1790941589914
+    "last_checked_ms": 1790942348410
   },
   {
     "symbol": "PYTH/USDT:USDT",
@@ -83,6 +83,21 @@
     "activated": true,
     "signal_ts_ms": 1790940677347,
     "status": "OPEN",
-    "last_checked_ms": 1790941589914
+    "last_checked_ms": 1790942348410
+  },
+  {
+    "symbol": "NIGHT/USDT:USDT",
+    "direction": "LONG",
+    "score": 81.2,
+    "entry": 0.04572,
+    "stop": 0.04410083548529005,
+    "tp1": 0.047339164514709944,
+    "tp2": 0.04814874677206492,
+    "tp3": 0.04928216193236188,
+    "phase": "BREAKOUT_STARTED",
+    "trigger": 0.045190958225735496,
+    "activated": true,
+    "signal_ts_ms": 1790942349665,
+    "status": "OPEN"
   }
 ]
