@@ -46,8 +46,25 @@
     "tp3": 0.7708,
     "phase": "PRE_BREAKOUT",
     "trigger": 0.750232764054506,
-    "activated": false,
+    "activated": true,
     "signal_ts_ms": 1790923118807,
+    "status": "OPEN",
+    "last_checked_ms": 1790924517659,
+    "activated_at_ms": 1790923500000
+  },
+  {
+    "symbol": "ZRO/USDT:USDT",
+    "direction": "LONG",
+    "score": 82.0,
+    "entry": 1.9314734820238184,
+    "stop": 1.8640038415474482,
+    "tp1": 1.9989431225001886,
+    "tp2": 2.0326779427383737,
+    "tp3": 2.079906691071833,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 1.9314734820238184,
+    "activated": false,
+    "signal_ts_ms": 1790924519370,
     "status": "OPEN"
   }
 ]
