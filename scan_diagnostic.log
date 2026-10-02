@@ -1,45 +1,3 @@
-PERP STXSTOCK/USDT:USDT   LONG  phase=PRE_BREAKOUT     score= 75.7 rr_internal=2.20 rel1h=+0.20 rel4h=-0.24 mc=# 501 gate=90 valid=True qv=946581 reject=SKOR/EŞİK
-PERP PAXG/USDT:USDT       SHORT phase=BREAKOUT_STARTED score= 75.6 rr_internal=2.20 rel1h=-0.55 rel4h=-0.12 mc=#  57 gate=80 valid=False qv=1725174 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-PERP DRAM/USDT:USDT       LONG  phase=PRE_BREAKOUT     score= 74.8 rr_internal=2.20 rel1h=+0.38 rel4h=-0.57 mc=# 501 gate=90 valid=True qv=16861315 reject=SKOR/EŞİK
-PERP SAMSUNGSTOCK/USDT:USDT LONG  phase=PRE_BREAKOUT     score= 74.6 rr_internal=2.20 rel1h=+0.85 rel4h=-0.51 mc=# 501 gate=90 valid=True qv=16722721 reject=SKOR/EŞİK
-PERP INTCSTOCK/USDT:USDT  LONG  phase=NO_EARLY_SETUP   score= 74.5 rr_internal=3.13 rel1h=+0.32 rel4h=-0.08 mc=# 501 gate=90 valid=False qv=8331353 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-PERP RUNE/USDT:USDT       LONG  phase=NO_EARLY_SETUP   score= 74.0 rr_internal=4.44 rel1h=+0.15 rel4h=+0.23 mc=# 170 gate=80 valid=False qv=1071562 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-PERP AMDSTOCK/USDT:USDT   LONG  phase=NO_EARLY_SETUP   score= 71.0 rr_internal=2.05 rel1h=+0.44 rel4h=-0.02 mc=# 501 gate=90 valid=False qv=5572717 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-SPOT 龙虾/USDT              AŞAĞI HAREKET   15m=-2.60% 1h=-10.74% 24h=+101.43% vol=1.85x swap=False discovery=True
-SPOT OKAI/USDT            AŞAĞI HAREKET   15m=-1.09% 1h=-1.88% 24h=-66.68% vol=0.67x swap=False discovery=True
-SPOT DUST/USDT            AŞAĞI HAREKET   15m=-6.68% 1h=+1.21% 24h=-41.42% vol=2.30x swap=False discovery=True
-SPOT EVT/USDT             YUKARI HAREKET  15m=+1.61% 1h=+0.16% 24h=-35.90% vol=0.80x swap=False discovery=True
-SPOT MOVR/USDT            AŞAĞI HAREKET   15m=-0.66% 1h=+2.57% 24h=+28.85% vol=1.65x swap=True discovery=True
-SPOT MINT/USDT            YUKARI HAREKET  15m=+0.03% 1h=-0.26% 24h=-24.38% vol=0.02x swap=False discovery=True
-SPOT CT/USDT              AŞAĞI HAREKET   15m=-4.84% 1h=-3.78% 24h=+17.46% vol=1.46x swap=True discovery=True
-SPOT 9BIT/USDT            YUKARI HAREKET  15m=+0.52% 1h=+0.73% 24h=-16.96% vol=1.85x swap=False discovery=True
-SPOT QNT/USDT             YUKARI HAREKET  15m=+1.19% 1h=+1.54% 24h=-14.12% vol=0.65x swap=True discovery=True
-SPOT SOON/USDT            YUKARI HAREKET  15m=+0.41% 1h=+3.60% 24h=-11.44% vol=0.33x swap=False discovery=True
-FIRSAT_KONTROL BATON/USDT:USDT      24h=+70.10% perp_qv=3308716 spot_qv=0 score=47.9 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-FIRSAT_KONTROL MOO/USDT:USDT        24h=+53.28% perp_qv=119070 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
-FIRSAT_KONTROL SHROOM/USDT:USDT     24h=+36.81% perp_qv=232397 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
-FIRSAT_KONTROL MASKSOL/USDT:USDT    24h=+31.11% perp_qv=123618 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
-FIRSAT_KONTROL MOVR/USDT:USDT       24h=+28.85% perp_qv=26019979 spot_qv=1969744 score=64.0 faz=PRE_BREAKOUT neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-FIRSAT_KONTROL CATE/USDT:USDT       24h=+23.21% perp_qv=335882 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
-FIRSAT_KONTROL EACC/USDT:USDT       24h=-20.72% perp_qv=232394 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
-FIRSAT_KONTROL AIINU/USDT:USDT      24h=+18.86% perp_qv=214283 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
-FIRSAT_KONTROL STONKEX/USDT:USDT    24h=+18.12% perp_qv=91289 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
-FIRSAT_KONTROL BONER/USDT:USDT      24h=+17.99% perp_qv=184387 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
-FIRSAT_KONTROL CAP/USDT:USDT        24h=-17.91% perp_qv=2210637 spot_qv=0 score=49.0 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-FIRSAT_KONTROL CT/USDT:USDT         24h=+17.46% perp_qv=7187041 spot_qv=43158340 score=analiz yok faz=n/a neden=spot adayı vadeli derin tarama listesinde; sonuç kontrol edilmeli
-FIRSAT_KONTROL LONGXIA/USDT:USDT    24h=-16.69% perp_qv=12902303 spot_qv=0 score=70.2 faz=BREAKOUT_STARTED neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-FIRSAT_KONTROL ZC/USDT:USDT         24h=+15.75% perp_qv=191002 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
-FIRSAT_KONTROL SHARE/USDT:USDT      24h=+15.53% perp_qv=89547 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
-FIRSAT_KONTROL US/USDT:USDT         24h=-15.15% perp_qv=2169012 spot_qv=1632925 score=82.8 faz=PRE_BREAKOUT neden=SKOR/EŞİK
-FIRSAT_KONTROL TMX/USDT:USDT        24h=+15.08% perp_qv=818097 spot_qv=0 score=51.7 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-FIRSAT_KONTROL FATCOIN/USDT:USDT    24h=-14.60% perp_qv=90685 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
-FIRSAT_KONTROL QNT/USDT:USDT        24h=-14.12% perp_qv=299119005 spot_qv=6480529 score=64.7 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-FIRSAT_KONTROL APEX/USDT:USDT       24h=-14.02% perp_qv=163815 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
-DATA_SKIPS {"YETERSIZ_MUM": 5}
-=== 2026-10-02T01:33:08 | BTC4h=BULLISH BTC1h=NEUTRAL ETH4h=BULLISH ETH1h=NEUTRAL | perp_taranan=219 | en_iyi=US/USDT:USDT 82.1 | marketcap=cache ===
-PERP US/USDT:USDT         LONG  phase=PRE_BREAKOUT     score= 82.1 rr_internal=4.33 rel1h=+0.75 rel4h=+11.78 mc=# 501 gate=90 valid=False qv=2172512 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-PERP US30/USDT:USDT       SHORT phase=BREAKOUT_STARTED score= 81.8 rr_internal=4.70 rel1h=-0.06 rel4h=-0.12 mc=# 501 gate=90 valid=False qv=7447913 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-PERP AAVE/USDT:USDT       LONG  phase=BREAKOUT_STARTED score= 76.9 rr_internal=2.20 rel1h=+0.84 rel4h=+0.95 mc=#  47 gate=80 valid=True qv=45824285 reject=SKOR/EŞİK
 PERP NOM/USDT:USDT        LONG  phase=NO_EARLY_SETUP   score= 75.2 rr_internal=2.88 rel1h=+0.62 rel4h=+5.67 mc=# 501 gate=90 valid=False qv=2963370 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
 PERP ZRO/USDT:USDT        LONG  phase=PRE_BREAKOUT     score= 74.3 rr_internal=2.20 rel1h=+1.66 rel4h=-3.85 mc=# 191 gate=80 valid=False qv=10516189 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
 PERP DOGE/USDT:USDT       SHORT phase=BREAKOUT_STARTED score= 70.8 rr_internal=2.20 rel1h=-0.31 rel4h=-0.72 mc=#  12 gate=80 valid=True qv=168046051 reject=SKOR/EŞİK
@@ -497,4 +455,46 @@ FIRSAT_KONTROL SWARM/USDT:USDT      24h=-16.26% perp_qv=106508 spot_qv=0 score=a
 FIRSAT_KONTROL TOLLY/USDT:USDT      24h=+15.97% perp_qv=92417 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
 FIRSAT_KONTROL EACC/USDT:USDT       24h=-15.91% perp_qv=228198 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
 FIRSAT_KONTROL QNT/USDT:USDT        24h=-15.87% perp_qv=298933150 spot_qv=6492328 score=46.3 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+DATA_SKIPS {"YETERSIZ_MUM": 5}
+=== 2026-10-02T04:17:41 | BTC4h=BULLISH BTC1h=NEUTRAL ETH4h=BULLISH ETH1h=NEUTRAL | perp_taranan=220 | en_iyi=MSFTSTOCK/USDT:USDT 78.5 | marketcap=cache ===
+PERP MSFTSTOCK/USDT:USDT  LONG  phase=NO_EARLY_SETUP   score= 78.5 rr_internal=4.94 rel1h=-0.17 rel4h=-0.42 mc=# 501 gate=90 valid=False qv=4551030 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP SOL/USDT:USDT        LONG  phase=BREAKOUT_STARTED score= 76.2 rr_internal=2.20 rel1h=+0.84 rel4h=+1.80 mc=# 501 gate=90 valid=False qv=737844303 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP SPY/USDT:USDT        LONG  phase=PRE_BREAKOUT     score= 75.3 rr_internal=2.66 rel1h=-0.14 rel4h=-0.51 mc=# 501 gate=90 valid=True qv=60601787 reject=SKOR/EŞİK
+PERP TRX/USDT:USDT        SHORT phase=NO_EARLY_SETUP   score= 74.6 rr_internal=3.52 rel1h=-0.15 rel4h=-0.69 mc=#   8 gate=80 valid=False qv=2668296 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP LINK/USDT:USDT       LONG  phase=PRE_BREAKOUT     score= 73.9 rr_internal=2.20 rel1h=-0.29 rel4h=-0.16 mc=#  14 gate=80 valid=True qv=72576083 reject=SKOR/EŞİK
+PERP QQQSTOCK/USDT:USDT   LONG  phase=NO_EARLY_SETUP   score= 73.7 rr_internal=3.54 rel1h=-0.16 rel4h=-0.46 mc=# 501 gate=90 valid=False qv=6686683 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP MRNASTOCK/USDT:USDT  LONG  phase=NO_EARLY_SETUP   score= 73.1 rr_internal=5.30 rel1h=-0.20 rel4h=+1.22 mc=# 501 gate=90 valid=False qv=1016155 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP SQQQ/USDT:USDT       SHORT phase=PRE_BREAKOUT     score= 73.0 rr_internal=2.89 rel1h=-0.10 rel4h=-0.95 mc=# 501 gate=90 valid=False qv=685512 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP ORCLSTOCK/USDT:USDT  LONG  phase=NO_EARLY_SETUP   score= 72.9 rr_internal=4.17 rel1h=-0.07 rel4h=-0.22 mc=# 501 gate=90 valid=False qv=1205635 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP TQQQ/USDT:USDT       LONG  phase=PRE_BREAKOUT     score= 72.9 rr_internal=3.30 rel1h=-0.18 rel4h=+0.03 mc=# 501 gate=90 valid=False qv=981073 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+SPOT OKAI/USDT            YUKARI HAREKET  15m=+0.57% 1h=-1.57% 24h=-68.18% vol=0.58x swap=False discovery=True
+SPOT DUST/USDT            YUKARI HAREKET  15m=+0.67% 1h=+1.43% 24h=-48.13% vol=0.36x swap=False discovery=True
+SPOT US/USDT              YUKARI HAREKET  15m=+1.37% 1h=+6.04% 24h=+45.77% vol=0.90x swap=True discovery=True
+SPOT EVT/USDT             AŞAĞI HAREKET   15m=-0.08% 1h=+0.00% 24h=-37.84% vol=0.36x swap=False discovery=True
+SPOT CT/USDT              YUKARI HAREKET  15m=+1.15% 1h=+3.33% 24h=+29.03% vol=0.58x swap=True discovery=True
+SPOT MBK/USDT             YUKARI HAREKET  15m=+3.76% 1h=-0.68% 24h=+27.52% vol=0.02x swap=False discovery=True
+SPOT MINT/USDT            YUKARI HAREKET  15m=+0.00% 1h=-2.50% 24h=-25.48% vol=0.29x swap=False discovery=True
+SPOT SI/USDT              YUKARI HAREKET  15m=+0.57% 1h=+2.95% 24h=-20.91% vol=0.59x swap=True discovery=True
+SPOT QNT/USDT             AŞAĞI HAREKET   15m=-0.18% 1h=-0.90% 24h=-16.32% vol=0.31x swap=True discovery=True
+SPOT BP/USDT              AŞAĞI HAREKET   15m=-1.56% 1h=-1.09% 24h=-15.81% vol=0.83x swap=True discovery=True
+FIRSAT_KONTROL MOO/USDT:USDT        24h=+73.55% perp_qv=152461 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
+FIRSAT_KONTROL BATON/USDT:USDT      24h=+60.89% perp_qv=3431710 spot_qv=0 score=41.7 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+FIRSAT_KONTROL LONGXIA/USDT:USDT    24h=-55.34% perp_qv=15263621 spot_qv=0 score=65.2 faz=PRE_BREAKOUT neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+FIRSAT_KONTROL SHROOM/USDT:USDT     24h=+42.42% perp_qv=272609 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
+FIRSAT_KONTROL SCR/USDT:USDT        24h=+33.58% perp_qv=383937 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
+FIRSAT_KONTROL AIINU/USDT:USDT      24h=+29.23% perp_qv=217771 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
+FIRSAT_KONTROL CT/USDT:USDT         24h=+29.03% perp_qv=7209590 spot_qv=43846428 score=analiz yok faz=n/a neden=spot adayı vadeli derin tarama listesinde; sonuç kontrol edilmeli
+FIRSAT_KONTROL BREW/USDT:USDT       24h=+26.19% perp_qv=89071 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
+FIRSAT_KONTROL BONER/USDT:USDT      24h=+22.55% perp_qv=191890 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
+FIRSAT_KONTROL MAGMA/USDT:USDT      24h=+21.18% perp_qv=1826446 spot_qv=0 score=63.9 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+FIRSAT_KONTROL SI/USDT:USDT         24h=-20.91% perp_qv=3758865 spot_qv=663952 score=analiz yok faz=n/a neden=spot adayı vadeli derin tarama listesinde; sonuç kontrol edilmeli
+FIRSAT_KONTROL CME/USDT:USDT        24h=+20.69% perp_qv=90655 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
+FIRSAT_KONTROL CATE/USDT:USDT       24h=+19.35% perp_qv=383598 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
+FIRSAT_KONTROL TOLLY/USDT:USDT      24h=+17.63% perp_qv=89717 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
+FIRSAT_KONTROL MASKSOL/USDT:USDT    24h=+17.32% perp_qv=127234 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
+FIRSAT_KONTROL GP/USDT:USDT         24h=-16.94% perp_qv=101460 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
+FIRSAT_KONTROL DELTA/USDT:USDT      24h=+15.43% perp_qv=91964 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
+FIRSAT_KONTROL EACC/USDT:USDT       24h=-15.28% perp_qv=218979 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
+FIRSAT_KONTROL RESOLV/USDT:USDT     24h=+15.01% perp_qv=191095 spot_qv=0 score=analiz yok faz=n/a neden=detaylı tarama dışında: normal vadeli hacim eşiğinin altında ve spot radar önceliği yok
+FIRSAT_KONTROL US/USDT:USDT         24h=+14.97% perp_qv=2566164 spot_qv=2002707 score=63.4 faz=PRE_BREAKOUT neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
 DATA_SKIPS {"YETERSIZ_MUM": 5}
