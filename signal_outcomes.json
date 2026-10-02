@@ -48,9 +48,10 @@
     "trigger": 0.750232764054506,
     "activated": true,
     "signal_ts_ms": 1790923118807,
-    "status": "OPEN",
-    "last_checked_ms": 1790930067282,
-    "activated_at_ms": 1790923500000
+    "status": "TP1",
+    "last_checked_ms": 1790931047717,
+    "activated_at_ms": 1790923500000,
+    "resolved_at_ms": 1790929800000
   },
   {
     "symbol": "ZRO/USDT:USDT",
@@ -66,6 +67,6 @@
     "activated": false,
     "signal_ts_ms": 1790924519370,
     "status": "OPEN",
-    "last_checked_ms": 1790930067282
+    "last_checked_ms": 1790931047717
   }
 ]
