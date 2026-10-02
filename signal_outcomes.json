@@ -64,10 +64,11 @@
     "tp3": 2.079906691071833,
     "phase": "PRE_BREAKOUT",
     "trigger": 1.9314734820238184,
-    "activated": false,
+    "activated": true,
     "signal_ts_ms": 1790924519370,
     "status": "OPEN",
-    "last_checked_ms": 1790949623568
+    "last_checked_ms": 1790950552154,
+    "activated_at_ms": 1790948700000
   },
   {
     "symbol": "PYTH/USDT:USDT",
@@ -116,6 +117,7 @@
     "trigger": 1.99915193349031,
     "activated": false,
     "signal_ts_ms": 1790949627194,
-    "status": "OPEN"
+    "status": "OPEN",
+    "last_checked_ms": 1790950552154
   }
 ]
