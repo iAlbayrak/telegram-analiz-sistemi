@@ -119,7 +119,7 @@
     "activated": false,
     "signal_ts_ms": 1790949627194,
     "status": "OPEN",
-    "last_checked_ms": 1790985351365
+    "last_checked_ms": 1790986621234
   },
   {
     "symbol": "LIT/USDT:USDT",
@@ -135,7 +135,7 @@
     "activated": false,
     "signal_ts_ms": 1790977588809,
     "status": "OPEN",
-    "last_checked_ms": 1790985351365
+    "last_checked_ms": 1790986621234
   },
   {
     "symbol": "AXS/USDT:USDT",
@@ -150,9 +150,10 @@
     "trigger": 1.2146533508577062,
     "activated": true,
     "signal_ts_ms": 1790981116964,
-    "status": "OPEN",
-    "last_checked_ms": 1790985351365,
-    "activated_at_ms": 1790982900000
+    "status": "TP1",
+    "last_checked_ms": 1790986621234,
+    "activated_at_ms": 1790982900000,
+    "resolved_at_ms": 1790984700000
   },
   {
     "symbol": "APE/USDT:USDT",
@@ -167,6 +168,37 @@
     "trigger": 0.16508473379880362,
     "activated": true,
     "signal_ts_ms": 1790985352350,
+    "status": "OPEN",
+    "last_checked_ms": 1790986621234
+  },
+  {
+    "symbol": "ENJ/USDT:USDT",
+    "direction": "LONG",
+    "score": 85.4,
+    "entry": 0.034153362357828,
+    "stop": 0.03287266576995589,
+    "tp1": 0.03543405894570011,
+    "tp2": 0.03607440723963617,
+    "tp3": 0.04068,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.034153362357828,
+    "activated": false,
+    "signal_ts_ms": 1790986622886,
+    "status": "OPEN"
+  },
+  {
+    "symbol": "SYRUP/USDT:USDT",
+    "direction": "LONG",
+    "score": 82.6,
+    "entry": 0.24216661643123694,
+    "stop": 0.23883428780649807,
+    "tp1": 0.2454989450559758,
+    "tp2": 0.24716510936834524,
+    "tp3": 0.2506,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.24216661643123694,
+    "activated": false,
+    "signal_ts_ms": 1790986623998,
     "status": "OPEN"
   }
 ]
