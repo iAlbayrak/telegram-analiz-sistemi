@@ -6,7 +6,7 @@ emir göndermez. Sadece MEXC'nin herkese açık (public) piyasa verisini
 okur ve Telegram'a bildirim gönderir. API anahtarı / hesap bilgisi
 gerektirmez -- sadece TELEGRAM_BOT_TOKEN ve TELEGRAM_CHAT_ID.
 
---- V10: spot fırsat keşfi + vadeli doğrulama, erken kurulum, kalite filtresi ve kaçırılan fırsat tanısı ---
+--- V11: spot keşif + vadeli doğrulama + erken hareket analizi + recall odaklı market-cap katmanı ---
 
 Üç BAĞIMSIZ eksen var, hiçbiri diğerini beslemiyor / bloklamıyor:
 
@@ -58,14 +58,14 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHAT_ID   = os.getenv('TELEGRAM_CHAT_ID', '')
 # Tarama evreni tüm aktif MEXC USDT perpetual marketlerdir.
 # Düşük likiditeli çiftler analiz edilir ancak işlem planı bildirimine geçemez.
-MIN_ALERT_24H_VOLUME = float(os.getenv('MIN_ALERT_24H_VOLUME', '500000'))
+MIN_ALERT_24H_VOLUME = float(os.getenv('MIN_ALERT_24H_VOLUME', '250000'))
 SWAP_QUOTE_VOLUMES = {}
 SWAP_PERCENTAGES = {}
 # Derin analiz, minimum hacmi geçen tüm aktif vadeli çiftlere uygulanır.
 DEEP_SCAN_MAX = int(os.getenv('DEEP_SCAN_MAX', '0'))  # 0 = limit yok
 MIN_SPOT_24H_VOLUME = float(os.getenv('MIN_SPOT_24H_VOLUME', '500000'))
 SPOT_RADAR_MAX_CANDIDATES = int(os.getenv('SPOT_RADAR_MAX_CANDIDATES', '0'))  # 0 = no fixed candidate cap
-MIN_SPOT_DISCOVERY_PERP_VOLUME = float(os.getenv('MIN_SPOT_DISCOVERY_PERP_VOLUME', '250000'))
+MIN_SPOT_DISCOVERY_PERP_VOLUME = float(os.getenv('MIN_SPOT_DISCOVERY_PERP_VOLUME', '100000'))
 SPOT_RELATIVE_MOVER_SHARE = float(os.getenv('SPOT_RELATIVE_MOVER_SHARE', '0.20'))  # dynamic top share, not a fixed % move threshold
 MIN_SPOT_DISCOVERY_1H_MOVE = float(os.getenv('MIN_SPOT_DISCOVERY_1H_MOVE', '2.5'))
 MIN_SPOT_DISCOVERY_VOLUME_RATIO = float(os.getenv('MIN_SPOT_DISCOVERY_VOLUME_RATIO', '1.15'))
@@ -75,8 +75,8 @@ MIN_DIRECTION_GAP = float(os.getenv('MIN_DIRECTION_GAP', '5'))  # yalnızca çok
 ALERT_MIN_SCORE      = float(os.getenv('ALERT_MIN_SCORE', '80'))   # base technical score; rank tiers decide the actual alert gate
 MARKET_CAP_CACHE_FILE = Path(os.getenv('MARKET_CAP_CACHE_FILE', 'market_cap_cache.json'))
 MARKET_CAP_REFRESH_MINUTES = int(os.getenv('MARKET_CAP_REFRESH_MINUTES', '360'))
-MARKET_CAP_TOP_N = 500
-EARLY_TRIGGER_MAX_ATR = float(os.getenv('EARLY_TRIGGER_MAX_ATR', '0.85'))
+MARKET_CAP_TOP_N = 800
+EARLY_TRIGGER_MAX_ATR = float(os.getenv('EARLY_TRIGGER_MAX_ATR', '1.25'))
 MIN_SETUP_READINESS = float(os.getenv('MIN_SETUP_READINESS', '65'))
 SLEEP_BETWEEN_COINS  = float(os.getenv('SLEEP_BETWEEN_COINS', '0.02'))
 CANDLE_CACHE = {}  # aynı çalıştırmada aynı sembol/zaman dilimi ikinci kez istenmez
@@ -160,55 +160,35 @@ def _resample_ohlcv(df, rule):
     return agg[['timestamp','open','high','low','close','volume']].reset_index(drop=True)
 
 def candles(symbol, timeframe):
-    """Fetch candles once; choose fallback by usable indicator rows, not raw row count.
-
-    No synthetic candles are created. A lower-timeframe resample is accepted only
-    when it produces more usable rows than the direct source. If neither source
-    supports the strategy's minimum history, the symbol is explicitly skipped.
-    """
+    """Fetch each symbol/timeframe once. If history is short, try a lower-TF resample."""
     key = (symbol, timeframe)
     if key in CANDLE_CACHE:
         return CANDLE_CACHE[key].copy()
-
     rows = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=OHLCV_LIMIT)
-    direct_df = _ohlcv_frame(rows)
-
-    def process_if_usable(raw_df):
-        if raw_df is None or len(raw_df) < 25:
-            return pd.DataFrame()
-        try:
-            return add_indicators(raw_df)
-        except InsufficientCandleDataError:
-            return pd.DataFrame()
-
-    best_raw = direct_df
-    best_result = process_if_usable(direct_df)
-    # The old fallback condition looked only at raw candle count. Rolling-volume
-    # and indicator cleanup can leave <25 usable rows even when raw history >=60.
+    df = _ohlcv_frame(rows)
+    # Fallback also covers sparse 15m history (e.g. newly listed contracts).
     fallback = {'4h': ('1h', '4h'), '1h': ('15m', '1h'), '15m': ('5m', '15min')}.get(timeframe)
-    if len(best_result) < 25 and fallback:
+    if len(df) < PREFERRED_HISTORY_BARS and fallback:
         lower_tf, rule = fallback
         try:
+            # Fetch enough lower-timeframe bars to build up to ~200 target bars.
+            # A 220-bar fallback was too short for 15m candles resampled from 5m.
             source_limit = min(1000, OHLCV_LIMIT * {'4h': 4, '1h': 4, '15min': 3}.get(rule, 4))
             lower_rows = exchange.fetch_ohlcv(symbol, timeframe=lower_tf, limit=source_limit)
             lower_df = _ohlcv_frame(lower_rows)
             resampled = _resample_ohlcv(lower_df, rule)
-            resampled_result = process_if_usable(resampled)
-            if len(resampled_result) > len(best_result):
-                print(f'MUM YEDEĞİ {symbol} {timeframe}: doğrudan kaynakta {len(best_result)} kullanılabilir, {lower_tf} yedeğinde {len(resampled_result)} kullanılabilir gösterge satırı; yedek seçildi.')
-                best_raw, best_result = resampled, resampled_result
-            else:
-                print(f'MUM YEDEĞİ {symbol} {timeframe}: doğrudan={len(best_result)}, {lower_tf} yedeği={len(resampled_result)} kullanılabilir satır; daha iyi kaynak seçildi.')
+            if len(resampled) > len(df):
+                print(f'MUM YEDEĞİ {symbol} {timeframe}: {len(df)} doğrudan mum yerine {len(resampled)} adet {lower_tf} verisinden birleştirilmiş mum kullanılıyor.')
+                df = resampled
         except Exception as e:
             print(f'MUM YEDEĞİ BAŞARISIZ {symbol} {timeframe}: {type(e).__name__}: {str(e)[:100]}')
-
-    if len(best_result) < 25:
-        raise InsufficientCandleDataError(
-            f'Yetersiz gösterge sonrası mum verisi: {len(best_result)} kullanılabilir satır '
-            f'(doğrudan kaynak={len(direct_df)} ham mum); daha düşük zaman dilimi yedeği de denendi'
-        )
-    CANDLE_CACHE[key] = best_result
-    return best_result.copy()
+    if len(df) < 25:
+        raise InsufficientCandleDataError(f'Yetersiz mum verisi: {len(df)} (daha düşük zaman dilimi yedeği de denendi)')
+    result = add_indicators(df)
+    if len(result) < 25:
+        raise InsufficientCandleDataError(f'Yetersiz gösterge sonrası mum verisi: {len(result)} (kaynak mum: {len(df)})')
+    CANDLE_CACHE[key] = result
+    return result.copy()
 
 def regime_from_row(x):
     if x.close > x.ema50 > x.ema200 and x.rsi >= 52: return 'BULLISH'
@@ -288,14 +268,17 @@ def market_cap_rankings():
             cache = raw.get('ranks', {}) or {}
         except Exception:
             cache, cache_ts = {}, 0.0
-    if cache and (now - cache_ts) < MARKET_CAP_REFRESH_MINUTES * 60:
+    cache_max_rank = max((int(v) for v in cache.values() if str(v).isdigit()), default=0)
+    if cache and cache_max_rank >= min(MARKET_CAP_TOP_N, 800) and (now - cache_ts) < MARKET_CAP_REFRESH_MINUTES * 60:
         return cache, cache_ts, 'cache'
+    if cache and cache_max_rank < min(MARKET_CAP_TOP_N, 800):
+        print(f'Market-cap önbelleği eski kapsamda ({cache_max_rank} sıra); yeni 800+ kapsamı için yenileniyor.')
 
     providers = []
     # CoinGecko API fallback (may deny requests from some cloud IP ranges).
     def get_coingecko():
         out = []
-        for page in (1, 2):
+        for page in range(1, 5):
             r = requests.get(
                 'https://api.coingecko.com/api/v3/coins/markets',
                 params={'vs_currency':'usd','order':'market_cap_desc','per_page':250,'page':page,'sparkline':'false'},
@@ -307,7 +290,7 @@ def market_cap_rankings():
             if not isinstance(rows, list):
                 raise ValueError('CoinGecko unexpected response')
             out.extend((str(x.get('symbol') or '').upper(), int(x['market_cap_rank']))
-                       for x in rows if x.get('symbol') and x.get('market_cap_rank'))
+                       for x in rows if x.get('symbol') and x.get('market_cap_rank') and int(x['market_cap_rank']) <= MARKET_CAP_TOP_N)
         return out
 
     # CoinPaprika public tickers; ranks are supplied by the API.
@@ -318,11 +301,11 @@ def market_cap_rankings():
         rows = r.json()
         if not isinstance(rows, list): raise ValueError('CoinPaprika unexpected response')
         return [(str(x.get('symbol') or '').upper(), int(x['rank']))
-                for x in rows if x.get('symbol') and x.get('rank') and int(x['rank']) > 0 and int(x['rank']) <= 500]
+                for x in rows if x.get('symbol') and x.get('rank') and int(x['rank']) > 0 and int(x['rank']) <= MARKET_CAP_TOP_N]
 
     # CoinCap assets endpoint as a separate fallback.
     def get_coincap():
-        r = requests.get('https://api.coincap.io/v2/assets', params={'limit':500},
+        r = requests.get('https://api.coincap.io/v2/assets', params={'limit':MARKET_CAP_TOP_N},
                          timeout=20, headers={'accept':'application/json','user-agent':'altcoin-alert-scanner/5.0'})
         r.raise_for_status()
         payload = r.json(); rows = payload.get('data', []) if isinstance(payload, dict) else []
@@ -367,10 +350,14 @@ def market_cap_label_for_symbol(symbol, rankings):
     return f"#{int(rankings[base])}" if base in rankings else 'bilinmiyor (90+ eşiği uygulanır)'
 
 def alert_gate_for_rank(score, market_cap_rank):
-    """Tiered alert gate: 1-200=>80+, 201-500=>85+, 501+=>90+."""
-    if market_cap_rank <= 200:
-        return score >= 80.0, 80.0
+    """Recall-oriented market-cap gate: 1-500=>80+, 501-800=>85+, 801+/unknown=>90+.
+
+    Market cap is a coverage/liquidity tier, not a prediction of direction. The
+    unified technical score remains the signal quality measure.
+    """
     if market_cap_rank <= 500:
+        return score >= 80.0, 80.0
+    if market_cap_rank <= 800:
         return score >= 85.0, 85.0
     return score >= 90.0, 90.0
 
@@ -414,8 +401,18 @@ def _directional_score(df4, df1, df15, ctx, side, symbol_key=None):
     mom_raw = 0.0
     if (c.close>c.ema20>c.ema50) if side=='LONG' else (c.close<c.ema20<c.ema50): mom_raw += 12
     if (c.macd>c.macd_signal) if side=='LONG' else (c.macd<c.macd_signal): mom_raw += 10
-    if 52<=c.rsi<=68 if side=='LONG' else 32<=c.rsi<=48: mom_raw += 8
-    elif 48<=c.rsi<52 if side=='LONG' else 48<c.rsi<=52: mom_raw += 3
+    # RSI is a momentum state, not a binary overbought/oversold veto.
+    # Strong but not extreme RSI should still support an early/continuation setup.
+    if side == 'LONG':
+        if 52 <= c.rsi <= 68: mom_raw += 8
+        elif 68 < c.rsi <= 75: mom_raw += 6
+        elif 75 < c.rsi <= 82: mom_raw += 3
+        elif 48 <= c.rsi < 52: mom_raw += 3
+    else:
+        if 32 <= c.rsi <= 48: mom_raw += 8
+        elif 25 <= c.rsi < 32: mom_raw += 6
+        elif 18 <= c.rsi < 25: mom_raw += 3
+        elif 48 < c.rsi <= 52: mom_raw += 3
     if c.adx>=25: mom_raw += 8
     elif c.adx>=20: mom_raw += 4
 
@@ -457,6 +454,54 @@ def _directional_score(df4, df1, df15, ctx, side, symbol_key=None):
             'relative_1h':rel_1h,'relative_4h':rel_4h,'coin_1h':coin_1h,'coin_4h':coin_4h,
             'directional':clamp(directional)}
 
+def _early_move_score(df4, df1, df15, ctx, side, ref_price, trigger, atr, local_res, local_sup):
+    """Score whether a meaningful move is *forming*, not merely how far price ran.
+
+    This deliberately rewards acceleration, volume/volatility expansion, trend slope,
+    relative strength and proximity to a breakout level. It does not require a large
+    24h move, so it can identify a setup before the eventual 8-10% move.
+    """
+    c = df15.iloc[-2]
+    prev = df15.iloc[-3]
+    p4 = df15.iloc[-6] if len(df15) >= 8 else df15.iloc[0]
+    signed = 1.0 if side == 'LONG' else -1.0
+    r15_1 = ((float(c.close)/float(prev.close))-1.0)*100.0 if float(prev.close) else 0.0
+    r15_4 = ((float(c.close)/float(p4.close))-1.0)*100.0 if float(p4.close) else 0.0
+    s15 = signed * r15_1
+    s1h = signed * _closed_return_pct(df1, 1)
+    s4h = signed * _closed_return_pct(df4, 1)
+    # Directional acceleration: recent bars improving in the intended direction.
+    accel = clamp(50.0 + s15*12.0 + s1h*5.0 + s4h*2.0, 0.0, 100.0)
+
+    vr = float(c.volume_ratio) if pd.notna(c.volume_ratio) else 0.0
+    volume_exp = clamp((vr - 0.8) / 1.7 * 100.0, 0.0, 100.0)
+
+    atr_pct = float(c.atr_pct) if pd.notna(c.atr_pct) else 0.0
+    prev_atr_pct = float(df15.iloc[-7:-2].atr_pct.median()) if len(df15) >= 8 else atr_pct
+    vol_expand = clamp(50.0 + ((atr_pct/max(prev_atr_pct, 1e-6))-1.0)*55.0, 0.0, 100.0)
+
+    ema20_now = float(c.ema20)
+    ema20_old = float(p4.ema20)
+    ema_slope = signed * ((ema20_now-ema20_old)/max(atr,1e-12))
+    h1_c = df1.iloc[-2]
+    h1_old = df1.iloc[-6] if len(df1) >= 8 else df1.iloc[0]
+    h1_atr = max(float(h1_c.atr), 1e-12)
+    h1_slope = signed * ((float(h1_c.ema20)-float(h1_old.ema20))/h1_atr)
+    slope_score = clamp(50.0 + ema_slope*18.0 + h1_slope*10.0, 0.0, 100.0)
+
+    level = local_res if side == 'LONG' else local_sup
+    dist_atr = abs(level-ref_price)/max(atr,1e-12)
+    proximity = clamp(100.0 - max(dist_atr,0.0)/max(EARLY_TRIGGER_MAX_ATR,0.1)*65.0, 0.0, 100.0)
+
+    market_1h = (float(ctx['btc'].get('ret_1h',0.0))+float(ctx['eth'].get('ret_1h',0.0)))/2.0
+    market_4h = (float(ctx['btc'].get('ret_4h',0.0))+float(ctx['eth'].get('ret_4h',0.0)))/2.0
+    rel1 = signed * (_closed_return_pct(df1,1)-market_1h)
+    rel4 = signed * (_closed_return_pct(df4,1)-market_4h)
+    relative = clamp(50.0 + rel1*8.0 + rel4*3.0, 0.0, 100.0)
+
+    return clamp(0.22*accel + 0.18*volume_exp + 0.16*vol_expand +
+                 0.18*slope_score + 0.14*proximity + 0.12*relative)
+
 def score_setup(df4, df1, df15, ctx, symbol_key=None):
     """Build a pre-breakout or newly-started breakout plan from closed candles.
 
@@ -476,21 +521,30 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
     local_sup = float(local.low.min())
     L = _directional_score(df4,df1,df15,ctx,'LONG',symbol_key)
     S = _directional_score(df4,df1,df15,ctx,'SHORT',symbol_key)
-    direction = 'LONG' if L['directional']>=S['directional'] else 'SHORT'
+    long_early = _early_move_score(df4, df1, df15, ctx, 'LONG', ref_price, local_res + 0.10*atr, atr, local_res, local_sup)
+    short_early = _early_move_score(df4, df1, df15, ctx, 'SHORT', ref_price, local_sup - 0.10*atr, atr, local_res, local_sup)
+    long_select = 0.72*L['directional'] + 0.28*long_early
+    short_select = 0.72*S['directional'] + 0.28*short_early
+    direction = 'LONG' if long_select>=short_select else 'SHORT'
     vals = L if direction=='LONG' else S
     opp = S if direction=='LONG' else L
     directional = vals['directional']; opposite = opp['directional']; gap = directional-opposite
+    early_move = long_early if direction=='LONG' else short_early
 
     if direction == 'LONG':
         trigger = local_res + 0.10*atr
         dist_atr = (local_res-ref_price)/atr
         broken = ref_price > trigger and float(c.volume_ratio) >= 1.10
         trend_ok = ref_price >= float(c.ema20) and float(df1.iloc[-2].close) >= float(df1.iloc[-2].ema20)
+        early_trend_ok = trend_ok
         if broken:
             phase = 'BREAKOUT_STARTED'
             entry = ref_price
             stretch_atr = max((ref_price-trigger)/atr, 0.0)
-        elif 0 <= dist_atr <= EARLY_TRIGGER_MAX_ATR and trend_ok:
+        emerging_trend_ok = (float(c.ema20) >= float(df15.iloc[-6].ema20) and
+                              float(df1.iloc[-2].ema20) >= float(df1.iloc[-6].ema20))
+        early_trend_ok = trend_ok or (emerging_trend_ok and early_move >= 58.0)
+        if 0 <= dist_atr <= EARLY_TRIGGER_MAX_ATR and early_trend_ok:
             phase = 'PRE_BREAKOUT'
             entry = trigger
             stretch_atr = 0.0
@@ -503,11 +557,15 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
         dist_atr = (ref_price-local_sup)/atr
         broken = ref_price < trigger and float(c.volume_ratio) >= 1.10
         trend_ok = ref_price <= float(c.ema20) and float(df1.iloc[-2].close) <= float(df1.iloc[-2].ema20)
+        early_trend_ok = trend_ok
         if broken:
             phase = 'BREAKOUT_STARTED'
             entry = ref_price
             stretch_atr = max((trigger-ref_price)/atr, 0.0)
-        elif 0 <= dist_atr <= EARLY_TRIGGER_MAX_ATR and trend_ok:
+        emerging_trend_ok = (float(c.ema20) <= float(df15.iloc[-6].ema20) and
+                              float(df1.iloc[-2].ema20) <= float(df1.iloc[-6].ema20))
+        early_trend_ok = trend_ok or (emerging_trend_ok and early_move >= 58.0)
+        if 0 <= dist_atr <= EARLY_TRIGGER_MAX_ATR and early_trend_ok:
             phase = 'PRE_BREAKOUT'
             entry = trigger
             stretch_atr = 0.0
@@ -563,17 +621,17 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
     # cannot compensate for a poor stop/target geometry.
     rr_quality = clamp((float(rr)-1.0)/2.0*100.0, 0.0, 100.0) if pd.notna(rr) else 0.0
     entry_quality = clamp(0.40*ema_entry_score + 0.25*location_score + 0.35*rr_quality)
-    room_score = clamp(room*16,0,32)
-    vol_score = clamp((atr_pct/0.01)*16,0,42)
-    trend_move = clamp((c.adx-18)*1.5,0,16)
-    move_potential = clamp((room_score+vol_score+trend_move)/90*100)
+    # Move potential is now a forward-looking formation score, not simply
+    # remaining room to a nearby target. This prevents a pre-breakout setup
+    # from being penalized just because the trigger is close to resistance.
+    move_potential = float(early_move)
     rr_bonus = clamp((rr-2.0)*1.5,0,4) if pd.notna(rr) else 0
 
     # Readiness rewards proximity, own-coin direction and volume confirmation.
     proximity_score = clamp(100 - max(level_dist,0)/max(EARLY_TRIGGER_MAX_ATR,0.1)*55, 0, 100)
     volume_score = clamp((float(c.volume_ratio)-0.8)*45,0,100)
-    readiness = clamp(0.45*proximity_score + 0.35*directional + 0.20*volume_score)
-    early_bonus = min(3.0, max(0.0, (readiness-65.0)*0.08)) if phase=='PRE_BREAKOUT' else 0.0
+    readiness = clamp(0.40*proximity_score + 0.30*directional + 0.30*move_potential)
+    early_bonus = min(5.0, max(0.0, (move_potential-55.0)*0.10)) if phase=='PRE_BREAKOUT' else 0.0
     # Score favors direction and executable entry quality. Potential remains a
     # separate forecast descriptor, not a way to inflate a weak setup.
     # ONE public score: direction, entry location/payoff, readiness, move room,
@@ -581,10 +639,10 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
     # potential/readiness/entry/RR scores are needed to interpret the signal.
     direction_clarity = clamp(gap * 6.0, 0.0, 100.0)
     raw_score = clamp(
-        0.40*directional + 0.28*entry_quality + 0.14*readiness +
-        0.10*move_potential + 0.08*direction_clarity + rr_bonus + early_bonus
+        0.36*directional + 0.26*entry_quality + 0.16*readiness +
+        0.16*move_potential + 0.06*direction_clarity + rr_bonus + early_bonus
     )
-    setup_valid = (phase in ('PRE_BREAKOUT','BREAKOUT_STARTED') and trend_ok and
+    setup_valid = (phase in ('PRE_BREAKOUT','BREAKOUT_STARTED') and early_trend_ok and
                    not overextended and readiness >= MIN_SETUP_READINESS and gap >= MIN_DIRECTION_GAP)
     elite_gate = (raw_score>=90 and directional>=85 and entry_quality>=80 and move_potential>=85 and pd.notna(rr) and rr>=2.0 and gap>=15 and setup_valid)
     quality = 'ELITE' if elite_gate else 'STRONG' if raw_score>=85 else 'SELECTIVE' if raw_score>=72 else 'WEAK'
@@ -599,8 +657,8 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
             'stop':float(stop),'stop_method':stop_method,'wide_stop':float(stop-(atr*WIDE_STOP_BUFFER_ATR) if direction=='LONG' else stop+(atr*WIDE_STOP_BUFFER_ATR)),
             'target':float(target),'target_method':target_method,'rr':float(rr) if pd.notna(rr) else float('nan'),
             'support':sup,'resistance':res,'local_support':local_sup,'local_resistance':local_res,
-            'directional_confidence':round(directional,1),'direction_gap':round(gap,1),
-            'entry_quality':round(entry_quality,1),'move_potential':round(move_potential,1),
+            'directional_confidence':round(directional,1),'direction_gap':round(gap,1),'long_early_score':round(long_early,1),'short_early_score':round(short_early,1),
+            'entry_quality':round(entry_quality,1),'move_potential':round(move_potential,1),'early_move_score':round(early_move,1),
             'potential_label':potential_label,'relative_strength':round(vals['relative_strength'],1),
             'relative_1h':round(vals['relative_1h'],2),'relative_4h':round(vals['relative_4h'],2),
             'relative_outlier':bool(relative_outlier),
@@ -801,21 +859,12 @@ def save_state(state):
     STATE_FILE.write_text(json.dumps(state, indent=2), encoding='utf-8')
 
 def is_new_or_upgraded(x, t, state):
-    """Alert on a new setup, meaningful upgrade, or a controlled 12h refresh."""
     key = f"{x['symbol']}:{x['direction']}"
     prev = state.get(key)
-    if prev is None:
-        return True
+    if prev is None: return True
     phase_rank = {'PRE_BREAKOUT': 1, 'BREAKOUT_STARTED': 2}
-    if (TIER_RANK.get(t, 0) > TIER_RANK.get(prev.get('tier_at_alert', prev.get('tier')), 0)
-            or phase_rank.get(x.get('phase'), 0) > phase_rank.get(prev.get('phase_at_alert', prev.get('phase')), 0)):
-        return True
-    # Compare against the last actually sent score, not the previous scan's score.
-    score_at_alert = float(prev.get('score_at_alert', prev.get('score', x['score'])))
-    if float(x['score']) >= score_at_alert + 5.0:
-        return True
-    last_alert_at = float(prev.get('last_alert_at', 0) or 0)
-    return bool(last_alert_at and time.time() - last_alert_at >= 12 * 3600)
+    return (TIER_RANK.get(t, 0) > TIER_RANK.get(prev.get('tier'), 0)
+            or phase_rank.get(x.get('phase'), 0) > phase_rank.get(prev.get('phase'), 0))
 
 def _font(size, bold=False):
     candidates = ([
@@ -1116,7 +1165,7 @@ def write_diagnostic(all_results, ctx, spot_results=None, error_counts=None, sou
              f"ETH4h={ctx['eth']['4h']} ETH1h={ctx['eth']['1h']} | "
              f"perp_taranan={len(all_results)} | en_iyi={best} | marketcap={source} ==="]
     for r in top:
-        lines.append(f"PERP {r['symbol']:20} {r['direction']:5} phase={r.get('phase','?'):16} score={r['score']:5.1f} rr_internal={r['rr']:.2f} rel1h={r.get('relative_1h',0):+.2f} rel4h={r.get('relative_4h',0):+.2f} mc=#{r.get('market_cap_rank',501):4d} gate={r.get('alert_threshold',90):.0f} valid={r.get('setup_valid',False)} qv={r.get('quote_volume_24h',0):.0f} reject={r.get('gate_reason','')}")
+        lines.append(f"PERP {r['symbol']:20} {r['direction']:5} phase={r.get('phase','?'):16} score={r['score']:5.1f} early={r.get('early_move_score',0):4.1f} rr_internal={r['rr']:.2f} rel1h={r.get('relative_1h',0):+.2f} rel4h={r.get('relative_4h',0):+.2f} mc=#{r.get('market_cap_rank',501):4d} gate={r.get('alert_threshold',90):.0f} valid={r.get('setup_valid',False)} qv={r.get('quote_volume_24h',0):.0f} reject={r.get('gate_reason','')}")
     for r in (spot_results or [])[:10]:
         lines.append(f"SPOT {r['symbol']:20} {r['direction']:15} 15m={r['change_15m']:+.2f}% 1h={r['change_1h']:+.2f}% 24h={r['change_24h']:+.2f}% vol={r['volume_ratio']:.2f}x swap={r['swap_available']} discovery={r.get('discovery_candidate',False)}")
     for r in (missed_candidates or [])[:20]:
@@ -1142,7 +1191,7 @@ def collect_missed_candidates(all_symbols, analyzed_symbols, all_results, spot_r
         spot_qv = float(spot.get('quote_volume', 0.0)) if spot else 0.0
         r = result_by_symbol.get(sym)
         # Focus the log on meaningful movers, not every low-volume market.
-        notable = abs(pct) >= 8.0 or (abs(pct) >= 5.0 and spot and spot.get('discovery_candidate'))
+        notable = abs(pct) >= 5.0
         if not notable:
             continue
         if r:
@@ -1166,7 +1215,7 @@ def collect_missed_candidates(all_symbols, analyzed_symbols, all_results, spot_r
     seen = {r.get('symbol') for r in rows}
     for spot in (spot_results or []):
         spot_pct = float(spot.get('change_24h', 0.0) or 0.0)
-        if abs(spot_pct) < 8.0 and not spot.get('discovery_candidate'):
+        if abs(spot_pct) < 5.0 and not spot.get('discovery_candidate'):
             continue
         ps = spot.get('perp_symbol')
         if not ps or ps in seen:
@@ -1199,9 +1248,9 @@ def main():
     ctx = market_context()
     print(f"BTC 4h={ctx['btc']['4h']} 1h={ctx['btc']['1h']} | ETH 4h={ctx['eth']['4h']} 1h={ctx['eth']['1h']}")
     all_symbols = list(dict.fromkeys(liquid_usdt_swaps()))
-    state = load_state(); now_ts = int(time.time()); state = {k: v for k, v in state.items() if isinstance(v, dict) and now_ts - int(v.get('last_seen', v.get('last_alert_at', now_ts)) or now_ts) <= 30 * 86400}; new_state = dict(state); qualifying = []; all_results = []; error_counts = {}; data_skips = {}
+    state = load_state(); new_state = {}; qualifying = []; all_results = []; error_counts = {}; data_skips = {}
     market_caps, market_cap_updated_at, market_cap_source = market_cap_rankings()
-    print(f'Market-cap kaynağı: {market_cap_source} | eşik: 1-200=>80+, 201-500=>85+, 501+ veya bilinmiyor=>90+')
+    print(f'Market-cap kaynağı: {market_cap_source} | eşik: 1-500=>80+, 501-800=>85+, 801+ veya bilinmiyor=>90+')
 
     # Spot discovers unusual movers first; the corresponding perpetual contract
     # is then analyzed with futures candles and futures prices, never spot prices.
@@ -1252,16 +1301,9 @@ def main():
             if x['alert_eligible'] and rr_ok and setup_ok and liquidity_ok:
                 t = tier(x)
                 key = f"{s}:{x['direction']}"
-                previous = state.get(key, {})
-                new_state[key] = {
-                    'tier': t, 'score': x['score'], 'phase': x['phase'],
-                    'market_cap_rank': x['market_cap_rank'], 'alert_threshold': x['alert_threshold'],
-                    'last_seen': int(time.time()),
-                    'last_alert_at': previous.get('last_alert_at', 0),
-                    'score_at_alert': previous.get('score_at_alert', previous.get('score', x['score'])),
-                    'tier_at_alert': previous.get('tier_at_alert', previous.get('tier', t)),
-                    'phase_at_alert': previous.get('phase_at_alert', previous.get('phase', x['phase'])),
-                }
+                new_state[key] = {'tier':t,'score':x['score'],'phase':x['phase'],
+                                  'market_cap_rank':x['market_cap_rank'],'alert_threshold':x['alert_threshold'],
+                                  'last_seen':int(time.time())}
                 if is_new_or_upgraded(x, t, state): qualifying.append((x,t))
         except InsufficientCandleDataError as e:
             data_skips['YETERSIZ_MUM'] = data_skips.get('YETERSIZ_MUM', 0) + 1
@@ -1317,12 +1359,6 @@ def main():
             key = f"{x['symbol']}:{x['direction']}"
             if send_ok:
                 record_sent_signal(x)
-                entry = new_state.setdefault(key, {})
-                entry.update({
-                    'last_alert_at': int(time.time()), 'score_at_alert': float(x['score']),
-                    'tier_at_alert': _t, 'phase_at_alert': x.get('phase'),
-                    'last_seen': int(time.time()),
-                })
             else:
                 print(f"Telegram bildirimi gönderilemedi; tekrar denenebilmesi için alarm durumu geri alınıyor: {x['symbol']}")
                 if key in state: new_state[key] = state[key]
