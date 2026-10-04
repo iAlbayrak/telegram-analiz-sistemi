@@ -1,5 +1,5 @@
-ccxt
-pandas
-numpy
-requests
-Pillow
+ccxt>=4.5.81,<5
+numpy>=1.26,<3
+pandas>=2.2,<3
+requests>=2.31,<3
+Pillow>=10.0,<13
