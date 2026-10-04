@@ -1,13 +1,32 @@
-Altcoin Alert Scanner — V10.1 spot keşif düzeltmesi
-Telegram sinyal kartının tasarımı değiştirilmedi.
-V10.1 düzeltmesi
-Spot radarı artık varsayılan olarak sabit 40 coin limiti kullanmaz. Spot 24 saatlik hacmi en az 500.000 USDT olan aktif USDT spot çiftlerinin 15 dakikalık mumlarını kontrol eder. İsteğe bağlı `SPOT_RADAR_MAX_CANDIDATES` ayarı 0 bırakılırsa limit yoktur; pozitif bir değer verilirse bilinçli bir çalışma sınırı uygulanır.
-Sabit `%6` 24 saatlik hareket koşulu kaldırıldı. Büyük hareketler için göreli hareket sıralaması kullanılır (varsayılan olarak spot havuzunun en hareketli %20'si); ayrıca kısa vadeli momentum, hacim artışı ve yerel yüksek/düşük seviyelere yakınlık fırsat keşfine katkı sağlar.
-Spot radarı ayrı bir Telegram erken-uyarı mesajı göndermez. Spot sadece keşif katmanıdır; eşleşen vadeli sözleşme, vadeli mumlar ve fiyatlarla ayrı değerlendirilir. Sinyal kartı ve bildirim tasarımı korunur.
-Spot keşfiyle vadeli analize eklenen adaylar için güvenlik tabanı korunur: spot 24s hacim >= 500.000 USDT ve vadeli 24s hacim >= 100.000 USDT. Normal vadeli tarama eşiği >= 250.000 USDT olarak kalır.
-`FIRSAT_KONTROL` / `DATA_SKIPS` tanıları GitHub Actions logu ve `scan_diagnostic.log` içindir; Telegram'a ayrı hata/diagnostic mesajı gönderilmez.
-Market-cap eşikleri aynı: global market-cap sırası 1–200 => 80+, 201–500 => 85+, 501+ veya bilinmiyor => 90+. Piyasa değeri genel kripto piyasasından alınır; vadeli işlem hacmiyle hesaplanmaz. Veri sağlayıcı önceliği CoinPaprika, CoinCap, ardından CoinGecko'dur; önceki cache korunur.
+Altcoin Alert Scanner V9 — tek bütünsel skor
+Bu sistem yalnızca MEXC'nin herkese açık piyasa verisini okur ve Telegram'a analiz gönderir. Otomatik emir açmaz ve MEXC API anahtarı istemez.
+V9'da yapılan son düzenlemeler
+Telegram mesajında ayrı ayrı potansiyel, hazırlık, giriş kalitesi ve R:R puanları gösterilmez. Bunlar yön/trend, mum ve hacim, göreceli güç, giriş konumu, hedef alanı ve stop-hedef geometrisiyle birlikte tek bir BÜTÜNSEL SKOR içinde değerlendirilir.
+Market-cap puan eşikleri korunur: 1–200 için 80+, 201–500 için 85+, 501+ veya bilinmeyen için 90+.
+Güvenlik için işlem planı yine de geçerli erken/yeni kırılım yapısı, yeterli likidite ve makul stop-hedef geometrisi koşullarını geçmelidir. Bunlar kullanıcıya ayrı skorlar olarak sunulmaz.
+Tüm aktif MEXC USDT perpetual çiftleri keşfedilir. 24 saatlik vadeli hacmi en az 250.000 USDT olan tüm benzersiz çiftler derin analize girer. Tarama sayıları aynı benzersiz sembol listesinden hesaplanır.
+Kısa mum geçmişinde alt zaman diliminden veri birleştirilirken artık daha fazla kaynak mum istenir; özellikle 5 dakikadan 15 dakikaya yedekleme daha yeterli geçmiş oluşturmayı dener. Yeterli veri yine yoksa sistem hatayı kaydeder ve o sembolü atlar.
+BTC/ETH 4 saatlik ve 1 saatlik rejimi, altcoinin göreceli gücü, erken kırılım/yeni kırılım, destek/direnç, stop ve TP1/TP2/TP3 korunur.
+Market-cap için CoinPaprika → CoinCap → CoinGecko yedek zinciri ve kalıcı önbellek korunur.
+Genel spot izleme mesajı spam olarak gönderilmez; Telegram yalnızca eşiği geçen vadeli planları alır.
+İş akışı 15 dakikada bir çalışır; GitHub Actions çalışma zamanı ve state/log/cache kayıtları korunur.
+Puanlama
+Market-cap 1–200: 80+
+Market-cap 201–500: 85+
+Market-cap 501+ veya bilinmiyor: 90+
+Vadeli 24 saatlik hacim: en az 250.000 USDT
+İç risk kontrolü: hedef-stop geometrisi için en az 1.8 oran; bu metrik Telegram'da ayrı puan olarak gösterilmez.
+Skor bir olasılık yüzdesi veya kazanma garantisi değildir. Gerçek performans ancak sinyallerin sonraki fiyat hareketleriyle sistematik biçimde karşılaştırılmasıyla değerlendirilebilir.
 GitHub'a yükleme
-Mevcut depodaki `altcoin_alert_scanner.py` ve `requirements.txt` dosyalarını bu ZIP'teki dosyalarla değiştirin. Workflow, GitHub Secrets ve `alert_state.json`, `scan_diagnostic.log`, `market_cap_cache.json`, `signal_outcomes.json` dosyalarını koruyun.
-Sınırlar
-Python derleme kontrolü çevrimdışı yapıldı. Canlı MEXC/Telegram testi yapılmadı. Daha geniş spot mum taraması çalışma süresini artırabilir. Daha çok adayın analiz edilmesi, daha çok sinyal veya kârlılık garantisi değildir; gerçek sonuçlar izlenmelidir.
+Depodaki şu üç dosyanın içeriğini paketteki karşılıklarıyla değiştirin:
+`altcoin\_alert\_scanner.py`
+`requirements.txt`
+`.github/workflows/scan.yml`
+`TELEGRAM\_BOT\_TOKEN` ve `TELEGRAM\_CHAT\_ID` secrets değerlerini değiştirmeyin. `alert\_state.json`, `scan\_diagnostic.log` veya varsa `market\_cap\_cache.json` dosyalarını silmeyin.
+İlk çalıştırmada kontrol
+GitHub → Actions → Altcoin Alert Scanner → en son run → `Tarayıcıyı çalıştır`:
+`Derin mum analizi: N/N benzersiz coin` satırındaki sayımlar birbiriyle tutarlı olmalı.
+Market-cap kaynağı ve `VERİ/ANALİZ HATASI` satırları kontrol edilmeli.
+Telegram'a giden planda tek bir bütünsel skor ile giriş koşulu, stop, hedefler ve destek/direnç görünmeli.
+Bildirim gelmemesi tek başına hata değildir; o turda yeni ve bütün koşulları geçen bir plan olmayabilir.
+Canlı MEXC/Telegram verisi GitHub Actions üzerinde doğrulanmalıdır. Bu sürüm otomatik işlem yapmaz.
