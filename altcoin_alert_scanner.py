@@ -1,45 +1,23 @@
 """
-V9 tek bütünsel skor + güvenilir veri yedeği + kısa ve anlaşılır sinyal -- BULUTTA çalışır (GitHub Actions),
-telefondaki/bilgisayardaki hiçbir şeye bağımlı değil. Mevcut MEXC trading
-bot'unuzdan TAMAMEN bağımsızdır -- hiçbir dosyasını içe aktarmaz, hiçbir
-emir göndermez. Sadece MEXC'nin herkese açık (public) piyasa verisini
-okur ve Telegram'a bildirim gönderir. API anahtarı / hesap bilgisi
-gerektirmez -- sadece TELEGRAM_BOT_TOKEN ve TELEGRAM_CHAT_ID.
+V12 — MEXC USDT perpetual Telegram alert scanner.
 
---- V11: spot keşif + vadeli doğrulama + erken hareket analizi + recall odaklı market-cap katmanı ---
+Bulutta (GitHub Actions) çalışır; MEXC hesap/API anahtarı kullanmaz ve emir
+göndermez. Yalnızca public spot + perpetual piyasa verisini okuyup Telegram'a
+kalite kontrollü LONG/SHORT kartları yollar.
 
-Üç BAĞIMSIZ eksen var, hiçbiri diğerini beslemiyor / bloklamıyor:
+V12 ana düzeltmeleri:
+- EARLY_OPPORTUNITY: hareket oluşmadan önce yaklaşan kırılımı arar.
+- ACTIVE_MOMENTUM: hareket başladıktan sonra, yapısal devam alanı varsa çöpe atmaz.
+- REVERSAL_SETUP: aşırı hareketi otomatik sinyal saymaz; karşı yön teyidi ister.
+- Spot yalnızca keşif katmanıdır; işlem planı ve fiyat vadeli mumlarından çıkar.
+- Market-cap kapısı: #1-500 => 80+, #501-800 => 85+, #801+ / bilinmiyor => 90+.
+- Bilinmeyen market-cap artık yanlışlıkla #501 sayılmaz.
+- Mumlar yalnızca kapanmış veriden analiz edilir; eksik geçmiş uydurulmaz.
+- Stop/TP geometrisi ve canlı fiyat son gönderim öncesi tekrar doğrulanır.
+- Signal outcome geçmişi ve market-cap cache GitHub Actions ile kalıcı tutulur.
 
-  1) directional   -- "gerçekten bir yön hareketi var mı" (trend + momentum
-                       + hacim + kısa vadeli kırılım teyidi + BTC/ETH rejim
-                       hizası). Yön (LONG/SHORT) burada belirlenir.
-  2) entry_quality  -- "şu an bu fiyattan girmek mantıklı mı" (EMA'dan
-                       kovalamama + hedefe kadar kalan mesafe).
-  3) move_potential  -- "bu hareketin büyüklük potansiyeli ne" (mesafe +
-                       volatilite + trend gücü).
-
-Bir önceki versiyonda iki gerçek hata vardı, ikisi de burada düzeltildi:
-
-  BUG 1 (çelişki): "structure" bileşeni içindeki range_pos (fiyatın
-  96-mumluk aralığın TEPESİNE yakın olmasını ödüllendiriyordu) ile
-  entry_quality içindeki location_score (fiyatın dirence UZAK olmasını,
-  yani aralığın ALTINA yakın olmasını ödüllendiriyordu) matematiksel
-  olarak birbirinin ZITTIYDI -- aynı 96-mumluk aralıktan besleniyorlardı.
-  Hiçbir setup ikisini aynı anda maksimize edemiyordu. Çözüm: range_pos
-  tamamen kaldırıldı. "Kırılım" artık sadece önceki muma göre kısa vadeli
-  bir olay (breakout_atr + confirmation) -- aralıktaki konumla hiç ilgisi
-  yok, dolayısıyla entry_quality ile çakışmıyor.
-
-  BUG 2 (çifte sayım): "structure" ve "market" bileşenleri hem
-  directional'ın İÇİNDE hem final skorda TEKRAR ayrı ayrı toplanıyordu --
-  bu da onların nominal ağırlıklarından çok daha fazla etki etmesine yol
-  açıyordu. Çözüm: artık sadece directional'ın içinde bir kez sayılıyor,
-  final formülde tekrar edilmiyor. Ağırlıklar (0.56/0.20/0.24) bu
-  birleştirmeyi yansıtacak şekilde yeniden hesaplandı, toplamı hâlâ 1.00.
-
-Bonus: BTC/ETH çoklu zaman dilimi hizası artık sadece mesaj başlığında
-süs değil -- doğrudan directional skoruna giriyor (tam hizalıysa tam
-puan, kısmi hizalıysa yarım, ters yönde ise sıfır).
+Skor bir başarı olasılığı değildir; garanti vermez. Gerçek performans outcome	akibiyle ölçülür ve V12'nin amacı yüksek hareketleri körlemesine kovalamak
+değil, erken/aktif/geç aşamayı birbirinden ayırarak recall + kalite dengesini iyileştirmektir.
 """
 import os, json, time
 from io import BytesIO
@@ -58,7 +36,7 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHAT_ID   = os.getenv('TELEGRAM_CHAT_ID', '')
 # Tarama evreni tüm aktif MEXC USDT perpetual marketlerdir.
 # Düşük likiditeli çiftler analiz edilir ancak işlem planı bildirimine geçemez.
-MIN_ALERT_24H_VOLUME = float(os.getenv('MIN_ALERT_24H_VOLUME', '250000'))
+MIN_ALERT_24H_VOLUME = float(os.getenv('MIN_ALERT_24H_VOLUME', '100000'))
 SWAP_QUOTE_VOLUMES = {}
 SWAP_PERCENTAGES = {}
 # Derin analiz, minimum hacmi geçen tüm aktif vadeli çiftlere uygulanır.
@@ -343,7 +321,7 @@ def market_cap_rankings():
 
 def market_cap_rank_for_symbol(symbol, rankings):
     base = str(symbol).split('/')[0].upper()
-    return int(rankings.get(base, 501))
+    return int(rankings.get(base, 801))
 
 def market_cap_label_for_symbol(symbol, rankings):
     base = str(symbol).split('/')[0].upper()
@@ -503,166 +481,244 @@ def _early_move_score(df4, df1, df15, ctx, side, ref_price, trigger, atr, local_
                  0.18*slope_score + 0.14*proximity + 0.12*relative)
 
 def score_setup(df4, df1, df15, ctx, symbol_key=None):
-    """Build a pre-breakout or newly-started breakout plan from closed candles.
+    """V12 üç aşamalı setup motoru.
 
-    The current reference price is kept separate from the planned trigger entry.
-    Pre-breakout alerts only qualify when price is close to a local level, trend
-    context agrees, and a projected plan meets the market-cap score gate and RR.
+    Amaç yalnızca ``breakout öncesi`` coinleri değil, üç farklı piyasa durumunu
+    birbirine karıştırmadan değerlendirmektir:
+      1) EARLY_OPPORTUNITY  : hareket oluşuyor, kırılım/teyit yaklaşıyor.
+      2) ACTIVE_MOMENTUM    : hareket başladı; hâlâ devam edecek yapısal alan var.
+      3) REVERSAL_SETUP     : aşırı hareket + zayıflama + karşı yön teyidi var.
+
+    24s değişim tek başına sinyal değildir. Spot yalnızca keşif katmanıdır;
+    plan ve fiyat her zaman vadeli mumlarından çıkarılır.
     """
     c = df15.iloc[-2]
     ref_price = float(c.close)
     sup, res = structure_levels(df15)
-    atr = max(float(c.atr), ref_price*0.0001)
+    atr = max(float(c.atr), ref_price * 0.0001)
     atr_pct = float(c.atr_pct)
     local = df15.iloc[-22:-2]
     if len(local) < 10:
         raise InsufficientCandleDataError('Yeterli kapalı mum yok: yapı seviyeleri hesaplanamadı')
     local_res = float(local.high.max())
     local_sup = float(local.low.min())
-    L = _directional_score(df4,df1,df15,ctx,'LONG',symbol_key)
-    S = _directional_score(df4,df1,df15,ctx,'SHORT',symbol_key)
+
+    L = _directional_score(df4, df1, df15, ctx, 'LONG', symbol_key)
+    S = _directional_score(df4, df1, df15, ctx, 'SHORT', symbol_key)
     long_early = _early_move_score(df4, df1, df15, ctx, 'LONG', ref_price, local_res + 0.10*atr, atr, local_res, local_sup)
     short_early = _early_move_score(df4, df1, df15, ctx, 'SHORT', ref_price, local_sup - 0.10*atr, atr, local_res, local_sup)
-    long_select = 0.72*L['directional'] + 0.28*long_early
-    short_select = 0.72*S['directional'] + 0.28*short_early
-    direction = 'LONG' if long_select>=short_select else 'SHORT'
-    vals = L if direction=='LONG' else S
-    opp = S if direction=='LONG' else L
-    directional = vals['directional']; opposite = opp['directional']; gap = directional-opposite
-    early_move = long_early if direction=='LONG' else short_early
+    long_select = 0.68*L['directional'] + 0.32*long_early
+    short_select = 0.68*S['directional'] + 0.32*short_early
+    direction = 'LONG' if long_select >= short_select else 'SHORT'
+    vals = L if direction == 'LONG' else S
+    opp = S if direction == 'LONG' else L
+    directional = float(vals['directional'])
+    opposite = float(opp['directional'])
+    gap = directional - opposite
+    early_move = float(long_early if direction == 'LONG' else short_early)
+
+    signed = 1.0 if direction == 'LONG' else -1.0
+    r15 = signed * _closed_return_pct(df15, 1)
+    r1h = signed * _closed_return_pct(df1, 1)
+    r4h = signed * _closed_return_pct(df4, 1)
+    ema20 = float(c.ema20)
+    ema50 = float(c.ema50)
+    ema_dist_atr = abs(ref_price - ema20) / max(atr, 1e-12)
+    vr = float(c.volume_ratio) if pd.notna(c.volume_ratio) else 0.0
+    adx = float(c.adx) if pd.notna(c.adx) else 0.0
+    rsi = float(c.rsi) if pd.notna(c.rsi) else 50.0
 
     if direction == 'LONG':
         trigger = local_res + 0.10*atr
-        dist_atr = (local_res-ref_price)/atr
-        broken = ref_price > trigger and float(c.volume_ratio) >= 1.10
-        trend_ok = ref_price >= float(c.ema20) and float(df1.iloc[-2].close) >= float(df1.iloc[-2].ema20)
-        early_trend_ok = trend_ok
-        if broken:
-            phase = 'BREAKOUT_STARTED'
-            entry = ref_price
-            stretch_atr = max((ref_price-trigger)/atr, 0.0)
-        emerging_trend_ok = (float(c.ema20) >= float(df15.iloc[-6].ema20) and
-                              float(df1.iloc[-2].ema20) >= float(df1.iloc[-6].ema20))
-        early_trend_ok = trend_ok or (emerging_trend_ok and early_move >= 58.0)
-        if 0 <= dist_atr <= EARLY_TRIGGER_MAX_ATR and early_trend_ok:
-            phase = 'PRE_BREAKOUT'
-            entry = trigger
-            stretch_atr = 0.0
-        else:
-            phase = 'NO_EARLY_SETUP'
-            entry = trigger
-            stretch_atr = max((ref_price-trigger)/atr, 0.0)
+        level_distance = (local_res - ref_price) / atr
+        broken = ref_price >= trigger and vr >= 1.05
+        trend_ok = ref_price >= ema20 and float(df1.iloc[-2].close) >= float(df1.iloc[-2].ema20)
+        emerging = (ema20 > float(df15.iloc[-6].ema20) and
+                    float(df1.iloc[-2].ema20) >= float(df1.iloc[-6].ema20))
+        candle_confirm = float(c.close) > float(c.open) and float(c.close) >= float(df15.iloc[-3].close)
+        reversal_candle = float(c.close) > float(c.open) and float(c.close) > float(df15.iloc[-3].high)
     else:
         trigger = local_sup - 0.10*atr
-        dist_atr = (ref_price-local_sup)/atr
-        broken = ref_price < trigger and float(c.volume_ratio) >= 1.10
-        trend_ok = ref_price <= float(c.ema20) and float(df1.iloc[-2].close) <= float(df1.iloc[-2].ema20)
-        early_trend_ok = trend_ok
-        if broken:
-            phase = 'BREAKOUT_STARTED'
-            entry = ref_price
-            stretch_atr = max((trigger-ref_price)/atr, 0.0)
-        emerging_trend_ok = (float(c.ema20) <= float(df15.iloc[-6].ema20) and
-                              float(df1.iloc[-2].ema20) <= float(df1.iloc[-6].ema20))
-        early_trend_ok = trend_ok or (emerging_trend_ok and early_move >= 58.0)
-        if 0 <= dist_atr <= EARLY_TRIGGER_MAX_ATR and early_trend_ok:
-            phase = 'PRE_BREAKOUT'
-            entry = trigger
-            stretch_atr = 0.0
-        else:
-            phase = 'NO_EARLY_SETUP'
-            entry = trigger
-            stretch_atr = max((trigger-ref_price)/atr, 0.0)
+        level_distance = (ref_price - local_sup) / atr
+        broken = ref_price <= trigger and vr >= 1.05
+        trend_ok = ref_price <= ema20 and float(df1.iloc[-2].close) <= float(df1.iloc[-2].ema20)
+        emerging = (ema20 < float(df15.iloc[-6].ema20) and
+                    float(df1.iloc[-2].ema20) <= float(df1.iloc[-6].ema20))
+        candle_confirm = float(c.close) < float(c.open) and float(c.close) <= float(df15.iloc[-3].close)
+        reversal_candle = float(c.close) < float(c.open) and float(c.close) < float(df15.iloc[-3].low)
 
-    # A breakout that has already run too far is not an entry signal.
-    overextended = stretch_atr > EARLY_TRIGGER_MAX_ATR
-    stop_mult = clamp(2.0+(0.4 if c.adx<22 else 0)+(0.25 if atr_pct>0.035 else 0),2.0,2.8)
-    atr_stop = entry - stop_mult*atr if direction=='LONG' else entry + stop_mult*atr
-    # Use a nearby structure invalidation when it is neither too tight nor too wide.
-    structural_stop = (local_sup - 0.12*atr) if direction=='LONG' else (local_res + 0.12*atr)
-    structural_dist_atr = abs(entry-structural_stop)/atr if atr else 999.0
-    if 1.15 <= structural_dist_atr <= 3.0:
+    # Forward-looking formation quality. Large 24h moves are deliberately not
+    # rewarded by themselves; acceleration, volume, volatility, slope and
+    # relative strength must agree.
+    formation = early_move
+    acceleration_ok = r15 >= 0.35 and r1h >= 1.0
+    active_ok = (directional >= 55 and gap >= 7 and trend_ok and
+                 (r15 >= 0.45 or r1h >= 1.5) and
+                 (vr >= 1.05 or adx >= 24) and
+                 not (ema_dist_atr > 3.2 and r15 < 0.8))
+
+    # Reversal is intentionally strict: a large directional extension must be
+    # accompanied by loss of short-term momentum and a closed-candle turn.
+    opposite_rsi = (direction == 'LONG' and rsi <= 38) or (direction == 'SHORT' and rsi >= 62)
+    # For reversal, evaluate the opposite directional score as the confirmation.
+    reversal_gap = float(opp['directional'] - vals['directional'])
+    # Local extreme plus a closed candle through the previous candle is the core trigger.
+    at_extreme = (direction == 'LONG' and ref_price <= local_sup + 0.75*atr) or (direction == 'SHORT' and ref_price >= local_res - 0.75*atr)
+    # The selected direction itself is the reversal direction; require the prior
+    # directional side to be materially weaker. This avoids labeling continuation
+    # as reversal merely because RSI is stretched.
+    reversal_ok = bool(opposite_rsi and reversal_candle and at_extreme and reversal_gap >= 8)
+
+    # Phase selection: early first, then active continuation, then strict reversal.
+    if 0 <= level_distance <= 1.50 and (trend_ok or (emerging and formation >= 52)) and not broken:
+        phase = 'EARLY_OPPORTUNITY'
+        entry = trigger
+        trigger_level = trigger
+        phase_overextended = False
+    elif active_ok and not reversal_ok:
+        phase = 'ACTIVE_MOMENTUM'
+        trigger_level = ref_price
+        # If the move is already extended, only use a pullback entry when price
+        # is still close enough to EMA20; otherwise keep it non-actionable.
+        if ema_dist_atr <= 1.35:
+            entry = ref_price
+        elif direction == 'LONG' and ref_price > ema20:
+            entry = ema20 + 0.20*atr
+        elif direction == 'SHORT' and ref_price < ema20:
+            entry = ema20 - 0.20*atr
+        else:
+            entry = ref_price
+        phase_overextended = ema_dist_atr > 2.25
+    elif reversal_ok:
+        phase = 'REVERSAL_SETUP'
+        trigger_level = ref_price
+        entry = ref_price
+        phase_overextended = False
+    else:
+        phase = 'NO_ACTIONABLE_SETUP'
+        trigger_level = trigger
+        entry = trigger
+        phase_overextended = True
+
+    # Stop: structure first, ATR second. For active/reversal setups, use the
+    # recent swing around the actual entry rather than an obsolete pre-breakout level.
+    stop_mult = clamp(1.9 + (0.35 if adx < 22 else 0.0) + (0.25 if atr_pct > 0.035 else 0.0), 1.9, 2.6)
+    atr_stop = entry - stop_mult*atr if direction == 'LONG' else entry + stop_mult*atr
+    structural_stop = (local_sup - 0.12*atr) if direction == 'LONG' else (local_res + 0.12*atr)
+    structural_dist_atr = abs(entry - structural_stop) / atr if atr else 999.0
+    if 1.10 <= structural_dist_atr <= 2.90:
         stop = structural_stop
-        stop_method = 'yakın yapı + ATR tamponu'
+        stop_method = 'yakın swing/yapı + ATR tamponu'
     else:
         stop = atr_stop
         stop_method = 'ATR volatilite stopu'
-    risk = abs(entry-stop)
+    risk = abs(entry - stop)
 
+    # Target geometry differs by phase. Early uses the next structural level;
+    # active uses measured continuation; reversal uses the nearest opposing
+    # structure/EMA but must still produce >= minimum RR.
     if direction == 'LONG':
-        if res > entry + 0.5*atr:
+        if phase == 'EARLY_OPPORTUNITY' and res > entry + 0.5*atr:
             target = res; target_method = 'üst yapısal direnç'
+        elif phase == 'REVERSAL_SETUP' and ema50 > entry + 0.5*atr:
+            target = ema50; target_method = 'EMA50 dönüş hedefi'
         else:
-            target = entry + max(2.2*risk, 2.5*atr)
-            target_method = 'kırılım sonrası ATR/R projeksiyonu'
-        room = (target-entry)/atr
-        level_dist = max((local_res-ref_price)/atr, 0.0)
+            target = entry + max(2.2*risk, 2.8*atr)
+            target_method = 'devam ölçümü / ATR projeksiyonu'
     else:
-        if sup < entry - 0.5*atr:
+        if phase == 'EARLY_OPPORTUNITY' and sup < entry - 0.5*atr:
             target = sup; target_method = 'alt yapısal destek'
+        elif phase == 'REVERSAL_SETUP' and ema50 < entry - 0.5*atr:
+            target = ema50; target_method = 'EMA50 dönüş hedefi'
         else:
-            target = entry - max(2.2*risk, 2.5*atr)
-            target_method = 'kırılım sonrası ATR/R projeksiyonu'
-        room = (entry-target)/atr
-        level_dist = max((ref_price-local_sup)/atr, 0.0)
+            target = entry - max(2.2*risk, 2.8*atr)
+            target_method = 'devam ölçümü / ATR projeksiyonu'
 
-    ema_dist = abs(ref_price-float(c.ema20))/max(atr,1e-12)
-    extension_penalty = clamp((ema_dist-0.8)*24,0,40)
-    if room<=0: location_score=10.0
-    elif room<0.50: location_score=25.0
-    elif room<1.00: location_score=45.0
-    elif room<1.50: location_score=68.0
-    else: location_score=88.0
-    if target_method.startswith('kırılım'):
-        location_score = min(location_score, 70.0)
-    ema_entry_score = clamp(86-extension_penalty + (6 if (direction=='LONG' and ref_price<=c.ema20*1.01) or (direction=='SHORT' and ref_price>=c.ema20*0.99) else 0))
-    rr = ((target-entry)/risk if direction=='LONG' else (entry-target)/risk) if risk>0 else np.nan
-    # Entry quality explicitly includes payoff quality; a large projected move
-    # cannot compensate for a poor stop/target geometry.
-    rr_quality = clamp((float(rr)-1.0)/2.0*100.0, 0.0, 100.0) if pd.notna(rr) else 0.0
-    entry_quality = clamp(0.40*ema_entry_score + 0.25*location_score + 0.35*rr_quality)
-    # Move potential is now a forward-looking formation score, not simply
-    # remaining room to a nearby target. This prevents a pre-breakout setup
-    # from being penalized just because the trigger is close to resistance.
-    move_potential = float(early_move)
-    rr_bonus = clamp((rr-2.0)*1.5,0,4) if pd.notna(rr) else 0
+    rr = ((target-entry)/risk if direction == 'LONG' else (entry-target)/risk) if risk > 0 else np.nan
+    # If structure target is too close, use a measured target only when it remains
+    # geometrically sensible. This fixes the old "near resistance => bad score"
+    # behavior that suppressed strong continuation setups.
+    if pd.notna(rr) and rr < MIN_CONFIRMED_RR:
+        target = entry + max(MIN_CONFIRMED_RR*risk, 2.4*atr) if direction == 'LONG' else entry - max(MIN_CONFIRMED_RR*risk, 2.4*atr)
+        target_method = 'minimum RR + ATR projeksiyonu'
+        rr = ((target-entry)/risk if direction == 'LONG' else (entry-target)/risk) if risk > 0 else np.nan
 
-    # Readiness rewards proximity, own-coin direction and volume confirmation.
-    proximity_score = clamp(100 - max(level_dist,0)/max(EARLY_TRIGGER_MAX_ATR,0.1)*55, 0, 100)
-    volume_score = clamp((float(c.volume_ratio)-0.8)*45,0,100)
-    readiness = clamp(0.40*proximity_score + 0.30*directional + 0.30*move_potential)
-    early_bonus = min(5.0, max(0.0, (move_potential-55.0)*0.10)) if phase=='PRE_BREAKOUT' else 0.0
-    # Score favors direction and executable entry quality. Potential remains a
-    # separate forecast descriptor, not a way to inflate a weak setup.
-    # ONE public score: direction, entry location/payoff, readiness, move room,
-    # and clarity between LONG vs SHORT are blended once. No separate public
-    # potential/readiness/entry/RR scores are needed to interpret the signal.
-    direction_clarity = clamp(gap * 6.0, 0.0, 100.0)
+    # Entry quality: do not punish a valid continuation merely because it is no
+    # longer pre-breakout; instead penalize only true extension/chasing.
+    if ema_dist_atr <= 0.55: ema_entry_score = 94
+    elif ema_dist_atr <= 1.00: ema_entry_score = 88
+    elif ema_dist_atr <= 1.50: ema_entry_score = 78
+    elif ema_dist_atr <= 2.25: ema_entry_score = 64
+    else: ema_entry_score = 42
+    rr_quality = clamp((float(rr)-1.0)/1.5*100.0, 0.0, 100.0) if pd.notna(rr) else 0.0
+    if phase == 'EARLY_OPPORTUNITY':
+        location_score = clamp(100 - max(level_distance, 0.0)/1.5*55, 0, 100)
+    elif phase == 'ACTIVE_MOMENTUM':
+        location_score = clamp(92 - max(ema_dist_atr-0.5, 0.0)*28, 25, 92)
+    elif phase == 'REVERSAL_SETUP':
+        location_score = 78.0
+    else:
+        location_score = 15.0
+    entry_quality = clamp(0.40*ema_entry_score + 0.20*location_score + 0.40*rr_quality)
+
+    # Move potential is deliberately a blend of formation + trend persistence +
+    # relative strength. It can be high before a large move, and does not become
+    # zero simply because the 24h move is already large.
+    persistence = clamp(50 + r1h*5 + r4h*1.8 + (adx-20)*1.4, 0, 100)
+    rel_side = vals['relative_1h'] * signed
+    rel4_side = vals['relative_4h'] * signed
+    relative_future = clamp(50 + rel_side*8 + rel4_side*3, 0, 100)
+    move_potential = clamp(0.55*formation + 0.25*persistence + 0.20*relative_future)
+
+    proximity_score = clamp(100 - max(level_distance, 0)/1.5*55, 0, 100)
+    readiness = clamp(0.35*proximity_score + 0.35*directional + 0.30*move_potential)
+    direction_clarity = clamp(gap*5.0, 0, 100)
+    phase_bonus = {'EARLY_OPPORTUNITY': 4.0, 'ACTIVE_MOMENTUM': 5.0, 'REVERSAL_SETUP': 2.0}.get(phase, 0.0)
     raw_score = clamp(
-        0.36*directional + 0.26*entry_quality + 0.16*readiness +
-        0.16*move_potential + 0.06*direction_clarity + rr_bonus + early_bonus
+        0.34*directional + 0.28*entry_quality + 0.14*readiness +
+        0.16*move_potential + 0.08*direction_clarity + phase_bonus
     )
-    setup_valid = (phase in ('PRE_BREAKOUT','BREAKOUT_STARTED') and early_trend_ok and
-                   not overextended and readiness >= MIN_SETUP_READINESS and gap >= MIN_DIRECTION_GAP)
-    elite_gate = (raw_score>=90 and directional>=85 and entry_quality>=80 and move_potential>=85 and pd.notna(rr) and rr>=2.0 and gap>=15 and setup_valid)
-    quality = 'ELITE' if elite_gate else 'STRONG' if raw_score>=85 else 'SELECTIVE' if raw_score>=72 else 'WEAK'
-    # Outlier flag: candidate has notable relative strength against the BTC/ETH tape.
-    rel_side = vals['relative_1h'] * (1 if direction == 'LONG' else -1)
-    rel4_side = vals['relative_4h'] * (1 if direction == 'LONG' else -1)
-    relative_outlier = (rel_side >= 1.5 or rel4_side >= 3.0)
+
+    # Executability is separate from score: score alone must never turn a bad
+    # geometry into an alert. ACTIVE can be valid even after a >8% move if it has
+    # a fresh continuation structure; EARLY remains the preferred state.
+    setup_valid = bool(
+        phase in ('EARLY_OPPORTUNITY', 'ACTIVE_MOMENTUM', 'REVERSAL_SETUP') and
+        directional >= 52 and gap >= MIN_DIRECTION_GAP and
+        readiness >= MIN_SETUP_READINESS and
+        pd.notna(rr) and rr >= MIN_CONFIRMED_RR and
+        not phase_overextended
+    )
+    elite_gate = bool(raw_score >= 90 and directional >= 82 and entry_quality >= 78 and
+                      move_potential >= 75 and pd.notna(rr) and rr >= 2.0 and
+                      gap >= 12 and setup_valid)
+    quality = 'ELITE' if elite_gate else 'STRONG' if raw_score >= 85 else 'SELECTIVE' if raw_score >= 72 else 'WEAK'
+    relative_outlier = bool(rel_side >= 1.5 or rel4_side >= 3.0)
     potential_label = ('ÇOK YÜKSEK' if move_potential >= 80 else 'YÜKSEK' if move_potential >= 65 else 'ORTA' if move_potential >= 45 else 'SINIRLI')
-    return {'direction':direction,'score':round(raw_score,1),'quality':quality,'elite_gate':elite_gate,
-            'entry':float(entry),'reference_price':ref_price,'trigger':float(trigger),'phase':phase,
-            'setup_valid':bool(setup_valid),'readiness':round(readiness,1),'overextended':bool(overextended),
-            'stop':float(stop),'stop_method':stop_method,'wide_stop':float(stop-(atr*WIDE_STOP_BUFFER_ATR) if direction=='LONG' else stop+(atr*WIDE_STOP_BUFFER_ATR)),
-            'target':float(target),'target_method':target_method,'rr':float(rr) if pd.notna(rr) else float('nan'),
-            'support':sup,'resistance':res,'local_support':local_sup,'local_resistance':local_res,
-            'directional_confidence':round(directional,1),'direction_gap':round(gap,1),'long_early_score':round(long_early,1),'short_early_score':round(short_early,1),
-            'entry_quality':round(entry_quality,1),'move_potential':round(move_potential,1),'early_move_score':round(early_move,1),
-            'potential_label':potential_label,'relative_strength':round(vals['relative_strength'],1),
-            'relative_1h':round(vals['relative_1h'],2),'relative_4h':round(vals['relative_4h'],2),
-            'relative_outlier':bool(relative_outlier),
-            'breakout':round(vals['breakout'],1),'atr':atr,'atr_pct':atr_pct}
+
+    return {
+        'direction': direction, 'score': round(raw_score, 1), 'quality': quality,
+        'elite_gate': elite_gate, 'entry': float(entry), 'reference_price': ref_price,
+        'trigger': float(trigger_level), 'phase': phase, 'setup_valid': setup_valid,
+        'readiness': round(readiness,1), 'overextended': bool(phase_overextended),
+        'stop': float(stop), 'stop_method': stop_method,
+        'wide_stop': float(stop-(atr*WIDE_STOP_BUFFER_ATR) if direction=='LONG' else stop+(atr*WIDE_STOP_BUFFER_ATR)),
+        'target': float(target), 'target_method': target_method,
+        'rr': float(rr) if pd.notna(rr) else float('nan'),
+        'support': sup, 'resistance': res, 'local_support': local_sup, 'local_resistance': local_res,
+        'directional_confidence': round(directional,1), 'direction_gap': round(gap,1),
+        'long_early_score': round(long_early,1), 'short_early_score': round(short_early,1),
+        'entry_quality': round(entry_quality,1), 'move_potential': round(move_potential,1),
+        'early_move_score': round(formation,1), 'potential_label': potential_label,
+        'relative_strength': round(vals['relative_strength'],1),
+        'relative_1h': round(vals['relative_1h'],2), 'relative_4h': round(vals['relative_4h'],2),
+        'relative_outlier': relative_outlier, 'breakout': round(vals['breakout'],1),
+        'atr': atr, 'atr_pct': atr_pct,
+        'recent_move_15m': round(r15,2), 'recent_move_1h': round(r1h,2),
+        'recent_move_4h': round(r4h,2), 'volume_ratio': round(vr,2),
+        'ema_distance_atr': round(ema_dist_atr,2), 'active_ok': bool(active_ok),
+        'reversal_ok': bool(reversal_ok)
+    }
 
 # ---------------------------------------------------------------------
 # TP1/TP2/TP3 -- mesafeye göre sıralı (en yakından en uzağa)
@@ -1165,7 +1221,7 @@ def write_diagnostic(all_results, ctx, spot_results=None, error_counts=None, sou
              f"ETH4h={ctx['eth']['4h']} ETH1h={ctx['eth']['1h']} | "
              f"perp_taranan={len(all_results)} | en_iyi={best} | marketcap={source} ==="]
     for r in top:
-        lines.append(f"PERP {r['symbol']:20} {r['direction']:5} phase={r.get('phase','?'):16} score={r['score']:5.1f} early={r.get('early_move_score',0):4.1f} rr_internal={r['rr']:.2f} rel1h={r.get('relative_1h',0):+.2f} rel4h={r.get('relative_4h',0):+.2f} mc=#{r.get('market_cap_rank',501):4d} gate={r.get('alert_threshold',90):.0f} valid={r.get('setup_valid',False)} qv={r.get('quote_volume_24h',0):.0f} reject={r.get('gate_reason','')}")
+        lines.append(f"PERP {r['symbol']:20} {r['direction']:5} phase={r.get('phase','?'):20} score={r['score']:5.1f} early={r.get('early_move_score',0):4.1f} rr_internal={r['rr']:.2f} rel1h={r.get('relative_1h',0):+.2f} rel4h={r.get('relative_4h',0):+.2f} mc=#{r.get('market_cap_rank',501):4d} gate={r.get('alert_threshold',90):.0f} valid={r.get('setup_valid',False)} qv={r.get('quote_volume_24h',0):.0f} reject={r.get('gate_reason','')}")
     for r in (spot_results or [])[:10]:
         lines.append(f"SPOT {r['symbol']:20} {r['direction']:15} 15m={r['change_15m']:+.2f}% 1h={r['change_1h']:+.2f}% 24h={r['change_24h']:+.2f}% vol={r['volume_ratio']:.2f}x swap={r['swap_available']} discovery={r.get('discovery_candidate',False)}")
     for r in (missed_candidates or [])[:20]:
@@ -1244,7 +1300,7 @@ def collect_missed_candidates(all_symbols, analyzed_symbols, all_results, spot_r
 
 
 def main():
-    print('=== ALTCOIN ALERT SCANNER V10 — SPOT KEŞİF + VADELİ DOĞRULAMA ===')
+    print('=== ALTCOIN ALERT SCANNER V12 — EARLY + ACTIVE MOMENTUM + REVERSAL ===')
     ctx = market_context()
     print(f"BTC 4h={ctx['btc']['4h']} 1h={ctx['btc']['1h']} | ETH 4h={ctx['eth']['4h']} 1h={ctx['eth']['1h']}")
     all_symbols = list(dict.fromkeys(liquid_usdt_swaps()))
