@@ -2,17 +2,13 @@ name: Altcoin Alert Scanner
 
 on:
   schedule:
-    # 7/24, her 15 dakikada bir (mum kapanışından 2 dk sonra, veri
-    # borsada oturması için). Gece kısıtlaması yok.
+    # 7/24, her 15 dakikada bir; 15m mum kapanışından yaklaşık 2 dk sonra.
     - cron: '2,17,32,47 * * * *'
-  workflow_dispatch: {}   # İstediğiniz an "Run workflow" ile elle de tetikleyebilirsiniz
+  workflow_dispatch: {}
 
 permissions:
-  contents: write   # durum/log dosyalarını repoya geri yazabilmek için
+  contents: write
 
-# Bir tarama 15 dakikadan uzun sürerse bir sonraki tetiklenme aynı anda
-# değil, öncekinin bitmesini bekleyip SIRAYLA çalışır -- alert_state.json
-# ve scan_diagnostic.log'a çakışan/eşzamanlı yazım olmaz.
 concurrency:
   group: altcoin-scanner
   cancel-in-progress: false
@@ -23,6 +19,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -31,29 +29,33 @@ jobs:
       - name: Bağımlılıkları kur
         run: pip install -r requirements.txt
 
-      - name: Taramayı çalıştır
+      - name: V12.1 taramasını çalıştır
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Analiz kapsamı: 100k+ vadeli hacim. Spot keşif ayrıca 500k+ spot
+          # ve 100k+ eşleşen vadeli hacim ile çalışır. Sabit coin/adet veya %6
+          # hareket filtresi yoktur.
           MIN_ALERT_24H_VOLUME: '100000'
-          DEEP_SCAN_MAX: '0'
-          SPOT_RADAR_MAX_CANDIDATES: '0'
+          MIN_SPOT_24H_VOLUME: '500000'
           MIN_SPOT_DISCOVERY_PERP_VOLUME: '100000'
+          SPOT_RADAR_MAX_CANDIDATES: '0'
+          DEEP_SCAN_MAX: '0'
           ALERT_MIN_SCORE: '80'
+          MIN_CONFIRMED_RR: '1.8'
+          MIN_DIRECTION_GAP: '5'
+          MIN_SETUP_READINESS: '65'
         run: python altcoin_alert_scanner.py
 
-      # Bildirim geçmişini ve tanı logunu repoya geri yazar. Hem durumu
-      # kalıcı/şeffaf tutar hem de her çalışma bir commit/push ürettiği
-      # için GitHub'ın "60 gün hareketsiz repoda zamanlanmış görevleri
-      # otomatik durdurma" kuralına hiç takılmamamızı sağlar.
-      - name: Durumu kaydet
+      - name: Durumu ve sonuç takibini kaydet
         run: |
-          if [ -n "$(git status --porcelain alert_state.json scan_diagnostic.log signal_outcomes.json market_cap_cache.json)" ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add alert_state.json scan_diagnostic.log signal_outcomes.json market_cap_cache.json
-            git commit -m "V12 alert state + outcome + tanı güncellendi"
-            git push
-          else
-            echo "Durumda değişiklik yok, commit atılmadı."
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add alert_state.json scan_diagnostic.log market_cap_cache.json signal_outcomes.json
+          if git diff --cached --quiet; then
+            echo "Kaydedilecek durum değişikliği yok."
+            exit 0
           fi
+          git commit -m "V12.1 scanner state and diagnostics"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
