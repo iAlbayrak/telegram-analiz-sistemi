@@ -333,6 +333,23 @@
     "trigger": 0.04071598987695058,
     "activated": true,
     "signal_ts_ms": 1791112707439,
+    "status": "STOP",
+    "last_checked_ms": 1791131363490,
+    "resolved_at_ms": 1791117900000
+  },
+  {
+    "symbol": "PUMPFUN/USDT:USDT",
+    "direction": "LONG",
+    "score": 86.8,
+    "entry": 0.006650858705983071,
+    "stop": 0.006493684586321639,
+    "tp1": 0.006808032825644504,
+    "tp2": 0.006886619885475219,
+    "tp3": 0.006996641769238222,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.006650858705983071,
+    "activated": false,
+    "signal_ts_ms": 1791131364543,
     "status": "OPEN"
   }
 ]
