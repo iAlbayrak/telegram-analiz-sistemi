@@ -513,7 +513,7 @@
     "activated": false,
     "signal_ts_ms": 1791185135114,
     "status": "OPEN",
-    "last_checked_ms": 1791237303994
+    "last_checked_ms": 1791238339222
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -547,7 +547,7 @@
     "activated": false,
     "signal_ts_ms": 1791191270806,
     "status": "OPEN",
-    "last_checked_ms": 1791237303994
+    "last_checked_ms": 1791238339222
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -563,7 +563,7 @@
     "activated": false,
     "signal_ts_ms": 1791198347237,
     "status": "OPEN",
-    "last_checked_ms": 1791237303994
+    "last_checked_ms": 1791238339222
   },
   {
     "symbol": "MAGIC/USDT:USDT",
@@ -615,7 +615,7 @@
     "activated": false,
     "signal_ts_ms": 1791203027059,
     "status": "OPEN",
-    "last_checked_ms": 1791237303994
+    "last_checked_ms": 1791238339222
   },
   {
     "symbol": "NIL/USDT:USDT",
@@ -652,5 +652,20 @@
     "last_checked_ms": 1791224918096,
     "activated_at_ms": 1791222300000,
     "resolved_at_ms": 1791218700000
+  },
+  {
+    "symbol": "AKT/USDT:USDT",
+    "direction": "LONG",
+    "score": 83.6,
+    "entry": 0.7851137972511759,
+    "stop": 0.774837852227657,
+    "tp1": 0.7953897422746948,
+    "tp2": 0.8005277147864542,
+    "tp3": 0.8458,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.7851137972511759,
+    "activated": false,
+    "signal_ts_ms": 1791238340450,
+    "status": "OPEN"
   }
 ]
