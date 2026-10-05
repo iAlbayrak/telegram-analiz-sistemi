@@ -495,7 +495,7 @@
     "activated": false,
     "signal_ts_ms": 1791179042979,
     "status": "OPEN",
-    "last_checked_ms": 1791204577243
+    "last_checked_ms": 1791205974089
   },
   {
     "symbol": "OURASTOCK/USDT:USDT",
@@ -511,7 +511,7 @@
     "activated": false,
     "signal_ts_ms": 1791185135114,
     "status": "OPEN",
-    "last_checked_ms": 1791204577243
+    "last_checked_ms": 1791205974089
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -545,7 +545,7 @@
     "activated": false,
     "signal_ts_ms": 1791191270806,
     "status": "OPEN",
-    "last_checked_ms": 1791204577243
+    "last_checked_ms": 1791205974089
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -561,7 +561,7 @@
     "activated": false,
     "signal_ts_ms": 1791198347237,
     "status": "OPEN",
-    "last_checked_ms": 1791204577243
+    "last_checked_ms": 1791205974089
   },
   {
     "symbol": "MAGIC/USDT:USDT",
@@ -577,7 +577,7 @@
     "activated": true,
     "signal_ts_ms": 1791198348197,
     "status": "OPEN",
-    "last_checked_ms": 1791204577243,
+    "last_checked_ms": 1791205974089,
     "activated_at_ms": 1791201600000
   },
   {
@@ -593,9 +593,10 @@
     "trigger": 11.839622762284101,
     "activated": true,
     "signal_ts_ms": 1791200386442,
-    "status": "OPEN",
-    "last_checked_ms": 1791204577243,
-    "activated_at_ms": 1791201600000
+    "status": "TP1",
+    "last_checked_ms": 1791205974089,
+    "activated_at_ms": 1791201600000,
+    "resolved_at_ms": 1791203400000
   },
   {
     "symbol": "FLUID/USDT:USDT",
@@ -611,6 +612,6 @@
     "activated": false,
     "signal_ts_ms": 1791203027059,
     "status": "OPEN",
-    "last_checked_ms": 1791204577243
+    "last_checked_ms": 1791205974089
   }
 ]
