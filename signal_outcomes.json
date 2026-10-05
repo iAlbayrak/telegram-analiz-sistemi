@@ -366,9 +366,55 @@
     "tp3": 0.1328,
     "phase": "PRE_BREAKOUT",
     "trigger": 0.12764631166912138,
-    "activated": false,
+    "activated": true,
     "signal_ts_ms": 1791153337085,
     "status": "OPEN",
-    "last_checked_ms": 1791158610642
+    "last_checked_ms": 1791159944132,
+    "activated_at_ms": 1791158400000
+  },
+  {
+    "symbol": "ORCA/USDT:USDT",
+    "direction": "LONG",
+    "score": 84.5,
+    "entry": 2.0893722303384687,
+    "stop": 2.0019276235690944,
+    "tp1": 2.176816837107843,
+    "tp2": 2.22053914049253,
+    "tp3": 2.281750365231092,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 2.0893722303384687,
+    "activated": false,
+    "signal_ts_ms": 1791159945762,
+    "status": "OPEN"
+  },
+  {
+    "symbol": "COAI/USDT:USDT",
+    "direction": "LONG",
+    "score": 81.5,
+    "entry": 0.3386858472125037,
+    "stop": 0.33496890296242937,
+    "tp1": 0.34240279146257807,
+    "tp2": 0.3442612635876152,
+    "tp3": 0.3689,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.3386858472125037,
+    "activated": false,
+    "signal_ts_ms": 1791159946565,
+    "status": "OPEN"
+  },
+  {
+    "symbol": "MORPHO/USDT:USDT",
+    "direction": "LONG",
+    "score": 80.2,
+    "entry": 2.7447574304083324,
+    "stop": 2.7193791006083576,
+    "tp1": 2.770135760208307,
+    "tp2": 2.7828249251082946,
+    "tp3": 2.7997,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 2.7447574304083324,
+    "activated": false,
+    "signal_ts_ms": 1791159947449,
+    "status": "OPEN"
   }
 ]
