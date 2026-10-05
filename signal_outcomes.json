@@ -405,7 +405,7 @@
     "activated": false,
     "signal_ts_ms": 1791159946565,
     "status": "OPEN",
-    "last_checked_ms": 1791177738839
+    "last_checked_ms": 1791179042037
   },
   {
     "symbol": "MORPHO/USDT:USDT",
@@ -475,6 +475,21 @@
     "activated": false,
     "signal_ts_ms": 1791167814431,
     "status": "OPEN",
-    "last_checked_ms": 1791177738839
+    "last_checked_ms": 1791179042037
+  },
+  {
+    "symbol": "NIL/USDT:USDT",
+    "direction": "LONG",
+    "score": 83.0,
+    "entry": 0.10749507011829325,
+    "stop": 0.10119366775242815,
+    "tp1": 0.11379647248415835,
+    "tp2": 0.1169471736670909,
+    "tp3": 0.12135815532319646,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.10749507011829325,
+    "activated": false,
+    "signal_ts_ms": 1791179042979,
+    "status": "OPEN"
   }
 ]
