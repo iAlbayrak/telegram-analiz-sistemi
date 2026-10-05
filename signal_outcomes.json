@@ -369,7 +369,7 @@
     "activated": true,
     "signal_ts_ms": 1791153337085,
     "status": "OPEN",
-    "last_checked_ms": 1791165107756,
+    "last_checked_ms": 1791165929909,
     "activated_at_ms": 1791158400000
   },
   {
@@ -386,7 +386,7 @@
     "activated": true,
     "signal_ts_ms": 1791159945762,
     "status": "OPEN",
-    "last_checked_ms": 1791165107756,
+    "last_checked_ms": 1791165929909,
     "activated_at_ms": 1791160200000
   },
   {
@@ -403,7 +403,7 @@
     "activated": false,
     "signal_ts_ms": 1791159946565,
     "status": "OPEN",
-    "last_checked_ms": 1791165107756
+    "last_checked_ms": 1791165929909
   },
   {
     "symbol": "MORPHO/USDT:USDT",
@@ -419,7 +419,7 @@
     "activated": true,
     "signal_ts_ms": 1791159947449,
     "status": "OPEN",
-    "last_checked_ms": 1791165107756,
+    "last_checked_ms": 1791165929909,
     "activated_at_ms": 1791160200000
   },
   {
@@ -436,7 +436,22 @@
     "activated": true,
     "signal_ts_ms": 1791161404987,
     "status": "OPEN",
-    "last_checked_ms": 1791165107756,
+    "last_checked_ms": 1791165929909,
     "activated_at_ms": 1791162000000
+  },
+  {
+    "symbol": "PHA/USDT:USDT",
+    "direction": "LONG",
+    "score": 80.9,
+    "entry": 0.07630493557172058,
+    "stop": 0.07500622413730908,
+    "tp1": 0.07760364700613208,
+    "tp2": 0.07825300272333782,
+    "tp3": 0.08072,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.07630493557172058,
+    "activated": false,
+    "signal_ts_ms": 1791165933236,
+    "status": "OPEN"
   }
 ]
