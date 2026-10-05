@@ -402,10 +402,11 @@
     "tp3": 0.3689,
     "phase": "PRE_BREAKOUT",
     "trigger": 0.3386858472125037,
-    "activated": false,
+    "activated": true,
     "signal_ts_ms": 1791159946565,
     "status": "OPEN",
-    "last_checked_ms": 1791185124641
+    "last_checked_ms": 1791186381406,
+    "activated_at_ms": 1791184500000
   },
   {
     "symbol": "MORPHO/USDT:USDT",
@@ -475,7 +476,7 @@
     "activated": false,
     "signal_ts_ms": 1791167814431,
     "status": "OPEN",
-    "last_checked_ms": 1791185124641
+    "last_checked_ms": 1791186381406
   },
   {
     "symbol": "NIL/USDT:USDT",
@@ -491,7 +492,7 @@
     "activated": false,
     "signal_ts_ms": 1791179042979,
     "status": "OPEN",
-    "last_checked_ms": 1791185124641
+    "last_checked_ms": 1791186381406
   },
   {
     "symbol": "OURASTOCK/USDT:USDT",
@@ -506,6 +507,7 @@
     "trigger": 47.73573456423303,
     "activated": false,
     "signal_ts_ms": 1791185135114,
-    "status": "OPEN"
+    "status": "OPEN",
+    "last_checked_ms": 1791186381406
   }
 ]
