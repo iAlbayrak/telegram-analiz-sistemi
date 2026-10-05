@@ -368,9 +368,10 @@
     "trigger": 0.12764631166912138,
     "activated": true,
     "signal_ts_ms": 1791153337085,
-    "status": "OPEN",
-    "last_checked_ms": 1791166677765,
-    "activated_at_ms": 1791158400000
+    "status": "TP1",
+    "last_checked_ms": 1791167812809,
+    "activated_at_ms": 1791158400000,
+    "resolved_at_ms": 1791166500000
   },
   {
     "symbol": "ORCA/USDT:USDT",
@@ -386,7 +387,7 @@
     "activated": true,
     "signal_ts_ms": 1791159945762,
     "status": "OPEN",
-    "last_checked_ms": 1791166677765,
+    "last_checked_ms": 1791167812809,
     "activated_at_ms": 1791160200000
   },
   {
@@ -403,7 +404,7 @@
     "activated": false,
     "signal_ts_ms": 1791159946565,
     "status": "OPEN",
-    "last_checked_ms": 1791166677765
+    "last_checked_ms": 1791167812809
   },
   {
     "symbol": "MORPHO/USDT:USDT",
@@ -419,7 +420,7 @@
     "activated": true,
     "signal_ts_ms": 1791159947449,
     "status": "OPEN",
-    "last_checked_ms": 1791166677765,
+    "last_checked_ms": 1791167812809,
     "activated_at_ms": 1791160200000
   },
   {
@@ -435,9 +436,10 @@
     "trigger": 0.024555882540308906,
     "activated": true,
     "signal_ts_ms": 1791161404987,
-    "status": "OPEN",
-    "last_checked_ms": 1791166677765,
-    "activated_at_ms": 1791162000000
+    "status": "TP1",
+    "last_checked_ms": 1791167812809,
+    "activated_at_ms": 1791162000000,
+    "resolved_at_ms": 1791166500000
   },
   {
     "symbol": "PHA/USDT:USDT",
@@ -453,6 +455,21 @@
     "activated": false,
     "signal_ts_ms": 1791165933236,
     "status": "OPEN",
-    "last_checked_ms": 1791166677765
+    "last_checked_ms": 1791167812809
+  },
+  {
+    "symbol": "PHA/USDT:USDT",
+    "direction": "LONG",
+    "score": 80.5,
+    "entry": 0.07653476583353572,
+    "stop": 0.07523944916282131,
+    "tp1": 0.07783008250425012,
+    "tp2": 0.07847774083960732,
+    "tp3": 0.08072,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.07653476583353572,
+    "activated": false,
+    "signal_ts_ms": 1791167814431,
+    "status": "OPEN"
   }
 ]
