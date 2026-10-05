@@ -369,7 +369,7 @@
     "activated": true,
     "signal_ts_ms": 1791153337085,
     "status": "OPEN",
-    "last_checked_ms": 1791159944132,
+    "last_checked_ms": 1791161403780,
     "activated_at_ms": 1791158400000
   },
   {
@@ -385,7 +385,8 @@
     "trigger": 2.0893722303384687,
     "activated": false,
     "signal_ts_ms": 1791159945762,
-    "status": "OPEN"
+    "status": "OPEN",
+    "last_checked_ms": 1791161403780
   },
   {
     "symbol": "COAI/USDT:USDT",
@@ -400,7 +401,8 @@
     "trigger": 0.3386858472125037,
     "activated": false,
     "signal_ts_ms": 1791159946565,
-    "status": "OPEN"
+    "status": "OPEN",
+    "last_checked_ms": 1791161403780
   },
   {
     "symbol": "MORPHO/USDT:USDT",
@@ -413,8 +415,25 @@
     "tp3": 2.7997,
     "phase": "PRE_BREAKOUT",
     "trigger": 2.7447574304083324,
-    "activated": false,
+    "activated": true,
     "signal_ts_ms": 1791159947449,
+    "status": "OPEN",
+    "last_checked_ms": 1791161403780,
+    "activated_at_ms": 1791160200000
+  },
+  {
+    "symbol": "DEEP/USDT:USDT",
+    "direction": "LONG",
+    "score": 81.4,
+    "entry": 0.024555882540308906,
+    "stop": 0.024174701572895124,
+    "tp1": 0.02493706350772269,
+    "tp2": 0.02512765399142958,
+    "tp3": 0.02536,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.024555882540308906,
+    "activated": false,
+    "signal_ts_ms": 1791161404987,
     "status": "OPEN"
   }
 ]
