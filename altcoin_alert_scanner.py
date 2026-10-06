@@ -1,12 +1,12 @@
 """
-V9 tek bütünsel skor + güvenilir veri yedeği + kısa ve anlaşılır sinyal -- BULUTTA çalışır (GitHub Actions),
+V13.1 bütünsel skor + güvenilir veri yedeği + Libra/SAR teyidi + retest koruması -- BULUTTA çalışır (GitHub Actions),
 telefondaki/bilgisayardaki hiçbir şeye bağımlı değil. Mevcut MEXC trading
 bot'unuzdan TAMAMEN bağımsızdır -- hiçbir dosyasını içe aktarmaz, hiçbir
 emir göndermez. Sadece MEXC'nin herkese açık (public) piyasa verisini
 okur ve Telegram'a bildirim gönderir. API anahtarı / hesap bilgisi
 gerektirmez -- sadece TELEGRAM_BOT_TOKEN ve TELEGRAM_CHAT_ID.
 
---- V13: spot keşif + vadeli doğrulama + erken hareket + entry-location + potansiyel katmanlı skor ---
+--- V11: spot keşif + vadeli doğrulama + erken hareket analizi + recall odaklı market-cap katmanı ---
 
 Üç BAĞIMSIZ eksen var, hiçbiri diğerini beslemiyor / bloklamıyor:
 
@@ -86,6 +86,15 @@ MAX_STOP_DISTANCE_PCT = float(os.getenv('MAX_STOP_DISTANCE_PCT', '0.08'))
 DIAG_LOG             = Path(os.getenv('DIAG_LOG_FILE', 'scan_diagnostic.log'))
 DIAG_LOG_MAX_LINES   = 500
 WIDE_STOP_BUFFER_ATR = float(os.getenv('WIDE_STOP_BUFFER_ATR', '0.6'))  # ek "geniş stop" ATR payı
+# V13.1: Libra-benzeri yapı + Parabolic SAR teyidi + sahte kırılım koruması.
+LIBRA_FIB_TARGET = 0.786
+LIBRA_FIB_TOLERANCE = float(os.getenv('LIBRA_FIB_TOLERANCE', '0.08'))
+LIBRA_MIN_SCORE = float(os.getenv('LIBRA_MIN_SCORE', '55'))
+SAR_AF_STEP = float(os.getenv('SAR_AF_STEP', '0.02'))
+SAR_AF_MAX = float(os.getenv('SAR_AF_MAX', '0.20'))
+BREAKOUT_MIN_VOLUME_RATIO = float(os.getenv('BREAKOUT_MIN_VOLUME_RATIO', '1.15'))
+BREAKOUT_MIN_BODY_RATIO = float(os.getenv('BREAKOUT_MIN_BODY_RATIO', '0.45'))
+RETEST_MAX_ATR = float(os.getenv('RETEST_MAX_ATR', '0.65'))
 OHLCV_LIMIT = 220
 PREFERRED_HISTORY_BARS = 60
 
@@ -101,6 +110,36 @@ def clamp(v, lo=0.0, hi=100.0):
 # ---------------------------------------------------------------------
 # Indicators
 # ---------------------------------------------------------------------
+def _parabolic_sar(high, low, step=0.02, max_af=0.20):
+    """Classic Parabolic SAR, calculated sequentially without look-ahead."""
+    h = np.asarray(high, dtype=float); l = np.asarray(low, dtype=float)
+    n = len(h)
+    if n == 0: return np.array([]), np.array([])
+    sar = np.empty(n, dtype=float); direction = np.ones(n, dtype=int)
+    bull = True; af = step; ep = h[0]; sar[0] = l[0]
+    for i in range(1, n):
+        prev_sar = sar[i-1]
+        if bull:
+            sar_i = prev_sar + af * (ep - prev_sar)
+            sar_i = min(sar_i, l[i-1], l[i-2] if i >= 2 else l[i-1])
+            if l[i] < sar_i:
+                bull = False; direction[i] = -1; sar_i = ep; ep = l[i]; af = step
+            else:
+                direction[i] = 1
+                if h[i] > ep:
+                    ep = h[i]; af = min(max_af, af + step)
+        else:
+            sar_i = prev_sar + af * (ep - prev_sar)
+            sar_i = max(sar_i, h[i-1], h[i-2] if i >= 2 else h[i-1])
+            if h[i] > sar_i:
+                bull = True; direction[i] = 1; sar_i = ep; ep = h[i]; af = step
+            else:
+                direction[i] = -1
+                if l[i] < ep:
+                    ep = l[i]; af = min(max_af, af + step)
+        sar[i] = sar_i
+    return sar, direction
+
 def add_indicators(df):
     df = df.copy()
     if df.empty or len(df) < 25:
@@ -133,6 +172,11 @@ def add_indicators(df):
     dx = dx.where(di_sum > 0, 0.0)
     df['adx'] = dx.ewm(alpha=1/14, adjust=False).mean()
     df['volume_ratio'] = v / v.rolling(20).mean(); df['atr_pct'] = df.atr / c
+    psar, psar_dir = _parabolic_sar(h, l, SAR_AF_STEP, SAR_AF_MAX)
+    df['psar'] = psar
+    df['psar_dir'] = psar_dir
+    df['psar_bull'] = df['psar_dir'] > 0
+    df['psar_flip'] = df['psar_dir'].diff().fillna(0)
     return df.dropna().reset_index(drop=True)
 
 def _ohlcv_frame(rows):
@@ -343,7 +387,7 @@ def market_cap_rankings():
 
 def market_cap_rank_for_symbol(symbol, rankings):
     base = str(symbol).split('/')[0].upper()
-    return int(rankings.get(base, 501))
+    return int(rankings.get(base, 9999))
 
 def market_cap_label_for_symbol(symbol, rankings):
     base = str(symbol).split('/')[0].upper()
@@ -502,6 +546,83 @@ def _early_move_score(df4, df1, df15, ctx, side, ref_price, trigger, atr, local_
     return clamp(0.22*accel + 0.18*volume_exp + 0.16*vol_expand +
                  0.18*slope_score + 0.14*proximity + 0.12*relative)
 
+def _pivot_points(df, left=2, right=2, max_points=12):
+    """Return recent confirmed swing pivots from closed candles only."""
+    closed = df.iloc[:-1].copy() if len(df) > 1 else df.copy()
+    if len(closed) < left + right + 5:
+        return []
+    pts = []
+    for i in range(left, len(closed)-right):
+        hi = float(closed.high.iloc[i]); lo = float(closed.low.iloc[i])
+        if hi >= float(closed.high.iloc[i-left:i].max()) and hi > float(closed.high.iloc[i+1:i+right+1].max()):
+            pts.append((i, 'H', hi))
+        if lo <= float(closed.low.iloc[i-left:i].min()) and lo < float(closed.low.iloc[i+1:i+right+1].min()):
+            pts.append((i, 'L', lo))
+    pts.sort(key=lambda x: x[0])
+    compact = []
+    for p in pts:
+        if compact and compact[-1][1] == p[1]:
+            if (p[2] > compact[-1][2]) if p[1] == 'H' else (p[2] < compact[-1][2]):
+                compact[-1] = p
+        else:
+            compact.append(p)
+    return compact[-max_points:]
+
+
+def _libra_pattern_score(df15, side, atr):
+    """Conservative Libra-like detector; a score contributor, never a standalone gate."""
+    piv = _pivot_points(df15)
+    if len(piv) < 5 or atr <= 0:
+        return {'score':50.0,'match':False,'fib':np.nan,'distance_atr':np.nan}
+    c = float(df15.iloc[-2].close)
+    best = None
+    for j in range(len(piv)-4):
+        seq = piv[j:j+5]
+        types = ''.join(p[1] for p in seq)
+        if side == 'LONG' and types != 'LHLHL':
+            continue
+        if side == 'SHORT' and types != 'HLHLH':
+            continue
+        a,b,m,d,e = [p[2] for p in seq]
+        if side == 'LONG':
+            shoulder_ref = max(a,e); head=m
+            asym = (shoulder_ref-head)/atr
+            impulse_low, impulse_high = min(a,m,e), max(b,d)
+            if impulse_high <= impulse_low: continue
+            fib = impulse_high - LIBRA_FIB_TARGET*(impulse_high-impulse_low)
+        else:
+            shoulder_ref = min(a,e); head=m
+            asym = (head-shoulder_ref)/atr
+            impulse_low, impulse_high = min(b,d), max(a,m,e)
+            if impulse_high <= impulse_low: continue
+            fib = impulse_low + LIBRA_FIB_TARGET*(impulse_high-impulse_low)
+        fib_dist = abs(c-fib)/max(atr,1e-12)
+        shape = clamp(50 + asym*18, 0, 100)
+        fib_score = clamp(100 - fib_dist*45, 0, 100)
+        recency = clamp(100 - max(0, len(df15)-1-seq[-1][0])*1.8, 0, 100)
+        score = 0.50*shape + 0.38*fib_score + 0.12*recency
+        candidate=(score, fib, fib_dist, asym)
+        if best is None or candidate[0] > best[0]: best=candidate
+    if best is None:
+        return {'score':50.0,'match':False,'fib':np.nan,'distance_atr':np.nan}
+    score,fib,fib_dist,asym=best
+    match = score >= LIBRA_MIN_SCORE and fib_dist <= max(1.5, LIBRA_FIB_TOLERANCE*10)
+    return {'score':round(score,1),'match':bool(match),'fib':float(fib),'distance_atr':round(fib_dist,2),'asym_atr':round(asym,2)}
+
+
+def _sar_confirmation(df15, side):
+    c=df15.iloc[-2]; prev=df15.iloc[-3]
+    direction_ok = bool(c.psar_bull) if side=='LONG' else not bool(c.psar_bull)
+    flipped = (float(c.psar_flip) > 0) if side=='LONG' else (float(c.psar_flip) < 0)
+    price_ok = float(c.close) > float(c.psar) if side=='LONG' else float(c.close) < float(c.psar)
+    prev_ok = float(prev.close) > float(prev.psar) if side=='LONG' else float(prev.close) < float(prev.psar)
+    score = 50.0
+    if direction_ok: score += 22
+    if price_ok: score += 15
+    if flipped: score += 13
+    elif prev_ok: score += 5
+    return clamp(score), bool(direction_ok and price_ok), bool(flipped)
+
 def score_setup(df4, df1, df15, ctx, symbol_key=None):
     """Build a pre-breakout or newly-started breakout plan from closed candles.
 
@@ -530,11 +651,16 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
     opp = S if direction=='LONG' else L
     directional = vals['directional']; opposite = opp['directional']; gap = directional-opposite
     early_move = long_early if direction=='LONG' else short_early
+    libra = _libra_pattern_score(df15, direction, atr)
+    sar_score, sar_ok, sar_flip = _sar_confirmation(df15, direction)
 
     if direction == 'LONG':
         trigger = local_res + 0.10*atr
         dist_atr = (local_res-ref_price)/atr
-        broken = ref_price > trigger and float(c.volume_ratio) >= 1.10
+        body = abs(float(c.close)-float(c.open)); candle_range=max(float(c.high)-float(c.low), 1e-12)
+        body_ratio = body/candle_range
+        broken = (ref_price > trigger and float(c.volume_ratio) >= BREAKOUT_MIN_VOLUME_RATIO and
+                  body_ratio >= BREAKOUT_MIN_BODY_RATIO and float(c.close) > float(c.open))
         trend_ok = ref_price >= float(c.ema20) and float(df1.iloc[-2].close) >= float(df1.iloc[-2].ema20)
         early_trend_ok = trend_ok
         if broken:
@@ -555,7 +681,10 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
     else:
         trigger = local_sup - 0.10*atr
         dist_atr = (ref_price-local_sup)/atr
-        broken = ref_price < trigger and float(c.volume_ratio) >= 1.10
+        body = abs(float(c.close)-float(c.open)); candle_range=max(float(c.high)-float(c.low), 1e-12)
+        body_ratio = body/candle_range
+        broken = (ref_price < trigger and float(c.volume_ratio) >= BREAKOUT_MIN_VOLUME_RATIO and
+                  body_ratio >= BREAKOUT_MIN_BODY_RATIO and float(c.close) < float(c.open))
         trend_ok = ref_price <= float(c.ema20) and float(df1.iloc[-2].close) <= float(df1.iloc[-2].ema20)
         early_trend_ok = trend_ok
         if broken:
@@ -574,6 +703,17 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
             entry = trigger
             stretch_atr = max((trigger-ref_price)/atr, 0.0)
 
+    # A confirmed breakout followed by a controlled retest is preferred over chasing.
+    prev_closed = df15.iloc[-3]
+    if phase == 'PRE_BREAKOUT' and len(df15) >= 5:
+        # The previous closed candle must have broken the trigger; the latest
+        # candle may then retest it and close back in the intended direction.
+        prior_break = (float(prev_closed.close) > trigger and float(prev_closed.volume_ratio) >= BREAKOUT_MIN_VOLUME_RATIO) if direction=='LONG' else (float(prev_closed.close) < trigger and float(prev_closed.volume_ratio) >= BREAKOUT_MIN_VOLUME_RATIO)
+        retest_touch = ((float(c.low) <= trigger + 0.20*atr) if direction=='LONG' else (float(c.high) >= trigger - 0.20*atr))
+        retest_close = (ref_price > trigger and float(c.close) >= float(c.open)) if direction=='LONG' else (ref_price < trigger and float(c.close) <= float(c.open))
+        if prior_break and retest_touch and retest_close and float(c.volume_ratio) >= 0.95:
+            phase = 'BREAKOUT_RETEST'; entry = ref_price; stretch_atr = abs(ref_price-trigger)/max(atr,1e-12)
+
     # A breakout that has already run too far is not an entry signal.
     overextended = stretch_atr > EARLY_TRIGGER_MAX_ATR
     stop_mult = clamp(2.0+(0.4 if c.adx<22 else 0)+(0.25 if atr_pct>0.035 else 0),2.0,2.8)
@@ -589,30 +729,20 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
         stop_method = 'ATR volatilite stopu'
     risk = abs(entry-stop)
 
-    # Target distance is forward-looking: stronger formations get more room,
-    # but the target is never shortened merely to manufacture a high score.
-    # This is what makes 80/85/90+ meaningfully different in potential.
-    potential_r_floor = 2.2 + max(0.0, (early_move - 55.0)) * 0.018
-    potential_atr_floor = 2.5 + max(0.0, (early_move - 60.0)) * 0.035
-    potential_r_floor = clamp(potential_r_floor, 2.2, 3.25)
-    potential_atr_floor = clamp(potential_atr_floor, 2.5, 3.75)
-
     if direction == 'LONG':
-        structural_target = res if res > entry + 0.5*atr else float('nan')
-        projected_target = entry + max(potential_r_floor*risk, potential_atr_floor*atr)
-        if pd.notna(structural_target) and structural_target > projected_target:
-            target = structural_target; target_method = 'üst yapısal direnç + genişleyen potansiyel'
+        if res > entry + 0.5*atr:
+            target = res; target_method = 'üst yapısal direnç'
         else:
-            target = projected_target; target_method = 'ATR/R potansiyel projeksiyonu'
+            target = entry + max(2.2*risk, 2.5*atr)
+            target_method = 'kırılım sonrası ATR/R projeksiyonu'
         room = (target-entry)/atr
         level_dist = max((local_res-ref_price)/atr, 0.0)
     else:
-        structural_target = sup if sup < entry - 0.5*atr else float('nan')
-        projected_target = entry - max(potential_r_floor*risk, potential_atr_floor*atr)
-        if pd.notna(structural_target) and structural_target < projected_target:
-            target = structural_target; target_method = 'alt yapısal destek + genişleyen potansiyel'
+        if sup < entry - 0.5*atr:
+            target = sup; target_method = 'alt yapısal destek'
         else:
-            target = projected_target; target_method = 'ATR/R potansiyel projeksiyonu'
+            target = entry - max(2.2*risk, 2.5*atr)
+            target_method = 'kırılım sonrası ATR/R projeksiyonu'
         room = (entry-target)/atr
         level_dist = max((ref_price-local_sup)/atr, 0.0)
 
@@ -627,37 +757,40 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
         location_score = min(location_score, 70.0)
     ema_entry_score = clamp(86-extension_penalty + (6 if (direction=='LONG' and ref_price<=c.ema20*1.01) or (direction=='SHORT' and ref_price>=c.ema20*0.99) else 0))
     rr = ((target-entry)/risk if direction=='LONG' else (entry-target)/risk) if risk>0 else np.nan
-    # Entry quality rewards an executable location and adequate payoff, but does
-    # not let a distant TP hide a bad entry.
+    # Entry quality explicitly includes payoff quality; a large projected move
+    # cannot compensate for a poor stop/target geometry.
     rr_quality = clamp((float(rr)-1.0)/2.0*100.0, 0.0, 100.0) if pd.notna(rr) else 0.0
-    entry_quality = clamp(0.45*ema_entry_score + 0.25*location_score + 0.30*rr_quality)
+    entry_quality = clamp(0.40*ema_entry_score + 0.25*location_score + 0.35*rr_quality)
+    # Move potential is now a forward-looking formation score, not simply
+    # remaining room to a nearby target. This prevents a pre-breakout setup
+    # from being penalized just because the trigger is close to resistance.
+    move_potential = float(early_move)
+    rr_bonus = clamp((rr-2.0)*1.5,0,4) if pd.notna(rr) else 0
 
-    # Move potential explicitly measures how much of a meaningful move is still
-    # structurally available. It rewards formation/acceleration plus forward room
-    # and trend strength; a coin already far from its trigger is not rewarded just
-    # because its 24h percentage is large.
-    forward_room_score = clamp((room - 1.8) / 2.0 * 100.0, 0.0, 100.0)
-    trend_potential = clamp(0.55*directional + 0.45*vals['relative_strength'])
-    move_potential = clamp(0.50*early_move + 0.30*forward_room_score + 0.20*trend_potential)
-
-    # Readiness = how close the setup is to being actionable without chasing.
+    # Readiness rewards proximity, own-coin direction and volume confirmation.
     proximity_score = clamp(100 - max(level_dist,0)/max(EARLY_TRIGGER_MAX_ATR,0.1)*55, 0, 100)
-    readiness = clamp(0.45*proximity_score + 0.30*directional + 0.25*move_potential)
-
-    # ONE public score. The meaning is deliberately tiered:
-    # 80-84 = smaller/shorter opportunity; 85-89 = stronger expansion potential;
-    # 90-95 = exceptional setup with materially larger modeled room.
-    # This is NOT a win probability and must never be presented as one.
+    volume_score = clamp((float(c.volume_ratio)-0.8)*45,0,100)
+    readiness = clamp(0.40*proximity_score + 0.30*directional + 0.30*move_potential)
+    early_bonus = min(5.0, max(0.0, (move_potential-55.0)*0.10)) if phase=='PRE_BREAKOUT' else 0.0
+    # Score favors direction and executable entry quality. Potential remains a
+    # separate forecast descriptor, not a way to inflate a weak setup.
+    # ONE public score: direction, entry location/payoff, readiness, move room,
+    # and clarity between LONG vs SHORT are blended once. No separate public
+    # potential/readiness/entry/RR scores are needed to interpret the signal.
+    direction_clarity = clamp(gap * 6.0, 0.0, 100.0)
+    # V13.1: move potential has a materially larger role so exceptional setups
+    # can outrank routine 1-3% opportunities without forcing distant TP levels.
+    # Libra and SAR remain confirmation layers, never standalone signals.
+    pattern_bonus = 0.05*max(0.0, libra['score']-50.0) + 0.03*max(0.0, sar_score-50.0)
+    potential_bonus = clamp((move_potential-70.0)*0.10, 0.0, 3.0)
     raw_score = clamp(
-        0.30*directional + 0.25*entry_quality +
-        0.30*move_potential + 0.15*readiness
+        0.32*directional + 0.24*entry_quality + 0.14*readiness +
+        0.21*move_potential + 0.06*direction_clarity + pattern_bonus + potential_bonus + rr_bonus + early_bonus
     )
-    setup_valid = (phase in ('PRE_BREAKOUT','BREAKOUT_STARTED') and early_trend_ok and
+    setup_valid = (phase in ('PRE_BREAKOUT','BREAKOUT_STARTED','BREAKOUT_RETEST') and early_trend_ok and
                    not overextended and readiness >= MIN_SETUP_READINESS and gap >= MIN_DIRECTION_GAP)
-    elite_gate = (raw_score>=90 and directional>=85 and entry_quality>=80 and
-                  move_potential>=85 and pd.notna(rr) and rr>=2.6 and
-                  gap>=15 and setup_valid and room>=3.0)
-    quality = 'ELITE' if elite_gate else 'STRONG' if raw_score>=85 else 'SELECTIVE' if raw_score>=80 else 'WEAK'
+    elite_gate = (raw_score>=90 and directional>=85 and entry_quality>=80 and move_potential>=85 and pd.notna(rr) and rr>=2.0 and gap>=15 and setup_valid)
+    quality = 'ELITE' if elite_gate else 'STRONG' if raw_score>=85 else 'SELECTIVE' if raw_score>=72 else 'WEAK'
     # Outlier flag: candidate has notable relative strength against the BTC/ETH tape.
     rel_side = vals['relative_1h'] * (1 if direction == 'LONG' else -1)
     rel4_side = vals['relative_4h'] * (1 if direction == 'LONG' else -1)
@@ -671,11 +804,11 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
             'support':sup,'resistance':res,'local_support':local_sup,'local_resistance':local_res,
             'directional_confidence':round(directional,1),'direction_gap':round(gap,1),'long_early_score':round(long_early,1),'short_early_score':round(short_early,1),
             'entry_quality':round(entry_quality,1),'move_potential':round(move_potential,1),'early_move_score':round(early_move,1),
-            'forward_room_score':round(forward_room_score,1),'potential_r_floor':round(potential_r_floor,2),
-            'potential_atr_floor':round(potential_atr_floor,2),
-            'score_band':('90-95' if raw_score>=90 else '85-89' if raw_score>=85 else '80-84' if raw_score>=80 else '<80'),
             'potential_label':potential_label,'relative_strength':round(vals['relative_strength'],1),
             'relative_1h':round(vals['relative_1h'],2),'relative_4h':round(vals['relative_4h'],2),
+            'libra_score':float(libra['score']),'libra_match':bool(libra['match']),'libra_fib':float(libra['fib']) if np.isfinite(libra['fib']) else float('nan'),
+            'libra_distance_atr':float(libra['distance_atr']) if np.isfinite(libra['distance_atr']) else float('nan'),
+            'sar_score':round(float(sar_score),1),'sar_ok':bool(sar_ok),'sar_flip':bool(sar_flip),
             'relative_outlier':bool(relative_outlier),
             'breakout':round(vals['breakout'],1),'atr':atr,'atr_pct':atr_pct}
 
@@ -877,7 +1010,7 @@ def is_new_or_upgraded(x, t, state):
     key = f"{x['symbol']}:{x['direction']}"
     prev = state.get(key)
     if prev is None: return True
-    phase_rank = {'PRE_BREAKOUT': 1, 'BREAKOUT_STARTED': 2}
+    phase_rank = {'PRE_BREAKOUT': 1, 'BREAKOUT_STARTED': 2, 'BREAKOUT_RETEST': 3}
     return (TIER_RANK.get(t, 0) > TIER_RANK.get(prev.get('tier'), 0)
             or phase_rank.get(x.get('phase'), 0) > phase_rank.get(prev.get('phase'), 0))
 
@@ -951,6 +1084,9 @@ def refresh_live_price_and_validate(x):
         if abs(live-trigger) > max(EARLY_TRIGGER_MAX_ATR * atr, entry * 0.008):
             return False, 'Fiyat tetik seviyesinden fazla uzak; kurulum güncelliğini yitirdi'
     else:
+        # Confirmed breakout/retest: entry must remain close to the trigger and not chase.
+        if x.get('phase') == 'BREAKOUT_RETEST' and abs(live-trigger) > max(RETEST_MAX_ATR*atr, entry*0.004):
+            return False, 'Retest fiyatı tetik bölgesinden fazla uzak'
         # Confirmed breakout: entry must remain within the displayed entry zone.
         if abs(live-entry) > zone_pad:
             return False, f'Kırılım fiyatı giriş bölgesinden çıktı (son={_price(live)}, giriş={_price(entry)})'
@@ -1023,6 +1159,7 @@ def render_signal_card(x, ctx):
     txt((m+390, 412), status, _font(23, True), status_color)
     prog = float(x.get('level_progress', 0.0))
     txt((m+390, 463), f'Retest / seviye farkı: {prog:+.2f}%', f_sub, white)
+    txt((m+24, 475), f"Libra: {'VAR' if x.get('libra_match') else 'YOK'}  |  SAR: {'ONAY' if x.get('sar_ok') else 'ZAYIF'}", f_small, muted)
 
     # Entry / stop levels
     section(542, 'GİRİŞ PLANI')
@@ -1259,13 +1396,13 @@ def collect_missed_candidates(all_symbols, analyzed_symbols, all_results, spot_r
 
 
 def main():
-    print('=== ALTCOIN ALERT SCANNER V13 — QUALITY + POTENTIAL + EARLY RECALL ===')
+    print('=== ALTCOIN ALERT SCANNER V13.1 — LIBRA + SAR + RETEST ===')
     ctx = market_context()
     print(f"BTC 4h={ctx['btc']['4h']} 1h={ctx['btc']['1h']} | ETH 4h={ctx['eth']['4h']} 1h={ctx['eth']['1h']}")
     all_symbols = list(dict.fromkeys(liquid_usdt_swaps()))
     state = load_state(); new_state = {}; qualifying = []; all_results = []; error_counts = {}; data_skips = {}
     market_caps, market_cap_updated_at, market_cap_source = market_cap_rankings()
-    print(f'Market-cap kaynağı: {market_cap_source} | eşik: 1-500=>80+, 501-800=>85+, 801+ veya bilinmiyor=>90+ | V13 skor: yön %30 + giriş %25 + potansiyel %30 + hazır oluş %15')
+    print(f'Market-cap kaynağı: {market_cap_source} | eşik: 1-500=>80+, 501-800=>85+, 801+ veya bilinmiyor=>90+')
 
     # Spot discovers unusual movers first; the corresponding perpetual contract
     # is then analyzed with futures candles and futures prices, never spot prices.
