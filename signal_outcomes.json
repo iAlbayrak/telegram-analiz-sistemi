@@ -513,7 +513,7 @@
     "activated": false,
     "signal_ts_ms": 1791185135114,
     "status": "OPEN",
-    "last_checked_ms": 1791283284869
+    "last_checked_ms": 1791284215418
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -547,7 +547,7 @@
     "activated": false,
     "signal_ts_ms": 1791191270806,
     "status": "OPEN",
-    "last_checked_ms": 1791283284869
+    "last_checked_ms": 1791284215418
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -617,7 +617,7 @@
     "activated": false,
     "signal_ts_ms": 1791203027059,
     "status": "OPEN",
-    "last_checked_ms": 1791283284869
+    "last_checked_ms": 1791284215418
   },
   {
     "symbol": "NIL/USDT:USDT",
@@ -741,7 +741,7 @@
     "activated": true,
     "signal_ts_ms": 1791277157716,
     "status": "OPEN",
-    "last_checked_ms": 1791283284869,
+    "last_checked_ms": 1791284215418,
     "activated_at_ms": 1791280800000
   },
   {
@@ -757,8 +757,9 @@
     "trigger": 2.719070683870735,
     "activated": true,
     "signal_ts_ms": 1791278487801,
-    "status": "OPEN",
-    "last_checked_ms": 1791283284869,
-    "activated_at_ms": 1791280800000
+    "status": "STOP",
+    "last_checked_ms": 1791284215418,
+    "activated_at_ms": 1791280800000,
+    "resolved_at_ms": 1791279000000
   }
 ]
