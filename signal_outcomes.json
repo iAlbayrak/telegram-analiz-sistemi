@@ -513,7 +513,7 @@
     "activated": false,
     "signal_ts_ms": 1791185135114,
     "status": "OPEN",
-    "last_checked_ms": 1791325123767
+    "last_checked_ms": 1791326282554
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -547,7 +547,7 @@
     "activated": false,
     "signal_ts_ms": 1791191270806,
     "status": "OPEN",
-    "last_checked_ms": 1791325123767
+    "last_checked_ms": 1791326282554
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -617,7 +617,7 @@
     "activated": false,
     "signal_ts_ms": 1791203027059,
     "status": "OPEN",
-    "last_checked_ms": 1791325123767
+    "last_checked_ms": 1791326282554
   },
   {
     "symbol": "NIL/USDT:USDT",
@@ -831,7 +831,7 @@
     "activated": false,
     "signal_ts_ms": 1791293235597,
     "status": "OPEN",
-    "last_checked_ms": 1791325123767
+    "last_checked_ms": 1791326282554
   },
   {
     "symbol": "FLUID/USDT:USDT",
@@ -847,7 +847,7 @@
     "activated": false,
     "signal_ts_ms": 1791295576906,
     "status": "OPEN",
-    "last_checked_ms": 1791325123767
+    "last_checked_ms": 1791326282554
   },
   {
     "symbol": "0G/USDT:USDT",
@@ -898,7 +898,8 @@
     "trigger": 0.0009887918782510528,
     "activated": false,
     "signal_ts_ms": 1791325125717,
-    "status": "OPEN"
+    "status": "OPEN",
+    "last_checked_ms": 1791326282554
   },
   {
     "symbol": "WIF/USDT:USDT",
@@ -913,6 +914,37 @@
     "trigger": 0.2439355015322436,
     "activated": false,
     "signal_ts_ms": 1791325127547,
+    "status": "OPEN",
+    "last_checked_ms": 1791326282554
+  },
+  {
+    "symbol": "XPL/USDT:USDT",
+    "direction": "SHORT",
+    "score": 81.3,
+    "entry": 0.08936189567179782,
+    "stop": 0.09032398223584145,
+    "tp1": 0.08839980910775419,
+    "tp2": 0.08791876582573238,
+    "tp3": 0.08724530523090183,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.08936189567179782,
+    "activated": false,
+    "signal_ts_ms": 1791326284043,
+    "status": "OPEN"
+  },
+  {
+    "symbol": "JASMY/USDT:USDT",
+    "direction": "SHORT",
+    "score": 80.1,
+    "entry": 0.005123519208369086,
+    "stop": 0.005173135040987367,
+    "tp1": 0.005073903375750805,
+    "tp2": 0.005049095459441664,
+    "tp3": 0.005014364376608868,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.005123519208369086,
+    "activated": false,
+    "signal_ts_ms": 1791326285027,
     "status": "OPEN"
   }
 ]
