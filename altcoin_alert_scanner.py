@@ -80,7 +80,14 @@ MARKET_CAP_TOP_N = 800
 EARLY_TRIGGER_MAX_ATR = float(os.getenv('EARLY_TRIGGER_MAX_ATR', '1.25'))
 MIN_SETUP_READINESS = float(os.getenv('MIN_SETUP_READINESS', '65'))
 SLEEP_BETWEEN_COINS  = float(os.getenv('SLEEP_BETWEEN_COINS', '0.0'))
-SCAN_WORKERS = max(1, min(6, int(os.getenv('SCAN_WORKERS', '4'))))
+SCAN_WORKERS = max(1, min(4, int(os.getenv('SCAN_WORKERS', '2'))))
+# MEXC public OHLCV requests are shared across worker threads. A single global
+# pacing gate prevents independent CCXT clients from bursting the API.
+MEXC_REQUEST_MIN_INTERVAL = float(os.getenv('MEXC_REQUEST_MIN_INTERVAL', '0.12'))
+MEXC_RATE_LIMIT_RETRIES = max(1, int(os.getenv('MEXC_RATE_LIMIT_RETRIES', '4')))
+MEXC_RATE_LIMIT_BACKOFF = float(os.getenv('MEXC_RATE_LIMIT_BACKOFF', '1.5'))
+_MEXC_REQUEST_LOCK = threading.Lock()
+_LAST_MEXC_REQUEST_AT = 0.0
 CANDLE_CACHE = {}  # aynı çalıştırmada aynı sembol/zaman dilimi ikinci kez istenmez
 STATE_FILE           = Path(os.getenv('STATE_FILE', 'alert_state.json'))
 OUTCOME_FILE         = Path(os.getenv('OUTCOME_FILE', 'signal_outcomes.json'))
