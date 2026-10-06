@@ -31,7 +31,7 @@ jobs:
       - name: Bağımlılıkları kur
         run: pip install -r requirements.txt
 
-      - name: V13.2 taramasını çalıştır
+      - name: V13.3 taramasını çalıştır
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -43,7 +43,10 @@ jobs:
           MIN_SPOT_DISCOVERY_PERP_VOLUME: '100000'
           SPOT_RADAR_MAX_CANDIDATES: '0'
           DEEP_SCAN_MAX: '0'
-          SCAN_WORKERS: '4'
+          SCAN_WORKERS: '2'
+          MEXC_REQUEST_MIN_INTERVAL: '0.12'
+          MEXC_RATE_LIMIT_RETRIES: '4'
+          MEXC_RATE_LIMIT_BACKOFF: '1.5'
           SLEEP_BETWEEN_COINS: '0.0'
           ALERT_MIN_SCORE: '80'
           MIN_CONFIRMED_RR: '1.8'
