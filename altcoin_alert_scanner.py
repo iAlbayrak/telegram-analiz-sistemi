@@ -836,31 +836,122 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
     # cannot compensate for a poor stop/target geometry.
     rr_quality = clamp((float(rr)-1.0)/2.0*100.0, 0.0, 100.0) if pd.notna(rr) else 0.0
     entry_quality = clamp(0.40*ema_entry_score + 0.25*location_score + 0.35*rr_quality)
-    # Move potential is now a forward-looking formation score, not simply
-    # remaining room to a nearby target. This prevents a pre-breakout setup
-    # from being penalized just because the trigger is close to resistance.
-    move_potential = float(early_move)
+    # IMPORTANT: "early move" and "move potential" are not the same thing.
+    # early_move says whether a move is forming now; it must NOT be allowed to
+    # masquerade as the expected size of the future move.  The new potential
+    # model explicitly asks: "if this setup triggers, how much directional room
+    # is realistically available before the next major barrier, relative to ATR?"
+    #
+    # It combines four independent ideas:
+    #   1) structural room on 1h/4h,
+    #   2) ATR-normalized room (not raw % alone),
+    #   3) expansion conditions (volume/volatility/acceleration),
+    #   4) relative strength / higher-timeframe trend.
+    #
+    # This makes a routine clean 1-3% setup remain valuable, but allows a
+    # genuinely open 5-10%+ opportunity to score materially higher BEFORE the
+    # move, provided the entry is still executable and not already extended.
+    signed = 1.0 if direction == 'LONG' else -1.0
+    c1 = df1.iloc[-2]
+    c4 = df4.iloc[-2]
+    atr1 = max(float(c1.atr), 1e-12)
+    atr4 = max(float(c4.atr), 1e-12)
+    price1 = max(float(c1.close), 1e-12)
+    price4 = max(float(c4.close), 1e-12)
+
+    # Forward structural room: look only at confirmed/closed highs/lows ABOVE
+    # the entry for LONG (BELOW for SHORT). The nearest barrier is the first
+    # realistic objective; the wider envelope measures whether the move can
+    # plausibly expand beyond that objective.
+    h1_closed = df1.iloc[:-1] if len(df1) > 1 else df1
+    h4_closed = df4.iloc[:-1] if len(df4) > 1 else df4
+    if direction == 'LONG':
+        barriers1 = [float(v) for v in h1_closed.high if float(v) > entry * 1.002]
+        barriers4 = [float(v) for v in h4_closed.high if float(v) > entry * 1.005]
+        near_room1 = min(barriers1) - entry if barriers1 else 0.0
+        near_room4 = min(barriers4) - entry if barriers4 else 0.0
+        far_room1 = max(barriers1) - entry if barriers1 else 0.0
+        far_room4 = max(barriers4) - entry if barriers4 else 0.0
+    else:
+        barriers1 = [float(v) for v in h1_closed.low if float(v) < entry * 0.998]
+        barriers4 = [float(v) for v in h4_closed.low if float(v) < entry * 0.995]
+        near_room1 = entry - max(barriers1) if barriers1 else 0.0
+        near_room4 = entry - max(barriers4) if barriers4 else 0.0
+        far_room1 = entry - min(barriers1) if barriers1 else 0.0
+        far_room4 = entry - min(barriers4) if barriers4 else 0.0
+
+    near_room = max(near_room1, near_room4)
+    far_room = max(far_room1, far_room4)
+    near_room_atr = near_room / max(atr1, atr4 * (price1 / price4), 1e-12)
+    far_room_atr = far_room / max(atr1, atr4 * (price1 / price4), 1e-12)
+
+    # Do not reward unlimited historical room. Cap the normalized room at a
+    # practical range; the score is an opportunity-quality ranking, not a
+    # promise that price will travel the whole distance.
+    room_score = clamp(25.0 + 16.0 * min(far_room_atr, 5.0), 0.0, 100.0)
+    near_room_score = clamp(100.0 - 22.0 * max(near_room_atr - 0.5, 0.0), 35.0, 100.0)
+    expansion_score = clamp(
+        0.35 * early_move +
+        0.25 * clamp((float(c.volume_ratio) - 0.8) / 1.7 * 100.0, 0.0, 100.0) +
+        0.20 * clamp(50.0 + ((float(c.atr_pct) / max(float(df15.iloc[-7:-2].atr_pct.median()), 1e-6)) - 1.0) * 55.0, 0.0, 100.0) +
+        0.20 * vals['relative_strength']
+    )
+    htf_trend_score = clamp(
+        0.55 * vals['trend'] +
+        0.25 * vals['momentum'] +
+        0.20 * vals['relative_strength']
+    )
+
+    # Realistic directional move area used internally for ranking. It is NOT a
+    # guaranteed return and is deliberately separate from TP1/TP2/TP3.
+    atr_pct_base = max(float(c.atr_pct), float(c1.atr_pct), float(c4.atr_pct), 1e-6)
+    modeled_room_pct = max(
+        far_room / max(entry, 1e-12) * 100.0,
+        atr_pct_base * min(max(2.5, far_room_atr * 0.65), 7.0)
+    )
+    # Early formation is still important: a huge historical room without an
+    # active catalyst should not become an elite score.
+    potential_core = (
+        0.42 * room_score +
+        0.18 * near_room_score +
+        0.25 * expansion_score +
+        0.15 * htf_trend_score
+    )
+    move_potential = clamp(potential_core)
+    potential_label = (
+        'ÇOK YÜKSEK' if move_potential >= 85 else
+        'YÜKSEK' if move_potential >= 70 else
+        'ORTA' if move_potential >= 50 else 'SINIRLI'
+    )
     rr_bonus = clamp((rr-2.0)*1.5,0,4) if pd.notna(rr) else 0
 
-    # Readiness rewards proximity, own-coin direction and volume confirmation.
+    # Readiness rewards proximity, own-coin direction and actual move formation,
+    # while keeping future-size potential separate from current readiness.
     proximity_score = clamp(100 - max(level_dist,0)/max(EARLY_TRIGGER_MAX_ATR,0.1)*55, 0, 100)
     volume_score = clamp((float(c.volume_ratio)-0.8)*45,0,100)
-    readiness = clamp(0.40*proximity_score + 0.30*directional + 0.30*move_potential)
-    early_bonus = min(5.0, max(0.0, (move_potential-55.0)*0.10)) if phase=='PRE_BREAKOUT' else 0.0
-    # Score favors direction and executable entry quality. Potential remains a
-    # separate forecast descriptor, not a way to inflate a weak setup.
-    # ONE public score: direction, entry location/payoff, readiness, move room,
-    # and clarity between LONG vs SHORT are blended once. No separate public
-    # potential/readiness/entry/RR scores are needed to interpret the signal.
+    readiness = clamp(0.45*proximity_score + 0.30*directional + 0.25*early_move)
+    early_bonus = min(3.0, max(0.0, (early_move-60.0)*0.06)) if phase=='PRE_BREAKOUT' else 0.0
+
+    # ONE public score: setup quality + future move potential.  Potential is
+    # now materially tied to forward room and expected expansion, rather than
+    # being a renamed copy of "how strongly price moved in the last candles".
     direction_clarity = clamp(gap * 6.0, 0.0, 100.0)
-    # V13.1: move potential has a materially larger role so exceptional setups
-    # can outrank routine 1-3% opportunities without forcing distant TP levels.
-    # Libra and SAR remain confirmation layers, never standalone signals.
     pattern_bonus = 0.05*max(0.0, libra['score']-50.0) + 0.03*max(0.0, sar_score-50.0)
-    potential_bonus = clamp((move_potential-70.0)*0.10, 0.0, 3.0)
+
+    # Setup-quality side: direction/entry/readiness remain the safety core.
+    setup_quality = clamp(
+        0.42*directional +
+        0.34*entry_quality +
+        0.18*readiness +
+        0.06*direction_clarity
+    )
+    # Final score gives future opportunity enough weight to distinguish a
+    # routine trade from a genuinely open, expanding move, but it cannot rescue
+    # a weak setup because setup_quality remains 58% of the score.
     raw_score = clamp(
-        0.32*directional + 0.24*entry_quality + 0.14*readiness +
-        0.21*move_potential + 0.06*direction_clarity + pattern_bonus + potential_bonus + rr_bonus + early_bonus
+        0.58*setup_quality +
+        0.42*move_potential +
+        pattern_bonus + rr_bonus + early_bonus
     )
     setup_valid = (phase in ('PRE_BREAKOUT','BREAKOUT_STARTED','BREAKOUT_RETEST') and early_trend_ok and
                    not overextended and readiness >= MIN_SETUP_READINESS and gap >= MIN_DIRECTION_GAP)
@@ -879,6 +970,12 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
             'support':sup,'resistance':res,'local_support':local_sup,'local_resistance':local_res,
             'directional_confidence':round(directional,1),'direction_gap':round(gap,1),'long_early_score':round(long_early,1),'short_early_score':round(short_early,1),
             'entry_quality':round(entry_quality,1),'move_potential':round(move_potential,1),'early_move_score':round(early_move,1),
+            'modeled_move_pct':round(float(modeled_room_pct),2),
+            'forward_room_atr':round(float(far_room_atr),2),
+            'near_room_atr':round(float(near_room_atr),2),
+            'room_score':round(float(room_score),1),
+            'expansion_score':round(float(expansion_score),1),
+            'setup_quality':round(float(setup_quality),1),
             'potential_label':potential_label,'relative_strength':round(vals['relative_strength'],1),
             'relative_1h':round(vals['relative_1h'],2),'relative_4h':round(vals['relative_4h'],2),
             'libra_score':float(libra['score']),'libra_match':bool(libra['match']),'libra_fib':float(libra['fib']) if np.isfinite(libra['fib']) else float('nan'),
@@ -1471,7 +1568,7 @@ def collect_missed_candidates(all_symbols, analyzed_symbols, all_results, spot_r
 
 
 def main():
-    print('=== ALTCOIN ALERT SCANNER V13.2 — LIBRA + SAR + RETEST + FAST SCAN ===')
+    print('=== ALTCOIN ALERT SCANNER V13.4 — QUALITY + MOVE POTENTIAL + LIBRA + SAR + RETEST ===')
     ctx = market_context()
     print(f"BTC 4h={ctx['btc']['4h']} 1h={ctx['btc']['1h']} | ETH 4h={ctx['eth']['4h']} 1h={ctx['eth']['1h']}")
     all_symbols = list(dict.fromkeys(liquid_usdt_swaps()))
