@@ -513,7 +513,7 @@
     "activated": false,
     "signal_ts_ms": 1791185135114,
     "status": "OPEN",
-    "last_checked_ms": 1791287600571
+    "last_checked_ms": 1791288460383
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -547,7 +547,7 @@
     "activated": false,
     "signal_ts_ms": 1791191270806,
     "status": "OPEN",
-    "last_checked_ms": 1791287600571
+    "last_checked_ms": 1791288460383
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -617,7 +617,7 @@
     "activated": false,
     "signal_ts_ms": 1791203027059,
     "status": "OPEN",
-    "last_checked_ms": 1791287600571
+    "last_checked_ms": 1791288460383
   },
   {
     "symbol": "NIL/USDT:USDT",
@@ -762,5 +762,20 @@
     "last_checked_ms": 1791284215418,
     "activated_at_ms": 1791280800000,
     "resolved_at_ms": 1791279000000
+  },
+  {
+    "symbol": "TRB/USDT:USDT",
+    "direction": "LONG",
+    "score": 81.3,
+    "entry": 21.60309697091653,
+    "stop": 21.121157552586006,
+    "tp1": 22.08503638924705,
+    "tp2": 22.326006098412314,
+    "tp3": 22.663363691243678,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 21.60309697091653,
+    "activated": false,
+    "signal_ts_ms": 1791288461827,
+    "status": "OPEN"
   }
 ]
