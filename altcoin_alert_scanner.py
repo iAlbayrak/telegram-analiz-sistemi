@@ -1,5 +1,5 @@
 """
-V13.1 bütünsel skor + güvenilir veri yedeği + Libra/SAR teyidi + retest koruması -- BULUTTA çalışır (GitHub Actions),
+V13.2 bütünsel skor + güvenilir veri yedeği + Libra/SAR teyidi + retest koruması + paralel derin tarama -- BULUTTA çalışır (GitHub Actions),
 telefondaki/bilgisayardaki hiçbir şeye bağımlı değil. Mevcut MEXC trading
 bot'unuzdan TAMAMEN bağımsızdır -- hiçbir dosyasını içe aktarmaz, hiçbir
 emir göndermez. Sadece MEXC'nin herkese açık (public) piyasa verisini
@@ -41,7 +41,8 @@ Bonus: BTC/ETH çoklu zaman dilimi hizası artık sadece mesaj başlığında
 süs değil -- doğrudan directional skoruna giriyor (tam hizalıysa tam
 puan, kısmi hizalıysa yarım, ters yönde ise sıfır).
 """
-import os, json, time
+import os, json, time, threading
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from datetime import datetime, timezone
 import ccxt
@@ -78,7 +79,8 @@ MARKET_CAP_REFRESH_MINUTES = int(os.getenv('MARKET_CAP_REFRESH_MINUTES', '360'))
 MARKET_CAP_TOP_N = 800
 EARLY_TRIGGER_MAX_ATR = float(os.getenv('EARLY_TRIGGER_MAX_ATR', '1.25'))
 MIN_SETUP_READINESS = float(os.getenv('MIN_SETUP_READINESS', '65'))
-SLEEP_BETWEEN_COINS  = float(os.getenv('SLEEP_BETWEEN_COINS', '0.02'))
+SLEEP_BETWEEN_COINS  = float(os.getenv('SLEEP_BETWEEN_COINS', '0.0'))
+SCAN_WORKERS = max(1, min(6, int(os.getenv('SCAN_WORKERS', '4'))))
 CANDLE_CACHE = {}  # aynı çalıştırmada aynı sembol/zaman dilimi ikinci kez istenmez
 STATE_FILE           = Path(os.getenv('STATE_FILE', 'alert_state.json'))
 OUTCOME_FILE         = Path(os.getenv('OUTCOME_FILE', 'signal_outcomes.json'))
@@ -86,7 +88,7 @@ MAX_STOP_DISTANCE_PCT = float(os.getenv('MAX_STOP_DISTANCE_PCT', '0.08'))
 DIAG_LOG             = Path(os.getenv('DIAG_LOG_FILE', 'scan_diagnostic.log'))
 DIAG_LOG_MAX_LINES   = 500
 WIDE_STOP_BUFFER_ATR = float(os.getenv('WIDE_STOP_BUFFER_ATR', '0.6'))  # ek "geniş stop" ATR payı
-# V13.1: Libra-benzeri yapı + Parabolic SAR teyidi + sahte kırılım koruması.
+# V13.2: Libra-benzeri yapı + Parabolic SAR teyidi + sahte kırılım koruması + paralel tarama.
 LIBRA_FIB_TARGET = 0.786
 LIBRA_FIB_TOLERANCE = float(os.getenv('LIBRA_FIB_TOLERANCE', '0.08'))
 LIBRA_MIN_SCORE = float(os.getenv('LIBRA_MIN_SCORE', '55'))
@@ -99,6 +101,14 @@ OHLCV_LIMIT = 220
 PREFERRED_HISTORY_BARS = 60
 
 exchange = ccxt.mexc({'enableRateLimit': True, 'options': {'defaultType': 'swap'}})
+_THREAD_LOCAL = threading.local()
+def _worker_exchange():
+    ex = getattr(_THREAD_LOCAL, 'exchange', None)
+    if ex is None:
+        ex = ccxt.mexc({'enableRateLimit': True, 'options': {'defaultType': 'swap'}})
+        _THREAD_LOCAL.exchange = ex
+    return ex
+
 spot_exchange = ccxt.mexc({'enableRateLimit': True, 'options': {'defaultType': 'spot'}})
 
 class InsufficientCandleDataError(ValueError):
@@ -208,7 +218,8 @@ def candles(symbol, timeframe):
     key = (symbol, timeframe)
     if key in CANDLE_CACHE:
         return CANDLE_CACHE[key].copy()
-    rows = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=OHLCV_LIMIT)
+    ex = _worker_exchange() if threading.current_thread() is not threading.main_thread() else exchange
+    rows = ex.fetch_ohlcv(symbol, timeframe=timeframe, limit=OHLCV_LIMIT)
     df = _ohlcv_frame(rows)
     # Fallback also covers sparse 15m history (e.g. newly listed contracts).
     fallback = {'4h': ('1h', '4h'), '1h': ('15m', '1h'), '15m': ('5m', '15min')}.get(timeframe)
@@ -218,7 +229,7 @@ def candles(symbol, timeframe):
             # Fetch enough lower-timeframe bars to build up to ~200 target bars.
             # A 220-bar fallback was too short for 15m candles resampled from 5m.
             source_limit = min(1000, OHLCV_LIMIT * {'4h': 4, '1h': 4, '15min': 3}.get(rule, 4))
-            lower_rows = exchange.fetch_ohlcv(symbol, timeframe=lower_tf, limit=source_limit)
+            lower_rows = ex.fetch_ohlcv(symbol, timeframe=lower_tf, limit=source_limit)
             lower_df = _ohlcv_frame(lower_rows)
             resampled = _resample_ohlcv(lower_df, rule)
             if len(resampled) > len(df):
@@ -294,6 +305,20 @@ def select_deep_scan_symbols(all_symbols):
     if DEEP_SCAN_MAX > 0:
         return eligible[:DEEP_SCAN_MAX]
     return eligible
+
+def fast_priority_symbols(symbols, spot_discovery_symbols):
+    """Keep full ticker discovery, but prioritize deep analysis by opportunity signals.
+
+    All active contracts remain visible to the missed-opportunity audit. Deep OHLCV
+    work is ordered so high-volume, fast-moving, relative-strength and spot-discovered
+    contracts are analyzed first. With DEEP_SCAN_MAX=0 the complete eligible universe
+    is still analyzed; concurrency is the primary speedup.
+    """
+    return sorted(symbols, key=lambda s: (
+        s in spot_discovery_symbols,
+        abs(float(SWAP_PERCENTAGES.get(s, 0.0))),
+        float(SWAP_QUOTE_VOLUMES.get(s, 0.0))
+    ), reverse=True)
 
 def market_cap_rankings():
     """Market-cap rank with persistent cache and provider fallbacks.
@@ -1396,7 +1421,7 @@ def collect_missed_candidates(all_symbols, analyzed_symbols, all_results, spot_r
 
 
 def main():
-    print('=== ALTCOIN ALERT SCANNER V13.1 — LIBRA + SAR + RETEST ===')
+    print('=== ALTCOIN ALERT SCANNER V13.2 — LIBRA + SAR + RETEST + FAST SCAN ===')
     ctx = market_context()
     print(f"BTC 4h={ctx['btc']['4h']} 1h={ctx['btc']['1h']} | ETH 4h={ctx['eth']['4h']} 1h={ctx['eth']['1h']}")
     all_symbols = list(dict.fromkeys(liquid_usdt_swaps()))
@@ -1427,49 +1452,77 @@ def main():
     print(f'MEXC aktif USDT vadeli evreni: {len(all_symbols)} benzersiz sözleşme ticker/fiyat-hacim aşamasında tarandı.')
     print(f'Derin mum analizi: {eligible_count} sözleşme; normal vadeli hacim eşiği {MIN_ALERT_24H_VOLUME:,.0f} USDT; spot radarıyla eklenen {extra_count} aday (spot hacim >= {MIN_SPOT_24H_VOLUME:,.0f}, vadeli hacim >= {MIN_SPOT_DISCOVERY_PERP_VOLUME:,.0f} USDT; sabit %6 hareket şartı yok).')
 
-    def evaluate(s, symbol_key=None):
+    def analyze_symbol(s):
         try:
-            x = score_setup(candles(s,'4h'), candles(s,'1h'), candles(s,'15m'), ctx, symbol_key)
+            x = score_setup(candles(s,'4h'), candles(s,'1h'), candles(s,'15m'), ctx, None)
             x['symbol'] = s
-            x['market_cap_rank'] = market_cap_rank_for_symbol(s, market_caps)
-            x['market_cap_label'] = market_cap_label_for_symbol(s, market_caps)
-            x['quote_volume_24h'] = SWAP_QUOTE_VOLUMES.get(s, 0.0)
-            x['spot_discovered'] = s in spot_discovery_symbols
-            x['spot_discovery_change_24h'] = float(spot_discovery_by_perp.get(s, {}).get('change_24h', 0.0))
-            x['alert_eligible'], x['alert_threshold'] = alert_gate_for_rank(x['score'], x['market_cap_rank'])
-            all_results.append(x)
-            rr_ok = pd.notna(x['rr']) and x['rr'] >= MIN_CONFIRMED_RR
-            setup_ok = bool(x.get('setup_valid'))
-            if x['spot_discovered']:
-                spot_qv_ok = float(spot_discovery_by_perp[s].get('quote_volume', 0.0)) >= MIN_SPOT_24H_VOLUME
-                liquidity_ok = spot_qv_ok and x['quote_volume_24h'] >= MIN_SPOT_DISCOVERY_PERP_VOLUME
-            else:
-                liquidity_ok = x['quote_volume_24h'] >= MIN_ALERT_24H_VOLUME
-            x['gate_reason'] = ('OK' if x['alert_eligible'] and rr_ok and setup_ok and liquidity_ok else
-                                (f'SPOT KEŞİF LİKİDİTE FİLTRESİ (spot>={MIN_SPOT_24H_VOLUME:,.0f}, vadeli>={MIN_SPOT_DISCOVERY_PERP_VOLUME:,.0f})' if x.get('spot_discovered') else f'LIKIDITE<{MIN_ALERT_24H_VOLUME:,.0f} USDT') if not liquidity_ok else
-                                'ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ' if not setup_ok else
-                                'SKOR/EŞİK' if not x['alert_eligible'] else
-                                'HEDEF/STOP GEOMETRİSİ UYGUN DEĞİL')
-            if x['alert_eligible'] and rr_ok and setup_ok and liquidity_ok:
-                t = tier(x)
-                key = f"{s}:{x['direction']}"
-                new_state[key] = {'tier':t,'score':x['score'],'phase':x['phase'],
-                                  'market_cap_rank':x['market_cap_rank'],'alert_threshold':x['alert_threshold'],
-                                  'last_seen':int(time.time())}
-                if is_new_or_upgraded(x, t, state): qualifying.append((x,t))
+            return ('OK', x, None)
         except InsufficientCandleDataError as e:
-            data_skips['YETERSIZ_MUM'] = data_skips.get('YETERSIZ_MUM', 0) + 1
-            print(f'VERİ ATLANDI {s}: {e}; bu coin bu turda puanlanmadı, diğer tarama sürüyor.')
+            return ('DATA', s, str(e))
         except Exception as e:
-            name = type(e).__name__; error_counts[name] = error_counts.get(name, 0) + 1
-            print(f'VERİ/ANALİZ HATASI {s}: {name}: {e}')
+            return ('ERR', s, f'{type(e).__name__}: {e}')
 
-    evaluate('BTC/USDT:USDT', symbol_key='btc')
-    evaluate('ETH/USDT:USDT', symbol_key='eth')
-    for i, sym in enumerate(symbols, 1):
-        evaluate(sym)
-        if i % 25 == 0: print(f'  ... {i}/{len(symbols)} vadeli coin tarandı')
-        time.sleep(SLEEP_BETWEEN_COINS)
+    def accept_result(x):
+        s = x['symbol']
+        x['market_cap_rank'] = market_cap_rank_for_symbol(s, market_caps)
+        x['market_cap_label'] = market_cap_label_for_symbol(s, market_caps)
+        x['quote_volume_24h'] = SWAP_QUOTE_VOLUMES.get(s, 0.0)
+        x['spot_discovered'] = s in spot_discovery_symbols
+        x['spot_discovery_change_24h'] = float(spot_discovery_by_perp.get(s, {}).get('change_24h', 0.0))
+        x['alert_eligible'], x['alert_threshold'] = alert_gate_for_rank(x['score'], x['market_cap_rank'])
+        all_results.append(x)
+        rr_ok = pd.notna(x['rr']) and x['rr'] >= MIN_CONFIRMED_RR
+        setup_ok = bool(x.get('setup_valid'))
+        if x['spot_discovered']:
+            spot_qv_ok = float(spot_discovery_by_perp[s].get('quote_volume', 0.0)) >= MIN_SPOT_24H_VOLUME
+            liquidity_ok = spot_qv_ok and x['quote_volume_24h'] >= MIN_SPOT_DISCOVERY_PERP_VOLUME
+        else:
+            liquidity_ok = x['quote_volume_24h'] >= MIN_ALERT_24H_VOLUME
+        x['gate_reason'] = ('OK' if x['alert_eligible'] and rr_ok and setup_ok and liquidity_ok else
+                            (f'SPOT KEŞİF LİKİDİTE FİLTRESİ (spot>={MIN_SPOT_24H_VOLUME:,.0f}, vadeli>={MIN_SPOT_DISCOVERY_PERP_VOLUME:,.0f})' if x.get('spot_discovered') else f'LIKIDITE<{MIN_ALERT_24H_VOLUME:,.0f} USDT') if not liquidity_ok else
+                            'ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ' if not setup_ok else
+                            'SKOR/EŞİK' if not x['alert_eligible'] else
+                            'HEDEF/STOP GEOMETRİSİ UYGUN DEĞİL')
+        if x['alert_eligible'] and rr_ok and setup_ok and liquidity_ok:
+            t = tier(x)
+            key = f"{s}:{x['direction']}"
+            new_state[key] = {'tier':t,'score':x['score'],'phase':x['phase'],
+                              'market_cap_rank':x['market_cap_rank'],'alert_threshold':x['alert_threshold'],
+                              'last_seen':int(time.time())}
+            if is_new_or_upgraded(x, t, state): qualifying.append((x,t))
+
+    # BTC/ETH context is calculated before the parallel futures scan.
+    for base, key in (('BTC/USDT:USDT','btc'), ('ETH/USDT:USDT','eth')):
+        try:
+            status, item, err = analyze_symbol(base)
+            if status == 'OK':
+                item['symbol'] = base
+                # Keep BTC/ETH diagnostic context but do not let them become trade alerts.
+                item['market_cap_rank'] = market_cap_rank_for_symbol(base, market_caps)
+                item['market_cap_label'] = market_cap_label_for_symbol(base, market_caps)
+                item['quote_volume_24h'] = SWAP_QUOTE_VOLUMES.get(base, 0.0)
+                item['alert_eligible'] = False; item['alert_threshold'] = 999
+                item['gate_reason'] = 'PİYASA BAĞLAMI'
+                all_results.append(item)
+            else:
+                print(f'VERİ/ANALİZ HATASI {base}: {err}')
+        except Exception as e:
+            print(f'VERİ/ANALİZ HATASI {base}: {type(e).__name__}: {e}')
+
+    symbols = fast_priority_symbols(symbols, spot_discovery_symbols)
+    print(f'Paralel derin analiz: {SCAN_WORKERS} worker; tam evren={len(symbols)} sözleşme; ticker keşfi korunuyor.')
+    with ThreadPoolExecutor(max_workers=SCAN_WORKERS) as pool:
+        for i, (status, item, err) in enumerate(pool.map(analyze_symbol, symbols), 1):
+            if status == 'OK':
+                accept_result(item)
+            elif status == 'DATA':
+                data_skips['YETERSIZ_MUM'] = data_skips.get('YETERSIZ_MUM', 0) + 1
+                print(f'VERİ ATLANDI {item}: {err}; bu coin bu turda puanlanmadı, diğer tarama sürüyor.')
+            else:
+                name = str(err).split(':',1)[0]
+                error_counts[name] = error_counts.get(name, 0) + 1
+                print(f'VERİ/ANALİZ HATASI {item}: {err}')
+            if i % 25 == 0: print(f'  ... {i}/{len(symbols)} vadeli coin tarandı')
 
     missed_candidates = collect_missed_candidates(all_symbols, {r.get('symbol') for r in all_results}, all_results, spot_results)
     write_diagnostic(all_results, ctx, spot_results, error_counts, market_cap_source, missed_candidates, data_skips)
