@@ -1,12 +1,12 @@
 """
-V13 yüksek potansiyel + erken fırsat + retest/pullback + S/R/ATR stop bölgesi + kısa ve anlaşılır sinyal -- BULUTTA çalışır (GitHub Actions),
+V9 tek bütünsel skor + güvenilir veri yedeği + kısa ve anlaşılır sinyal -- BULUTTA çalışır (GitHub Actions),
 telefondaki/bilgisayardaki hiçbir şeye bağımlı değil. Mevcut MEXC trading
 bot'unuzdan TAMAMEN bağımsızdır -- hiçbir dosyasını içe aktarmaz, hiçbir
 emir göndermez. Sadece MEXC'nin herkese açık (public) piyasa verisini
 okur ve Telegram'a bildirim gönderir. API anahtarı / hesap bilgisi
 gerektirmez -- sadece TELEGRAM_BOT_TOKEN ve TELEGRAM_CHAT_ID.
 
---- V13: yüksek potansiyel keşfi + erken hareket + retest/pullback + S/R/ATR stop bölgesi + tekrar alarm ---
+--- V13: spot keşif + vadeli doğrulama + erken hareket + entry-location + potansiyel katmanlı skor ---
 
 Üç BAĞIMSIZ eksen var, hiçbiri diğerini beslemiyor / bloklamıyor:
 
@@ -70,10 +70,6 @@ SPOT_RELATIVE_MOVER_SHARE = float(os.getenv('SPOT_RELATIVE_MOVER_SHARE', '0.20')
 MIN_SPOT_DISCOVERY_1H_MOVE = float(os.getenv('MIN_SPOT_DISCOVERY_1H_MOVE', '2.5'))
 MIN_SPOT_DISCOVERY_VOLUME_RATIO = float(os.getenv('MIN_SPOT_DISCOVERY_VOLUME_RATIO', '1.15'))
 SPOT_WATCH_COOLDOWN_HOURS = float(os.getenv('SPOT_WATCH_COOLDOWN_HOURS', '6'))
-RETEST_MAX_ATR = float(os.getenv('RETEST_MAX_ATR', '0.65'))
-STOP_ZONE_ATR_NEAR = float(os.getenv('STOP_ZONE_ATR_NEAR', '0.08'))
-STOP_ZONE_ATR_FAR = float(os.getenv('STOP_ZONE_ATR_FAR', '0.35'))
-ALERT_REARM_SCORE_DELTA = float(os.getenv('ALERT_REARM_SCORE_DELTA', '4.0'))
 MIN_CONFIRMED_RR = float(os.getenv('MIN_CONFIRMED_RR', '1.8'))
 MIN_DIRECTION_GAP = float(os.getenv('MIN_DIRECTION_GAP', '5'))  # yalnızca çok kararsız yönleri engelleyen emniyet tabanı
 ALERT_MIN_SCORE      = float(os.getenv('ALERT_MIN_SCORE', '80'))   # base technical score; rank tiers decide the actual alert gate
@@ -347,7 +343,7 @@ def market_cap_rankings():
 
 def market_cap_rank_for_symbol(symbol, rankings):
     base = str(symbol).split('/')[0].upper()
-    return int(rankings.get(base, 9999))
+    return int(rankings.get(base, 501))
 
 def market_cap_label_for_symbol(symbol, rankings):
     base = str(symbol).split('/')[0].upper()
@@ -506,189 +502,367 @@ def _early_move_score(df4, df1, df15, ctx, side, ref_price, trigger, atr, local_
     return clamp(0.22*accel + 0.18*volume_exp + 0.16*vol_expand +
                  0.18*slope_score + 0.14*proximity + 0.12*relative)
 
-def _candle_pressure_score(c, prev, side):
-    """Score the quality of the latest closed directional impulse."""
-    rng = max(float(c.high) - float(c.low), 1e-12)
-    body = abs(float(c.close) - float(c.open)) / rng
-    close_pos = (float(c.close) - float(c.low)) / rng
-    directional_close = close_pos if side == 'LONG' else 1.0 - close_pos
-    body_dir = 1.0 if ((side == 'LONG' and c.close > c.open) or (side == 'SHORT' and c.close < c.open)) else 0.0
-    vr = float(c.volume_ratio) if pd.notna(c.volume_ratio) else 0.0
-    return clamp(45*body + 30*directional_close + 15*body_dir + 10*clamp((vr-0.8)/1.7,0,1))
+def score_setup(df4, df1, df15, ctx, symbol_key=None):
+    """Build a pre-breakout or newly-started breakout plan from closed candles.
 
+    The current reference price is kept separate from the planned trigger entry.
+    Pre-breakout alerts only qualify when price is close to a local level, trend
+    context agrees, and a projected plan meets the market-cap score gate and RR.
+    """
+    c = df15.iloc[-2]
+    ref_price = float(c.close)
+    sup, res = structure_levels(df15)
+    atr = max(float(c.atr), ref_price*0.0001)
+    atr_pct = float(c.atr_pct)
+    local = df15.iloc[-22:-2]
+    if len(local) < 10:
+        raise InsufficientCandleDataError('Yeterli kapalı mum yok: yapı seviyeleri hesaplanamadı')
+    local_res = float(local.high.max())
+    local_sup = float(local.low.min())
+    L = _directional_score(df4,df1,df15,ctx,'LONG',symbol_key)
+    S = _directional_score(df4,df1,df15,ctx,'SHORT',symbol_key)
+    long_early = _early_move_score(df4, df1, df15, ctx, 'LONG', ref_price, local_res + 0.10*atr, atr, local_res, local_sup)
+    short_early = _early_move_score(df4, df1, df15, ctx, 'SHORT', ref_price, local_sup - 0.10*atr, atr, local_res, local_sup)
+    long_select = 0.72*L['directional'] + 0.28*long_early
+    short_select = 0.72*S['directional'] + 0.28*short_early
+    direction = 'LONG' if long_select>=short_select else 'SHORT'
+    vals = L if direction=='LONG' else S
+    opp = S if direction=='LONG' else L
+    directional = vals['directional']; opposite = opp['directional']; gap = directional-opposite
+    early_move = long_early if direction=='LONG' else short_early
 
-def _exhaustion_score(c, ref_price, atr, side, phase):
-    """Penalize late/chased moves without penalizing healthy early momentum."""
+    if direction == 'LONG':
+        trigger = local_res + 0.10*atr
+        dist_atr = (local_res-ref_price)/atr
+        broken = ref_price > trigger and float(c.volume_ratio) >= 1.10
+        trend_ok = ref_price >= float(c.ema20) and float(df1.iloc[-2].close) >= float(df1.iloc[-2].ema20)
+        early_trend_ok = trend_ok
+        if broken:
+            phase = 'BREAKOUT_STARTED'
+            entry = ref_price
+            stretch_atr = max((ref_price-trigger)/atr, 0.0)
+        emerging_trend_ok = (float(c.ema20) >= float(df15.iloc[-6].ema20) and
+                              float(df1.iloc[-2].ema20) >= float(df1.iloc[-6].ema20))
+        early_trend_ok = trend_ok or (emerging_trend_ok and early_move >= 58.0)
+        if 0 <= dist_atr <= EARLY_TRIGGER_MAX_ATR and early_trend_ok:
+            phase = 'PRE_BREAKOUT'
+            entry = trigger
+            stretch_atr = 0.0
+        else:
+            phase = 'NO_EARLY_SETUP'
+            entry = trigger
+            stretch_atr = max((ref_price-trigger)/atr, 0.0)
+    else:
+        trigger = local_sup - 0.10*atr
+        dist_atr = (ref_price-local_sup)/atr
+        broken = ref_price < trigger and float(c.volume_ratio) >= 1.10
+        trend_ok = ref_price <= float(c.ema20) and float(df1.iloc[-2].close) <= float(df1.iloc[-2].ema20)
+        early_trend_ok = trend_ok
+        if broken:
+            phase = 'BREAKOUT_STARTED'
+            entry = ref_price
+            stretch_atr = max((trigger-ref_price)/atr, 0.0)
+        emerging_trend_ok = (float(c.ema20) <= float(df15.iloc[-6].ema20) and
+                              float(df1.iloc[-2].ema20) <= float(df1.iloc[-6].ema20))
+        early_trend_ok = trend_ok or (emerging_trend_ok and early_move >= 58.0)
+        if 0 <= dist_atr <= EARLY_TRIGGER_MAX_ATR and early_trend_ok:
+            phase = 'PRE_BREAKOUT'
+            entry = trigger
+            stretch_atr = 0.0
+        else:
+            phase = 'NO_EARLY_SETUP'
+            entry = trigger
+            stretch_atr = max((trigger-ref_price)/atr, 0.0)
+
+    # A breakout that has already run too far is not an entry signal.
+    overextended = stretch_atr > EARLY_TRIGGER_MAX_ATR
+    stop_mult = clamp(2.0+(0.4 if c.adx<22 else 0)+(0.25 if atr_pct>0.035 else 0),2.0,2.8)
+    atr_stop = entry - stop_mult*atr if direction=='LONG' else entry + stop_mult*atr
+    # Use a nearby structure invalidation when it is neither too tight nor too wide.
+    structural_stop = (local_sup - 0.12*atr) if direction=='LONG' else (local_res + 0.12*atr)
+    structural_dist_atr = abs(entry-structural_stop)/atr if atr else 999.0
+    if 1.15 <= structural_dist_atr <= 3.0:
+        stop = structural_stop
+        stop_method = 'yakın yapı + ATR tamponu'
+    else:
+        stop = atr_stop
+        stop_method = 'ATR volatilite stopu'
+    risk = abs(entry-stop)
+
+    # Target distance is forward-looking: stronger formations get more room,
+    # but the target is never shortened merely to manufacture a high score.
+    # This is what makes 80/85/90+ meaningfully different in potential.
+    potential_r_floor = 2.2 + max(0.0, (early_move - 55.0)) * 0.018
+    potential_atr_floor = 2.5 + max(0.0, (early_move - 60.0)) * 0.035
+    potential_r_floor = clamp(potential_r_floor, 2.2, 3.25)
+    potential_atr_floor = clamp(potential_atr_floor, 2.5, 3.75)
+
+    if direction == 'LONG':
+        structural_target = res if res > entry + 0.5*atr else float('nan')
+        projected_target = entry + max(potential_r_floor*risk, potential_atr_floor*atr)
+        if pd.notna(structural_target) and structural_target > projected_target:
+            target = structural_target; target_method = 'üst yapısal direnç + genişleyen potansiyel'
+        else:
+            target = projected_target; target_method = 'ATR/R potansiyel projeksiyonu'
+        room = (target-entry)/atr
+        level_dist = max((local_res-ref_price)/atr, 0.0)
+    else:
+        structural_target = sup if sup < entry - 0.5*atr else float('nan')
+        projected_target = entry - max(potential_r_floor*risk, potential_atr_floor*atr)
+        if pd.notna(structural_target) and structural_target < projected_target:
+            target = structural_target; target_method = 'alt yapısal destek + genişleyen potansiyel'
+        else:
+            target = projected_target; target_method = 'ATR/R potansiyel projeksiyonu'
+        room = (entry-target)/atr
+        level_dist = max((ref_price-local_sup)/atr, 0.0)
+
     ema_dist = abs(ref_price-float(c.ema20))/max(atr,1e-12)
-    extension = clamp((ema_dist-0.9)*28,0,42)
-    rsi = float(c.rsi) if pd.notna(c.rsi) else 50.0
-    rsi_ext = clamp((rsi-70)*2.2,0,24) if side=='LONG' else clamp((30-rsi)*2.2,0,24)
-    atr_pct = float(c.atr_pct) if pd.notna(c.atr_pct) else 0.0
-    vr = float(c.volume_ratio) if pd.notna(c.volume_ratio) else 0.0
-    burst = clamp((vr-2.0)*10,0,14) + clamp((atr_pct-0.035)*180,0,12)
-    phase_discount = 0.55 if phase == 'BREAKOUT_STARTED' else 1.0
-    return clamp((extension+rsi_ext+burst)*phase_discount,0,45)
+    extension_penalty = clamp((ema_dist-0.8)*24,0,40)
+    if room<=0: location_score=10.0
+    elif room<0.50: location_score=25.0
+    elif room<1.00: location_score=45.0
+    elif room<1.50: location_score=68.0
+    else: location_score=88.0
+    if target_method.startswith('kırılım'):
+        location_score = min(location_score, 70.0)
+    ema_entry_score = clamp(86-extension_penalty + (6 if (direction=='LONG' and ref_price<=c.ema20*1.01) or (direction=='SHORT' and ref_price>=c.ema20*0.99) else 0))
+    rr = ((target-entry)/risk if direction=='LONG' else (entry-target)/risk) if risk>0 else np.nan
+    # Entry quality rewards an executable location and adequate payoff, but does
+    # not let a distant TP hide a bad entry.
+    rr_quality = clamp((float(rr)-1.0)/2.0*100.0, 0.0, 100.0) if pd.notna(rr) else 0.0
+    entry_quality = clamp(0.45*ema_entry_score + 0.25*location_score + 0.30*rr_quality)
 
+    # Move potential explicitly measures how much of a meaningful move is still
+    # structurally available. It rewards formation/acceleration plus forward room
+    # and trend strength; a coin already far from its trigger is not rewarded just
+    # because its 24h percentage is large.
+    forward_room_score = clamp((room - 1.8) / 2.0 * 100.0, 0.0, 100.0)
+    trend_potential = clamp(0.55*directional + 0.45*vals['relative_strength'])
+    move_potential = clamp(0.50*early_move + 0.30*forward_room_score + 0.20*trend_potential)
 
-def _forward_room_score(direction, entry, atr, structural_target):
-    """Reward meaningful forward room in ATR units."""
-    room = ((structural_target-entry) if direction=='LONG' else (entry-structural_target))/max(atr,1e-12)
-    if room >= 4.0: return 100.0
-    if room >= 3.0: return 90+(room-3)*10
-    if room >= 2.5: return 82+(room-2.5)*16
-    if room >= 2.0: return 70+(room-2)*24
-    if room >= 1.5: return 55+(room-1.5)*30
-    if room >= 1.0: return 38+(room-1)*34
-    return clamp(room*38)
+    # Readiness = how close the setup is to being actionable without chasing.
+    proximity_score = clamp(100 - max(level_dist,0)/max(EARLY_TRIGGER_MAX_ATR,0.1)*55, 0, 100)
+    readiness = clamp(0.45*proximity_score + 0.30*directional + 0.25*move_potential)
 
-
-def _quality_for_side(directional, early_move, entry_quality, potential, gap, exhaustion, pressure, phase):
-    clarity=clamp(gap*6,0,100)
-    phase_quality=100 if phase=='PRE_BREAKOUT' else 88 if phase=='BREAKOUT_STARTED' else 35
-    raw=(0.27*directional+0.21*early_move+0.19*entry_quality+0.17*potential+
-         0.08*clarity+0.05*pressure+0.03*phase_quality)
-    if directional>=78 and early_move>=72 and entry_quality>=75 and potential>=78:
-        raw+=3.5
-    elif directional>=72 and early_move>=65 and entry_quality>=70 and potential>=70:
-        raw+=1.5
-    raw-=min(12,exhaustion*0.28)
-    return clamp(raw)
-
-
-def score_setup(df4, df1, df15, ctx, symbol_key=None, symbol=None):
-    """V12.1 unified opportunity score: quality + timing + potential."""
-    c=df15.iloc[-2]; prev=df15.iloc[-3]; ref_price=float(c.close)
-    sup,res=structure_levels(df15); atr=max(float(c.atr),ref_price*0.0001); atr_pct=float(c.atr_pct)
-    local=df15.iloc[-22:-2]
-    if len(local)<10: raise InsufficientCandleDataError('Yeterli kapalı mum yok: yapı seviyeleri hesaplanamadı')
-    local_res=float(local.high.max()); local_sup=float(local.low.min())
-    L=_directional_score(df4,df1,df15,ctx,'LONG',symbol_key)
-    S=_directional_score(df4,df1,df15,ctx,'SHORT',symbol_key)
-    long_early=_early_move_score(df4,df1,df15,ctx,'LONG',ref_price,local_res+0.10*atr,atr,local_res,local_sup)
-    short_early=_early_move_score(df4,df1,df15,ctx,'SHORT',ref_price,local_sup-0.10*atr,atr,local_res,local_sup)
-    # Give forming momentum enough influence that a slow 4h trend cannot bury it.
-    long_select=0.62*L['directional']+0.38*long_early
-    short_select=0.62*S['directional']+0.38*short_early
-    direction='LONG' if long_select>=short_select else 'SHORT'
-    vals=L if direction=='LONG' else S; opp=S if direction=='LONG' else L
-    directional=vals['directional']; opposite=opp['directional']; gap=directional-opposite
-    early_move=long_early if direction=='LONG' else short_early
-
-    if direction=='LONG':
-        trigger=local_res+0.10*atr; dist_atr=(local_res-ref_price)/atr
-        broken=ref_price>trigger and float(c.volume_ratio)>=1.05
-        trend_ok=ref_price>=float(c.ema20) and float(df1.iloc[-2].close)>=float(df1.iloc[-2].ema20)
-        emerging=float(c.ema20)>=float(df15.iloc[-6].ema20) and float(df1.iloc[-2].ema20)>=float(df1.iloc[-6].ema20)
-        early_trend_ok=trend_ok or (emerging and early_move>=52)
-        prior_break = bool(len(df15) >= 8 and float(df15.iloc[-4:-2].high.max()) > trigger + 0.25*atr)
-        retest_touch = bool(float(c.low) <= trigger + 0.18*atr and ref_price > trigger and trend_ok)
-        if prior_break and retest_touch: phase='BREAKOUT_RETEST'; entry=ref_price; stretch_atr=max((ref_price-trigger)/atr,0)
-        elif broken: phase='BREAKOUT_STARTED'; entry=ref_price; stretch_atr=max((ref_price-trigger)/atr,0)
-        elif 0<=dist_atr<=EARLY_TRIGGER_MAX_ATR and early_trend_ok: phase='PRE_BREAKOUT'; entry=trigger; stretch_atr=0
-        elif early_move>=72 and dist_atr<=1.75 and float(c.volume_ratio)>=1.15: phase='PRE_BREAKOUT'; entry=trigger; stretch_atr=0; early_trend_ok=True
-        else: phase='NO_EARLY_SETUP'; entry=trigger; stretch_atr=max((ref_price-trigger)/atr,0)
-    else:
-        trigger=local_sup-0.10*atr; dist_atr=(ref_price-local_sup)/atr
-        broken=ref_price<trigger and float(c.volume_ratio)>=1.05
-        trend_ok=ref_price<=float(c.ema20) and float(df1.iloc[-2].close)<=float(df1.iloc[-2].ema20)
-        emerging=float(c.ema20)<=float(df15.iloc[-6].ema20) and float(df1.iloc[-2].ema20)<=float(df1.iloc[-6].ema20)
-        early_trend_ok=trend_ok or (emerging and early_move>=52)
-        prior_break = bool(len(df15) >= 8 and float(df15.iloc[-4:-2].low.min()) < trigger - 0.25*atr)
-        retest_touch = bool(float(c.high) >= trigger - 0.18*atr and ref_price < trigger and trend_ok)
-        if prior_break and retest_touch: phase='BREAKOUT_RETEST'; entry=ref_price; stretch_atr=max((trigger-ref_price)/atr,0)
-        elif broken: phase='BREAKOUT_STARTED'; entry=ref_price; stretch_atr=max((trigger-ref_price)/atr,0)
-        elif 0<=dist_atr<=EARLY_TRIGGER_MAX_ATR and early_trend_ok: phase='PRE_BREAKOUT'; entry=trigger; stretch_atr=0
-        elif early_move>=72 and dist_atr<=1.75 and float(c.volume_ratio)>=1.15: phase='PRE_BREAKOUT'; entry=trigger; stretch_atr=0; early_trend_ok=True
-        else: phase='NO_EARLY_SETUP'; entry=trigger; stretch_atr=max((trigger-ref_price)/atr,0)
-
-    overextended=stretch_atr>EARLY_TRIGGER_MAX_ATR
-    stop_mult=clamp(2.0+(0.4 if c.adx<22 else 0)+(0.25 if atr_pct>0.035 else 0),2.0,2.8)
-    atr_stop=entry-stop_mult*atr if direction=='LONG' else entry+stop_mult*atr
-    structural_stop=local_sup-0.12*atr if direction=='LONG' else local_res+0.12*atr
-    structural_dist_atr=abs(entry-structural_stop)/atr
-    if 1.15<=structural_dist_atr<=3.0: stop=structural_stop; stop_method='yakın yapı + ATR tamponu'
-    else: stop=atr_stop; stop_method='ATR volatilite stopu'
-
-    # V13: structural S/R + ATR volatility envelope as a separate stop zone.
-    if direction=='LONG':
-        stop_zone_low=min(local_sup-STOP_ZONE_ATR_FAR*atr, stop-0.05*atr)
-        stop_zone_high=max(local_sup-STOP_ZONE_ATR_NEAR*atr, stop+0.05*atr)
-        hard_floor=entry*(1-MAX_STOP_DISTANCE_PCT)
-        stop_zone_low=max(stop_zone_low, hard_floor)
-        stop_zone_high=max(stop_zone_high, stop_zone_low)
-    else:
-        stop_zone_low=min(local_res+STOP_ZONE_ATR_NEAR*atr, stop-0.05*atr)
-        stop_zone_high=max(local_res+STOP_ZONE_ATR_FAR*atr, stop+0.05*atr)
-        hard_ceiling=entry*(1+MAX_STOP_DISTANCE_PCT)
-        stop_zone_high=min(stop_zone_high, hard_ceiling)
-        stop_zone_low=min(stop_zone_low, stop_zone_high)
-    risk=abs(entry-stop)
-
-    # Do not create three tiny targets. TP3 needs meaningful forward space.
-    if direction=='LONG':
-        structural_target=res; structural_room=(structural_target-entry)/atr
-        if structural_room>=2.8: target=structural_target; target_method='üst yapısal direnç'
-        else: target=entry+max(2.8*risk,3.0*atr,0.90*(local_res-local_sup)); target_method='ölçülü kırılım + ATR/R projeksiyonu'
-        room=(target-entry)/atr; level_dist=max((local_res-ref_price)/atr,0)
-    else:
-        structural_target=sup; structural_room=(entry-structural_target)/atr
-        if structural_room>=2.8: target=structural_target; target_method='alt yapısal destek'
-        else: target=entry-max(2.8*risk,3.0*atr,0.90*(local_res-local_sup)); target_method='ölçülü kırılım + ATR/R projeksiyonu'
-        room=(entry-target)/atr; level_dist=max((ref_price-local_sup)/atr,0)
-
-    rr=((target-entry)/risk if direction=='LONG' else (entry-target)/risk) if risk>0 else np.nan
-    rr_quality=clamp((float(rr)-1.2)/2*100,0,100) if pd.notna(rr) else 0
-    ema_dist=abs(ref_price-float(c.ema20))/max(atr,1e-12)
-    extension_penalty=clamp((ema_dist-0.75)*26,0,42)
-    location_room_score=clamp(25+min(room,4)*18,25,97)
-    ema_entry_score=clamp(88-extension_penalty+(5 if ((direction=='LONG' and ref_price<=c.ema20*1.01) or (direction=='SHORT' and ref_price>=c.ema20*0.99)) else 0))
-    entry_quality=clamp(0.36*ema_entry_score+0.24*location_room_score+0.28*rr_quality+0.12*(100-extension_penalty))
-    room_score=_forward_room_score(direction,entry,atr,structural_target if structural_room>=0 else target)
-    pressure=_candle_pressure_score(c,prev,direction)
-    trend_potential=clamp(0.55*directional+0.25*vals['relative_strength']+0.20*pressure)
-    # V13 move potential is intentionally independent from TP size. It measures
-    # whether a larger move is forming: acceleration + forward room + trend
-    # quality + continuation pressure. Raw 24h performance is only a secondary
-    # input and cannot create a high score by itself.
-    signed_24h=float(SWAP_PERCENTAGES.get(symbol,0.0) or 0.0)*(1 if direction=='LONG' else -1)
-    continuation_pressure=clamp(50.0+signed_24h*1.6+vals['relative_1h']*3.0+vals['relative_4h']*1.2,0,100)
-    move_potential=clamp(0.34*early_move+0.24*room_score+0.18*trend_potential+0.16*continuation_pressure+0.08*pressure)
-    exhaustion=_exhaustion_score(c,ref_price,atr,direction,phase)
-    proximity_score=clamp(100-max(level_dist,0)/max(EARLY_TRIGGER_MAX_ATR,0.1)*55,0,100)
-    readiness=clamp(0.30*proximity_score+0.30*directional+0.25*early_move+0.15*pressure)
-    # ONE public score: direction 30%, entry quality 25%, move potential 30%, readiness 15%.
-    raw_score=clamp(0.30*directional+0.25*entry_quality+0.30*move_potential+0.15*readiness)
-    # Small bonuses refine already-good setups; they do not replace the four main weights.
-    raw_score=clamp(raw_score+clamp((float(rr)-2.0)*1.0,0,3) + (2.0 if phase=='BREAKOUT_RETEST' else 0))
-    gap_ok=gap>=MIN_DIRECTION_GAP or (directional>=78 and early_move>=70 and gap>=2)
-    setup_valid=(phase in ('PRE_BREAKOUT','BREAKOUT_STARTED','BREAKOUT_RETEST') and early_trend_ok and not overextended and readiness>=MIN_SETUP_READINESS and gap_ok and pd.notna(rr) and rr>=MIN_CONFIRMED_RR)
-    elite_gate=(raw_score>=90 and directional>=85 and entry_quality>=80 and move_potential>=85 and pd.notna(rr) and rr>=2 and gap>=15 and setup_valid and exhaustion<18)
-    quality='ELITE' if elite_gate else 'STRONG' if raw_score>=85 else 'SELECTIVE' if raw_score>=72 else 'WEAK'
-    rel_side=vals['relative_1h']*(1 if direction=='LONG' else -1); rel4_side=vals['relative_4h']*(1 if direction=='LONG' else -1)
-    relative_outlier=rel_side>=1.5 or rel4_side>=3
-    potential_label='ÇOK YÜKSEK' if move_potential>=80 else 'YÜKSEK' if move_potential>=65 else 'ORTA' if move_potential>=45 else 'SINIRLI'
-    return {'direction':direction,'score':round(raw_score,1),'quality':quality,'elite_gate':elite_gate,'entry':float(entry),'reference_price':ref_price,'trigger':float(trigger),'phase':phase,'setup_valid':bool(setup_valid),'readiness':round(readiness,1),'overextended':bool(overextended),'stop':float(stop),'stop_method':stop_method,'stop_zone_low':float(stop_zone_low),'stop_zone_high':float(stop_zone_high),'wide_stop':float(stop-(atr*WIDE_STOP_BUFFER_ATR) if direction=='LONG' else stop+(atr*WIDE_STOP_BUFFER_ATR)),'target':float(target),'target_method':target_method,'rr':float(rr) if pd.notna(rr) else float('nan'),'support':sup,'resistance':res,'local_support':local_sup,'local_resistance':local_res,'directional_confidence':round(directional,1),'direction_gap':round(gap,1),'long_early_score':round(long_early,1),'short_early_score':round(short_early,1),'entry_quality':round(entry_quality,1),'move_potential':round(move_potential,1),'early_move_score':round(early_move,1),'room_score':round(room_score,1),'pressure_score':round(pressure,1),'exhaustion_score':round(exhaustion,1),'potential_label':potential_label,'relative_strength':round(vals['relative_strength'],1),'relative_1h':round(vals['relative_1h'],2),'relative_4h':round(vals['relative_4h'],2),'relative_outlier':bool(relative_outlier),'breakout':round(vals['breakout'],1),'atr':atr,'atr_pct':atr_pct}
+    # ONE public score. The meaning is deliberately tiered:
+    # 80-84 = smaller/shorter opportunity; 85-89 = stronger expansion potential;
+    # 90-95 = exceptional setup with materially larger modeled room.
+    # This is NOT a win probability and must never be presented as one.
+    raw_score = clamp(
+        0.30*directional + 0.25*entry_quality +
+        0.30*move_potential + 0.15*readiness
+    )
+    setup_valid = (phase in ('PRE_BREAKOUT','BREAKOUT_STARTED') and early_trend_ok and
+                   not overextended and readiness >= MIN_SETUP_READINESS and gap >= MIN_DIRECTION_GAP)
+    elite_gate = (raw_score>=90 and directional>=85 and entry_quality>=80 and
+                  move_potential>=85 and pd.notna(rr) and rr>=2.6 and
+                  gap>=15 and setup_valid and room>=3.0)
+    quality = 'ELITE' if elite_gate else 'STRONG' if raw_score>=85 else 'SELECTIVE' if raw_score>=80 else 'WEAK'
+    # Outlier flag: candidate has notable relative strength against the BTC/ETH tape.
+    rel_side = vals['relative_1h'] * (1 if direction == 'LONG' else -1)
+    rel4_side = vals['relative_4h'] * (1 if direction == 'LONG' else -1)
+    relative_outlier = (rel_side >= 1.5 or rel4_side >= 3.0)
+    potential_label = ('ÇOK YÜKSEK' if move_potential >= 80 else 'YÜKSEK' if move_potential >= 65 else 'ORTA' if move_potential >= 45 else 'SINIRLI')
+    return {'direction':direction,'score':round(raw_score,1),'quality':quality,'elite_gate':elite_gate,
+            'entry':float(entry),'reference_price':ref_price,'trigger':float(trigger),'phase':phase,
+            'setup_valid':bool(setup_valid),'readiness':round(readiness,1),'overextended':bool(overextended),
+            'stop':float(stop),'stop_method':stop_method,'wide_stop':float(stop-(atr*WIDE_STOP_BUFFER_ATR) if direction=='LONG' else stop+(atr*WIDE_STOP_BUFFER_ATR)),
+            'target':float(target),'target_method':target_method,'rr':float(rr) if pd.notna(rr) else float('nan'),
+            'support':sup,'resistance':res,'local_support':local_sup,'local_resistance':local_res,
+            'directional_confidence':round(directional,1),'direction_gap':round(gap,1),'long_early_score':round(long_early,1),'short_early_score':round(short_early,1),
+            'entry_quality':round(entry_quality,1),'move_potential':round(move_potential,1),'early_move_score':round(early_move,1),
+            'forward_room_score':round(forward_room_score,1),'potential_r_floor':round(potential_r_floor,2),
+            'potential_atr_floor':round(potential_atr_floor,2),
+            'score_band':('90-95' if raw_score>=90 else '85-89' if raw_score>=85 else '80-84' if raw_score>=80 else '<80'),
+            'potential_label':potential_label,'relative_strength':round(vals['relative_strength'],1),
+            'relative_1h':round(vals['relative_1h'],2),'relative_4h':round(vals['relative_4h'],2),
+            'relative_outlier':bool(relative_outlier),
+            'breakout':round(vals['breakout'],1),'atr':atr,'atr_pct':atr_pct}
 
 # ---------------------------------------------------------------------
 # TP1/TP2/TP3 -- mesafeye göre sıralı (en yakından en uzağa)
 # ---------------------------------------------------------------------
 def tp_levels(x):
-    """Meaningfully spaced targets: 1R / 1.8R / modeled TP3."""
     entry=float(x['entry']); stop=float(x['stop']); direction=x['direction']; risk=abs(entry-stop)
     if risk<=0: return None
-    target=float(x['target']); planned_r=abs(target-entry)/risk
-    if not np.isfinite(planned_r) or planned_r < 1.8: return None
-    r1=1.0 if planned_r>=2.8 else min(1.0,planned_r*0.36)
-    r2=min(1.8,planned_r*0.64)
-    if r2<=r1+0.35: r2=min(planned_r*0.62,r1+0.45)
-    r2=min(r2,planned_r-0.35)
-    if r2<=r1: r2=min(planned_r*0.60,planned_r-0.25)
-    out={}
-    for label,r in zip(('TP1','TP2','TP3'),(r1,r2,planned_r)):
-        price=entry+risk*r if direction=='LONG' else entry-risk*r
-        out[label]={'r':round(float(r),2),'price':float(price)}
+    planned_r = abs(float(x['target'])-entry)/risk
+    # Never advertise a take-profit beyond the actual modeled target/structure.
+    r_values = [min(1.0, planned_r), min(1.5, planned_r), planned_r]
+    labels = ['TP1','TP2','TP3']
+    out = {}
+    for label, r in zip(labels, r_values):
+        price = entry + risk*r if direction=='LONG' else entry-risk*r
+        out[label] = {'r': round(r,2), 'price': float(x['target']) if label=='TP3' else price}
     return out
 
+def tier(x):
+    # Repeat-alert state uses only the unified score, not hidden component labels.
+    s=x['score']
+    if s>=90: return 'SKOR 90+'
+    if s>=85: return 'SKOR 85+'
+    if s>=80: return 'SKOR 80+'
+    return None
+
+# Legacy labels are retained only to read existing alert_state.json safely.
+TIER_RANK = {
+    'SKOR 80+':1, 'SKOR 85+':2, 'SKOR 90+':3,
+    '🔵 GİRİLEBİLİR (80-90)':1,
+    '🟢 ÇOK GÜÇLÜ (90+)':2,
+    '🟢 ELİT (90+, tüm kapılar geçti)':3,
+}
+
+def spot_quote_volume(ticker):
+    q = ticker.get('quoteVolume')
+    if q is None and ticker.get('baseVolume') and ticker.get('last'):
+        q = float(ticker['baseVolume']) * float(ticker['last'])
+    try: return float(q or 0)
+    except (TypeError, ValueError): return 0.0
+
+def spot_early_radar(swap_symbols, market_caps):
+    """Spot is a discovery layer; only the matched perpetual setup can alert.
+
+    Return reviewed candidates as well as active momentum flags, so a large 24h
+    mover is still sent to perpetual analysis even if its 15m momentum paused.
+    """
+    try:
+        markets = spot_exchange.load_markets()
+        tickers = spot_exchange.fetch_tickers()
+    except Exception as e:
+        print(f'SPOT RADARI VERİ ALAMADI: {e}')
+        return []
+    stable_bases = {'USDT','USDC','BUSD','TUSD','FDUSD','DAI','USDE','USDD','EUR','USD'}
+    pool = []
+    for sym, m in markets.items():
+        if not (m.get('active') and m.get('spot') and m.get('quote') == 'USDT'):
+            continue
+        base = str(m.get('base') or sym.split('/')[0]).upper()
+        if base in stable_bases:
+            continue
+        t = tickers.get(sym) or {}
+        qv = spot_quote_volume(t)
+        if qv < MIN_SPOT_24H_VOLUME:
+            continue
+        try:
+            pct = float(t.get('percentage') or 0.0)
+            last = float(t.get('last') or 0.0)
+        except (TypeError, ValueError):
+            continue
+        if not np.isfinite(pct) or not np.isfinite(last) or last <= 0:
+            continue
+        pool.append({'symbol':sym,'base':base,'quote_volume':qv,'pct24':pct,'last':last})
+
+    # Every spot USDT pair above the spot-liquidity floor is checked; there is
+    # no fixed 40-coin cap. A nonzero env override can cap OHLCV work if needed.
+    by_move = sorted(pool, key=lambda x: abs(x['pct24']), reverse=True)
+    mover_count = max(1, int(np.ceil(len(by_move) * clamp(SPOT_RELATIVE_MOVER_SHARE, 0.05, 1.0)))) if by_move else 0
+    relative_mover_symbols = {x['symbol'] for x in by_move[:mover_count]}
+    if SPOT_RADAR_MAX_CANDIDATES > 0 and len(pool) > SPOT_RADAR_MAX_CANDIDATES:
+        by_volume = sorted(pool, key=lambda x: x['quote_volume'], reverse=True)
+        limit = SPOT_RADAR_MAX_CANDIDATES
+        move_quota = (limit + 1) // 2
+        volume_quota = limit // 2
+        selected = {x['symbol']:x for x in by_move[:move_quota] + by_volume[:volume_quota]}
+        if len(selected) < limit:
+            for item in sorted(pool, key=lambda x: (abs(x['pct24']), x['quote_volume']), reverse=True):
+                selected.setdefault(item['symbol'], item)
+                if len(selected) >= limit:
+                    break
+        candidates = list(selected.values())[:limit]
+    else:
+        candidates = sorted(pool, key=lambda x: (abs(x['pct24']), x['quote_volume']), reverse=True)
+    out = []
+    for item in candidates:
+        sym = item['symbol']
+        try:
+            rows = spot_exchange.fetch_ohlcv(sym, timeframe='15m', limit=OHLCV_LIMIT)
+            raw = _ohlcv_frame(rows)
+            if len(raw) < 60:
+                print(f'SPOT RADAR VERİ ATLANDI {sym}: yetersiz 15m mum ({len(raw)}; en az 60 gerekli); ticker hareketi keşif için korunuyor.')
+                perp_symbol = next((ps for ps in swap_symbols if ps.split('/')[0].upper() == item['base']), None)
+                perp_qv = float(SWAP_QUOTE_VOLUMES.get(perp_symbol, 0.0)) if perp_symbol else 0.0
+                if sym in relative_mover_symbols:
+                    out.append({
+                        'symbol':sym, 'base':item['base'],
+                        'direction':'YUKARI HAREKET' if item['pct24'] >= 0 else 'AŞAĞI HAREKET',
+                        'price':item['last'], 'change_15m':0.0, 'change_1h':0.0,
+                        'change_24h':item['pct24'], 'volume_ratio':0.0,
+                        'quote_volume':item['quote_volume'],
+                        'market_cap_rank':market_cap_rank_for_symbol(sym, market_caps),
+                        'market_cap_label':market_cap_label_for_symbol(sym, market_caps),
+                        'swap_available':bool(perp_symbol), 'perp_symbol':perp_symbol,
+                        'perp_quote_volume':perp_qv, 'breakout':False,
+                        'momentum_flag':False, 'discovery_candidate':True,
+                        'discovery_reason':'spot göreli 24h hareketli; spot mum geçmişi yetersiz'
+                    })
+                continue
+            d15 = add_indicators(raw)
+            if len(d15) < 10:
+                continue
+            c = d15.iloc[-2]
+            prev = d15.iloc[-3]
+            old1h = d15.iloc[-6]
+            px = float(c.close)
+            ch15 = (px/float(prev.close)-1)*100 if prev.close else 0.0
+            ch1h = (px/float(old1h.close)-1)*100 if old1h.close else 0.0
+            vr = float(c.volume_ratio) if pd.notna(c.volume_ratio) else 0.0
+            aligned = (ch15 > 0 and ch1h > 0) or (ch15 < 0 and ch1h < 0)
+            steady = abs(ch15) >= 0.8 and abs(ch1h) >= 1.8 and vr >= 1.5
+            burst = abs(ch15) >= 1.4 and vr >= 2.0
+            momentum_flag = bool(aligned and (steady or burst))
+            side = 'YUKARI HAREKET' if ch15 >= 0 else 'AŞAĞI HAREKET'
+            local = d15.iloc[-22:-2]
+            local_high = float(local.high.max()) if len(local) else px
+            local_low = float(local.low.min()) if len(local) else px
+            breakout = bool(len(local) and (px > local_high if ch15 >= 0 else px < local_low))
+            atr_pct = float(c.atr_pct) if pd.notna(c.atr_pct) else 0.0
+            near_band = max(0.005, 0.5 * atr_pct)
+            near_high = bool(len(local) and 0 <= (local_high - px) / max(px, 1e-12) <= near_band)
+            near_low = bool(len(local) and 0 <= (px - local_low) / max(px, 1e-12) <= near_band)
+            near_breakout = bool((near_high or near_low) and vr >= 1.0)
+            discovery_flag = bool(
+                momentum_flag
+                or sym in relative_mover_symbols
+                or near_breakout
+                or (abs(ch1h) >= MIN_SPOT_DISCOVERY_1H_MOVE and vr >= MIN_SPOT_DISCOVERY_VOLUME_RATIO)
+            )
+            perp_symbol = next((ps for ps in swap_symbols if ps.split('/')[0].upper() == item['base']), None)
+            perp_qv = float(SWAP_QUOTE_VOLUMES.get(perp_symbol, 0.0)) if perp_symbol else 0.0
+            out.append({
+                'symbol':sym, 'base':item['base'], 'direction':side, 'price':px,
+                'change_15m':ch15, 'change_1h':ch1h, 'change_24h':item['pct24'],
+                'volume_ratio':vr, 'quote_volume':item['quote_volume'],
+                'market_cap_rank':market_cap_rank_for_symbol(sym, market_caps),
+                'market_cap_label':market_cap_label_for_symbol(sym, market_caps),
+                'swap_available':bool(perp_symbol), 'perp_symbol':perp_symbol,
+                'perp_quote_volume':perp_qv, 'breakout':breakout,
+                'momentum_flag':momentum_flag, 'discovery_candidate':discovery_flag,
+                'near_breakout':near_breakout,
+                'discovery_reason':('spot 15m/1h momentum' if momentum_flag else
+                                    'spot göreli 24h hareket' if sym in relative_mover_symbols else
+                                    'yakın kırılım bölgesi' if near_breakout else
+                                    'spot 1h impulse' if abs(ch1h) >= MIN_SPOT_DISCOVERY_1H_MOVE else 'radar only')
+            })
+        except Exception as e:
+            print(f'SPOT RADAR {sym}: {type(e).__name__}: {e}')
+        time.sleep(0.05)
+    out.sort(key=lambda x: (bool(x.get('discovery_candidate')), abs(x['change_24h']),
+                            abs(x['change_1h']) * min(x['volume_ratio'],4)), reverse=True)
+    flagged = sum(1 for x in out if x.get('discovery_candidate'))
+    cap_label = SPOT_RADAR_MAX_CANDIDATES if SPOT_RADAR_MAX_CANDIDATES > 0 else 'yok'
+    print(f'SPOT RADARI: {len(pool)} likit spot USDT çifti bulundu; {len(candidates)} çiftin 15m mumları kontrol edildi (sabit limit={cap_label}); {flagged} vadeli keşif adayı.')
+    return out
+
+def format_spot_watch(x):
+    swap = 'VAR — vadeli setup ayrıca kontrol edilmeli' if x['swap_available'] else 'YOK — bu piyasada vadeli setup doğrulanamaz'
+    stretched = abs(x['change_1h']) >= 7.0 or abs(x['change_24h']) >= 15.0
+    caution = '\n⚠️ Hareket çok uzamış olabilir; fiyata atlamayın, geri çekilme/teyit bekleyin.' if stretched else ''
+    return (f"👀 SPOT ERKEN UYARI — {x['direction']}\n"
+            f"*{x['symbol']}* | Fiyat: {x['price']:.8g}\n"
+            f"15 dk: {x['change_15m']:+.2f}% | 1 saat: {x['change_1h']:+.2f}% | 24 saat: {x['change_24h']:+.2f}%\n"
+            f"Hacim: {x['volume_ratio']:.2f}x ortalama | 24s spot hacmi: {x['quote_volume']:,.0f} USDT\n"
+            f"Market-cap sırası: {x.get('market_cap_label', '#' + str(x['market_cap_rank']))} | MEXC vadeli eşleşmesi: {swap}\n"
+            f"Kırılım teyidi: {'EVET' if x['breakout'] else 'henüz yok'}\n"
+            f"Bu bir izleme uyarısıdır; tek başına LONG/SHORT işlem sinyali değildir.{caution}")
 
 def load_state():
     if STATE_FILE.exists():
@@ -703,10 +877,9 @@ def is_new_or_upgraded(x, t, state):
     key = f"{x['symbol']}:{x['direction']}"
     prev = state.get(key)
     if prev is None: return True
-    phase_rank = {'PRE_BREAKOUT': 1, 'BREAKOUT_STARTED': 2, 'BREAKOUT_RETEST': 3}
+    phase_rank = {'PRE_BREAKOUT': 1, 'BREAKOUT_STARTED': 2}
     return (TIER_RANK.get(t, 0) > TIER_RANK.get(prev.get('tier'), 0)
-            or phase_rank.get(x.get('phase'), 0) > phase_rank.get(prev.get('phase'), 0)
-            or float(x.get('score', 0.0)) >= float(prev.get('score', 0.0)) + ALERT_REARM_SCORE_DELTA)
+            or phase_rank.get(x.get('phase'), 0) > phase_rank.get(prev.get('phase'), 0))
 
 def _font(size, bold=False):
     candidates = ([
@@ -767,7 +940,6 @@ def refresh_live_price_and_validate(x):
     trigger = float(x.get('trigger', entry))
     atr = max(float(x.get('atr', 0.0) or 0.0), entry * 0.0001)
     zone_pad = max(0.15 * atr, entry * 0.0010)
-    retest_pad = max(RETEST_MAX_ATR * atr, entry * 0.006)
     # Pending alerts are only useful before the trigger is crossed; wait for the
     # next closed 15m candle rather than labeling an intrabar cross as pending.
     if x.get('phase') == 'PRE_BREAKOUT':
@@ -778,8 +950,6 @@ def refresh_live_price_and_validate(x):
         # Do not send a pending setup if it has moved materially away from the level.
         if abs(live-trigger) > max(EARLY_TRIGGER_MAX_ATR * atr, entry * 0.008):
             return False, 'Fiyat tetik seviyesinden fazla uzak; kurulum güncelliğini yitirdi'
-        if abs(live-trigger) > retest_pad:
-            return False, 'Giriş retest/pullback bölgesinden uzak; fiyat kovalanmıyor'
     else:
         # Confirmed breakout: entry must remain within the displayed entry zone.
         if abs(live-entry) > zone_pad:
@@ -848,39 +1018,35 @@ def render_signal_card(x, ctx):
     section(354, 'ANALİZ SKORU')
     card((m, 392, W-m, 520), fill=panel, radius=20)
     txt((m+24, 410), f"{float(x['score']):.1f}/100", f_big, accent)
-    status = ('RETEST TEYİTLİ' if x['phase']=='BREAKOUT_RETEST' else 'KIRILIM TEYİTLİ' if x['phase']=='BREAKOUT_STARTED' else 'TETİK BEKLENİYOR')
-    status_color = accent if x['phase'] in ('BREAKOUT_STARTED','BREAKOUT_RETEST') else yellow
+    status = 'KIRILIM TEYİTLİ' if x['phase'] == 'BREAKOUT_STARTED' else 'TETİK BEKLENİYOR'
+    status_color = accent if x['phase'] == 'BREAKOUT_STARTED' else yellow
     txt((m+390, 412), status, _font(23, True), status_color)
     prog = float(x.get('level_progress', 0.0))
     txt((m+390, 463), f'Retest / seviye farkı: {prog:+.2f}%', f_sub, white)
 
     # Entry / stop levels
     section(542, 'GİRİŞ PLANI')
-    card((m, 580, W-m, 846), fill=panel, radius=20)
+    card((m, 580, W-m, 838), fill=panel, radius=20)
     entry = float(x['entry']); live = float(x['live_price']); pad = float(x['zone_pad'])
     stop = float(x['stop'])
     stop_pct = ((entry-stop)/entry*100.0) if x['direction']=='LONG' else ((stop-entry)/entry*100.0)
-    stop_zone = f"{_price(x.get('stop_zone_low', stop))} – {_price(x.get('stop_zone_high', stop))}"
-    sr_text = f"D: {_price(x.get('support', stop))} | R: {_price(x.get('resistance', entry))}"
     rows = [
         ('İDEAL GİRİŞ', _price(entry), white),
         ('GİRİŞ BÖLGESİ', f'{_price(max(entry-pad, 1e-12))} – {_price(entry+pad)}', white),
-        ('DESTEK / DİRENÇ', sr_text, blue),
         ('STOP-LOSS', f'{_price(stop)}  ({stop_pct:.2f}%)', red),
-        ('STOP ZONU', stop_zone, yellow),
     ]
     for i,(lab,val,col) in enumerate(rows):
-        yy = 588 + i*50
+        yy = 602 + i*78
         if i: d.line((m+22, yy-9, W-m-22, yy-9), fill=border, width=1)
         txt((m+24, yy+8), lab, f_label, muted)
         txt((W-m-24, yy+7), val, _font(25 if len(val)<25 else 21, True), col, anchor='ra')
 
     # Targets
-    section(864, 'KÂR HEDEFLERİ')
-    card((m, 902, W-m, 1168), fill=panel, radius=20)
+    section(862, 'KÂR HEDEFLERİ')
+    card((m, 900, W-m, 1168), fill=panel, radius=20)
     tps = tp_levels(x)
     for i, lab in enumerate(('TP1','TP2','TP3')):
-        yy = 920 + i*76
+        yy = 920 + i*78
         if i: d.line((m+22, yy-8, W-m-22, yy-8), fill=border, width=1)
         d.rounded_rectangle((m+22, yy+1, m+122, yy+52), radius=12, fill=accent_bg, outline=accent, width=1)
         txt((m+72, yy+26), lab, f_badge, accent, anchor='mm')
@@ -1014,7 +1180,7 @@ def write_diagnostic(all_results, ctx, spot_results=None, error_counts=None, sou
              f"ETH4h={ctx['eth']['4h']} ETH1h={ctx['eth']['1h']} | "
              f"perp_taranan={len(all_results)} | en_iyi={best} | marketcap={source} ==="]
     for r in top:
-        lines.append(f"PERP {r['symbol']:20} {r['direction']:5} phase={r.get('phase','?'):16} score={r['score']:5.1f} early={r.get('early_move_score',0):4.1f} entryQ={r.get('entry_quality',0):4.1f} pot={r.get('move_potential',0):4.1f} room={r.get('room_score',0):4.1f} exh={r.get('exhaustion_score',0):4.1f} rr={r['rr']:.2f} gap={r.get('direction_gap',0):+.1f} mc=#{r.get('market_cap_rank',501):4d} gate={r.get('alert_threshold',90):.0f} valid={r.get('setup_valid',False)} qv={r.get('quote_volume_24h',0):.0f} reject={r.get('gate_reason','')}")
+        lines.append(f"PERP {r['symbol']:20} {r['direction']:5} phase={r.get('phase','?'):16} score={r['score']:5.1f} early={r.get('early_move_score',0):4.1f} rr_internal={r['rr']:.2f} rel1h={r.get('relative_1h',0):+.2f} rel4h={r.get('relative_4h',0):+.2f} mc=#{r.get('market_cap_rank',501):4d} gate={r.get('alert_threshold',90):.0f} valid={r.get('setup_valid',False)} qv={r.get('quote_volume_24h',0):.0f} reject={r.get('gate_reason','')}")
     for r in (spot_results or [])[:10]:
         lines.append(f"SPOT {r['symbol']:20} {r['direction']:15} 15m={r['change_15m']:+.2f}% 1h={r['change_1h']:+.2f}% 24h={r['change_24h']:+.2f}% vol={r['volume_ratio']:.2f}x swap={r['swap_available']} discovery={r.get('discovery_candidate',False)}")
     for r in (missed_candidates or [])[:20]:
@@ -1093,7 +1259,7 @@ def collect_missed_candidates(all_symbols, analyzed_symbols, all_results, spot_r
 
 
 def main():
-    print('=== ALTCOIN ALERT SCANNER V12.1 — QUALITY + POTENTIAL + EARLY RECALL ===')
+    print('=== ALTCOIN ALERT SCANNER V13 — QUALITY + POTENTIAL + EARLY RECALL ===')
     ctx = market_context()
     print(f"BTC 4h={ctx['btc']['4h']} 1h={ctx['btc']['1h']} | ETH 4h={ctx['eth']['4h']} 1h={ctx['eth']['1h']}")
     all_symbols = list(dict.fromkeys(liquid_usdt_swaps()))
@@ -1126,7 +1292,7 @@ def main():
 
     def evaluate(s, symbol_key=None):
         try:
-            x = score_setup(candles(s,'4h'), candles(s,'1h'), candles(s,'15m'), ctx, symbol_key, s)
+            x = score_setup(candles(s,'4h'), candles(s,'1h'), candles(s,'15m'), ctx, symbol_key)
             x['symbol'] = s
             x['market_cap_rank'] = market_cap_rank_for_symbol(s, market_caps)
             x['market_cap_label'] = market_cap_label_for_symbol(s, market_caps)
@@ -1152,7 +1318,7 @@ def main():
                 key = f"{s}:{x['direction']}"
                 new_state[key] = {'tier':t,'score':x['score'],'phase':x['phase'],
                                   'market_cap_rank':x['market_cap_rank'],'alert_threshold':x['alert_threshold'],
-                                  'last_seen':int(time.time()), 'last_sent':False}
+                                  'last_seen':int(time.time())}
                 if is_new_or_upgraded(x, t, state): qualifying.append((x,t))
         except InsufficientCandleDataError as e:
             data_skips['YETERSIZ_MUM'] = data_skips.get('YETERSIZ_MUM', 0) + 1
@@ -1190,13 +1356,15 @@ def main():
         if not geometry_ok:
             print(f"SİNYAL ELENDİ {x['symbol']} {x['direction']}: {geometry_reason}")
             key = f"{x['symbol']}:{x['direction']}"
-            new_state.pop(key, None)
+            if key in state: new_state[key] = state[key]
+            else: new_state.pop(key, None)
             continue
         live_ok, live_reason = refresh_live_price_and_validate(x)
         if not live_ok:
             print(f"SİNYAL ELENDİ {x['symbol']} {x['direction']}: {live_reason}")
             key = f"{x['symbol']}:{x['direction']}"
-            new_state.pop(key, None)
+            if key in state: new_state[key] = state[key]
+            else: new_state.pop(key, None)
             continue
         sendable.append((x,t))
 
@@ -1206,12 +1374,10 @@ def main():
             key = f"{x['symbol']}:{x['direction']}"
             if send_ok:
                 record_sent_signal(x)
-                new_state[key] = {'tier':tier(x),'score':x['score'],'phase':x['phase'],
-                                  'market_cap_rank':x['market_cap_rank'],'alert_threshold':x['alert_threshold'],
-                                  'last_seen':int(time.time()), 'last_sent':True}
             else:
                 print(f"Telegram bildirimi gönderilemedi; tekrar denenebilmesi için alarm durumu geri alınıyor: {x['symbol']}")
-                new_state.pop(key, None)
+                if key in state: new_state[key] = state[key]
+                else: new_state.pop(key, None)
     else:
         print('Bu turda gönderilebilir yeni plan yok. Uygun kurulum çıkmaması normaldir; elenen planlar için yukarıdaki SİNYAL ELENDİ nedenlerine bakın. Bildirim gönderilmedi.')
 
