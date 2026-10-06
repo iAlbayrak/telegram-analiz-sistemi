@@ -860,7 +860,7 @@ def render_signal_card(x, ctx):
     entry = float(x['entry']); live = float(x['live_price']); pad = float(x['zone_pad'])
     stop = float(x['stop'])
     stop_pct = ((entry-stop)/entry*100.0) if x['direction']=='LONG' else ((stop-entry)/entry*100.0)
-    stop_zone = f'{_price(x.get('stop_zone_low', stop))} – {_price(x.get('stop_zone_high', stop))}'
+    stop_zone = f"{_price(x.get('stop_zone_low', stop))} – {_price(x.get('stop_zone_high', stop))}"
     sr_text = f'D: {_price(x.get('support', stop))} | R: {_price(x.get('resistance', entry))}'
     rows = [
         ('İDEAL GİRİŞ', _price(entry), white),
