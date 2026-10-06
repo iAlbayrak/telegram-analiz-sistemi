@@ -861,7 +861,7 @@ def render_signal_card(x, ctx):
     stop = float(x['stop'])
     stop_pct = ((entry-stop)/entry*100.0) if x['direction']=='LONG' else ((stop-entry)/entry*100.0)
     stop_zone = f"{_price(x.get('stop_zone_low', stop))} – {_price(x.get('stop_zone_high', stop))}"
-    sr_text = f'D: {_price(x.get('support', stop))} | R: {_price(x.get('resistance', entry))}'
+    sr_text = f"D: {_price(x.get('support', stop))} | R: {_price(x.get('resistance', entry))}"
     rows = [
         ('İDEAL GİRİŞ', _price(entry), white),
         ('GİRİŞ BÖLGESİ', f'{_price(max(entry-pad, 1e-12))} – {_price(entry+pad)}', white),
