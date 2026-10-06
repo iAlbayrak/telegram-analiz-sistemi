@@ -513,7 +513,7 @@
     "activated": false,
     "signal_ts_ms": 1791185135114,
     "status": "OPEN",
-    "last_checked_ms": 1791324244764
+    "last_checked_ms": 1791325123767
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -547,7 +547,7 @@
     "activated": false,
     "signal_ts_ms": 1791191270806,
     "status": "OPEN",
-    "last_checked_ms": 1791324244764
+    "last_checked_ms": 1791325123767
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -617,7 +617,7 @@
     "activated": false,
     "signal_ts_ms": 1791203027059,
     "status": "OPEN",
-    "last_checked_ms": 1791324244764
+    "last_checked_ms": 1791325123767
   },
   {
     "symbol": "NIL/USDT:USDT",
@@ -831,7 +831,7 @@
     "activated": false,
     "signal_ts_ms": 1791293235597,
     "status": "OPEN",
-    "last_checked_ms": 1791324244764
+    "last_checked_ms": 1791325123767
   },
   {
     "symbol": "FLUID/USDT:USDT",
@@ -847,7 +847,7 @@
     "activated": false,
     "signal_ts_ms": 1791295576906,
     "status": "OPEN",
-    "last_checked_ms": 1791324244764
+    "last_checked_ms": 1791325123767
   },
   {
     "symbol": "0G/USDT:USDT",
@@ -884,5 +884,35 @@
     "last_checked_ms": 1791320875385,
     "activated_at_ms": 1791311400000,
     "resolved_at_ms": 1791319500000
+  },
+  {
+    "symbol": "BOME/USDT:USDT",
+    "direction": "SHORT",
+    "score": 81.0,
+    "entry": 0.0009887918782510528,
+    "stop": 0.0010033868002257906,
+    "tp1": 0.000974196956276315,
+    "tp2": 0.000966899495288946,
+    "tp3": 0.000931,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.0009887918782510528,
+    "activated": false,
+    "signal_ts_ms": 1791325125717,
+    "status": "OPEN"
+  },
+  {
+    "symbol": "WIF/USDT:USDT",
+    "direction": "SHORT",
+    "score": 80.6,
+    "entry": 0.2439355015322436,
+    "stop": 0.24722547088737168,
+    "tp1": 0.24064553217711554,
+    "tp2": 0.23900054749955152,
+    "tp3": 0.23669756895096186,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.2439355015322436,
+    "activated": false,
+    "signal_ts_ms": 1791325127547,
+    "status": "OPEN"
   }
 ]
