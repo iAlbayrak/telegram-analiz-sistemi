@@ -213,13 +213,56 @@ def _resample_ohlcv(df, rule):
     agg['timestamp'] = (agg.index.astype('int64') // 10**6)
     return agg[['timestamp','open','high','low','close','volume']].reset_index(drop=True)
 
+def _fetch_ohlcv_rate_limited(ex, symbol, timeframe, limit):
+    """Fetch OHLCV with global pacing and automatic MEXC rate-limit backoff."""
+    global _LAST_MEXC_REQUEST_AT
+    last_error = None
+
+    for attempt in range(MEXC_RATE_LIMIT_RETRIES + 1):
+        try:
+            # All worker threads share one pacing gate. Correct coverage is
+            # more important than shaving a few minutes off the scan.
+            with _MEXC_REQUEST_LOCK:
+                now = time.monotonic()
+                wait = MEXC_REQUEST_MIN_INTERVAL - (now - _LAST_MEXC_REQUEST_AT)
+                if wait > 0:
+                    time.sleep(wait)
+                _LAST_MEXC_REQUEST_AT = time.monotonic()
+                return ex.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+        except ccxt.RateLimitExceeded as exc:
+            last_error = exc
+            if attempt >= MEXC_RATE_LIMIT_RETRIES:
+                break
+            delay = MEXC_RATE_LIMIT_BACKOFF * (2 ** attempt)
+            print(
+                f'RATE-LIMIT {symbol} {timeframe}: '
+                f'{attempt + 1}/{MEXC_RATE_LIMIT_RETRIES} yeniden deneme; '
+                f'{delay:.1f}s bekleniyor.'
+            )
+            time.sleep(delay)
+        except (ccxt.DDoSProtection, ccxt.RequestTimeout, ccxt.ExchangeNotAvailable) as exc:
+            last_error = exc
+            if attempt >= MEXC_RATE_LIMIT_RETRIES:
+                break
+            delay = max(1.0, MEXC_RATE_LIMIT_BACKOFF * (2 ** attempt))
+            print(
+                f'GEÇİCİ API HATASI {symbol} {timeframe}: '
+                f'{type(exc).__name__}; {delay:.1f}s sonra yeniden deneme.'
+            )
+            time.sleep(delay)
+
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError(f'OHLCV alınamadı: {symbol} {timeframe}')
+
+
 def candles(symbol, timeframe):
     """Fetch each symbol/timeframe once. If history is short, try a lower-TF resample."""
     key = (symbol, timeframe)
     if key in CANDLE_CACHE:
         return CANDLE_CACHE[key].copy()
     ex = _worker_exchange() if threading.current_thread() is not threading.main_thread() else exchange
-    rows = ex.fetch_ohlcv(symbol, timeframe=timeframe, limit=OHLCV_LIMIT)
+    rows = _fetch_ohlcv_rate_limited(ex, symbol, timeframe, OHLCV_LIMIT)
     df = _ohlcv_frame(rows)
     # Fallback also covers sparse 15m history (e.g. newly listed contracts).
     fallback = {'4h': ('1h', '4h'), '1h': ('15m', '1h'), '15m': ('5m', '15min')}.get(timeframe)
@@ -229,7 +272,7 @@ def candles(symbol, timeframe):
             # Fetch enough lower-timeframe bars to build up to ~200 target bars.
             # A 220-bar fallback was too short for 15m candles resampled from 5m.
             source_limit = min(1000, OHLCV_LIMIT * {'4h': 4, '1h': 4, '15min': 3}.get(rule, 4))
-            lower_rows = ex.fetch_ohlcv(symbol, timeframe=lower_tf, limit=source_limit)
+            lower_rows = _fetch_ohlcv_rate_limited(ex, symbol, lower_tf, source_limit)
             lower_df = _ohlcv_frame(lower_rows)
             resampled = _resample_ohlcv(lower_df, rule)
             if len(resampled) > len(df):
@@ -1524,7 +1567,15 @@ def main():
                 print(f'VERİ/ANALİZ HATASI {item}: {err}')
             if i % 25 == 0: print(f'  ... {i}/{len(symbols)} vadeli coin tarandı')
 
-    missed_candidates = collect_missed_candidates(all_symbols, {r.get('symbol') for r in all_results}, all_results, spot_results)
+    analyzed_symbol_set = {r.get('symbol') for r in all_results}
+    successful_deep = len(analyzed_symbol_set - {'BTC/USDT:USDT', 'ETH/USDT:USDT'})
+    failed_deep = len(symbols) - successful_deep
+    print(
+        f'Derin analiz kapsam özeti: {successful_deep}/{len(symbols)} başarılı; '
+        f'{failed_deep} sözleşmede kalıcı veri/analiz hatası; '
+        f'geçici rate-limit hataları otomatik yeniden denendi.'
+    )
+    missed_candidates = collect_missed_candidates(all_symbols, analyzed_symbol_set, all_results, spot_results)
     write_diagnostic(all_results, ctx, spot_results, error_counts, market_cap_source, missed_candidates, data_skips)
     top = sorted(all_results, key=lambda r: r['score'], reverse=True)[:8]
     if top:
