@@ -513,7 +513,7 @@
     "activated": false,
     "signal_ts_ms": 1791185135114,
     "status": "OPEN",
-    "last_checked_ms": 1791384278916
+    "last_checked_ms": 1791386999731
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -547,7 +547,7 @@
     "activated": false,
     "signal_ts_ms": 1791191270806,
     "status": "OPEN",
-    "last_checked_ms": 1791384278916
+    "last_checked_ms": 1791386999731
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -617,7 +617,7 @@
     "activated": false,
     "signal_ts_ms": 1791203027059,
     "status": "OPEN",
-    "last_checked_ms": 1791384278916
+    "last_checked_ms": 1791386999731
   },
   {
     "symbol": "NIL/USDT:USDT",
@@ -831,7 +831,7 @@
     "activated": false,
     "signal_ts_ms": 1791293235597,
     "status": "OPEN",
-    "last_checked_ms": 1791384278916
+    "last_checked_ms": 1791386999731
   },
   {
     "symbol": "FLUID/USDT:USDT",
@@ -847,7 +847,7 @@
     "activated": false,
     "signal_ts_ms": 1791295576906,
     "status": "OPEN",
-    "last_checked_ms": 1791384278916
+    "last_checked_ms": 1791386999731
   },
   {
     "symbol": "0G/USDT:USDT",
@@ -1079,7 +1079,7 @@
     "activated": false,
     "signal_ts_ms": 1791335685139,
     "status": "OPEN",
-    "last_checked_ms": 1791384278916
+    "last_checked_ms": 1791386999731
   },
   {
     "symbol": "KGEN/USDT:USDT",
@@ -1167,7 +1167,7 @@
     "activated": false,
     "signal_ts_ms": 1791361561360,
     "status": "OPEN",
-    "last_checked_ms": 1791384278916
+    "last_checked_ms": 1791386999731
   },
   {
     "symbol": "XRP/USDT:USDT",
@@ -1255,7 +1255,7 @@
     "activated": true,
     "signal_ts_ms": 1791370780571,
     "status": "OPEN",
-    "last_checked_ms": 1791384278916,
+    "last_checked_ms": 1791386999731,
     "activated_at_ms": 1791375300000
   },
   {
@@ -1307,9 +1307,10 @@
     "trigger": 0.021675620205714723,
     "activated": true,
     "signal_ts_ms": 1791375064152,
-    "status": "OPEN",
-    "last_checked_ms": 1791384278916,
-    "activated_at_ms": 1791378000000
+    "status": "TP1",
+    "last_checked_ms": 1791386999731,
+    "activated_at_ms": 1791378000000,
+    "resolved_at_ms": 1791385200000
   },
   {
     "symbol": "ENJ/USDT:USDT",
@@ -1324,9 +1325,10 @@
     "trigger": 0.029442998348495966,
     "activated": true,
     "signal_ts_ms": 1791375065134,
-    "status": "OPEN",
-    "last_checked_ms": 1791384278916,
-    "activated_at_ms": 1791379800000
+    "status": "TP1",
+    "last_checked_ms": 1791386999731,
+    "activated_at_ms": 1791379800000,
+    "resolved_at_ms": 1791385200000
   },
   {
     "symbol": "DOS/USDT:USDT",
@@ -1341,9 +1343,10 @@
     "trigger": 0.21961511555135574,
     "activated": true,
     "signal_ts_ms": 1791378109313,
-    "status": "OPEN",
-    "last_checked_ms": 1791384278916,
-    "activated_at_ms": 1791378900000
+    "status": "STOP",
+    "last_checked_ms": 1791386999731,
+    "activated_at_ms": 1791378900000,
+    "resolved_at_ms": 1791384300000
   },
   {
     "symbol": "XEC/USDT:USDT",
@@ -1374,10 +1377,11 @@
     "tp3": 0.06473,
     "phase": "PRE_BREAKOUT",
     "trigger": 0.06628781225675379,
-    "activated": false,
+    "activated": true,
     "signal_ts_ms": 1791380739827,
     "status": "OPEN",
-    "last_checked_ms": 1791384278916
+    "last_checked_ms": 1791386999731,
+    "activated_at_ms": 1791384300000
   },
   {
     "symbol": "B/USDT:USDT",
@@ -1393,6 +1397,6 @@
     "activated": false,
     "signal_ts_ms": 1791382510648,
     "status": "OPEN",
-    "last_checked_ms": 1791384278916
+    "last_checked_ms": 1791386999731
   }
 ]
