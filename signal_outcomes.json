@@ -513,7 +513,7 @@
     "activated": false,
     "signal_ts_ms": 1791185135114,
     "status": "OPEN",
-    "last_checked_ms": 1791330841261
+    "last_checked_ms": 1791331467312
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -547,7 +547,7 @@
     "activated": false,
     "signal_ts_ms": 1791191270806,
     "status": "OPEN",
-    "last_checked_ms": 1791330841261
+    "last_checked_ms": 1791331467312
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -617,7 +617,7 @@
     "activated": false,
     "signal_ts_ms": 1791203027059,
     "status": "OPEN",
-    "last_checked_ms": 1791330841261
+    "last_checked_ms": 1791331467312
   },
   {
     "symbol": "NIL/USDT:USDT",
@@ -831,7 +831,7 @@
     "activated": false,
     "signal_ts_ms": 1791293235597,
     "status": "OPEN",
-    "last_checked_ms": 1791330841261
+    "last_checked_ms": 1791331467312
   },
   {
     "symbol": "FLUID/USDT:USDT",
@@ -847,7 +847,7 @@
     "activated": false,
     "signal_ts_ms": 1791295576906,
     "status": "OPEN",
-    "last_checked_ms": 1791330841261
+    "last_checked_ms": 1791331467312
   },
   {
     "symbol": "0G/USDT:USDT",
@@ -899,7 +899,7 @@
     "activated": false,
     "signal_ts_ms": 1791325125717,
     "status": "OPEN",
-    "last_checked_ms": 1791330841261
+    "last_checked_ms": 1791331467312
   },
   {
     "symbol": "WIF/USDT:USDT",
@@ -915,7 +915,7 @@
     "activated": false,
     "signal_ts_ms": 1791325127547,
     "status": "OPEN",
-    "last_checked_ms": 1791330841261
+    "last_checked_ms": 1791331467312
   },
   {
     "symbol": "XPL/USDT:USDT",
@@ -931,7 +931,7 @@
     "activated": false,
     "signal_ts_ms": 1791326284043,
     "status": "OPEN",
-    "last_checked_ms": 1791330841261
+    "last_checked_ms": 1791331467312
   },
   {
     "symbol": "JASMY/USDT:USDT",
@@ -947,7 +947,7 @@
     "activated": false,
     "signal_ts_ms": 1791326285027,
     "status": "OPEN",
-    "last_checked_ms": 1791330841261
+    "last_checked_ms": 1791331467312
   },
   {
     "symbol": "HBAR/USDT:USDT",
@@ -962,6 +962,66 @@
     "trigger": 0.0995444151098376,
     "activated": false,
     "signal_ts_ms": 1791330852588,
+    "status": "OPEN"
+  },
+  {
+    "symbol": "TAIYOYUDENSTOCK/USDT:USDT",
+    "direction": "LONG",
+    "score": 91.9,
+    "entry": 72.9295046260311,
+    "stop": 71.93941210540896,
+    "tp1": 73.91959714665325,
+    "tp2": 74.41464340696432,
+    "tp3": 77.51,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 72.9295046260311,
+    "activated": false,
+    "signal_ts_ms": 1791331469794,
+    "status": "OPEN"
+  },
+  {
+    "symbol": "CTSI/USDT:USDT",
+    "direction": "LONG",
+    "score": 87.2,
+    "entry": 0.03138745502823962,
+    "stop": 0.031038354463447288,
+    "tp1": 0.031736555593031957,
+    "tp2": 0.03191110587542812,
+    "tp3": 0.03252,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.03138745502823962,
+    "activated": false,
+    "signal_ts_ms": 1791331472659,
+    "status": "OPEN"
+  },
+  {
+    "symbol": "LSK/USDT:USDT",
+    "direction": "SHORT",
+    "score": 86.0,
+    "entry": 0.24697900952802296,
+    "stop": 0.24999881896756362,
+    "tp1": 0.2439592000884823,
+    "tp2": 0.24244929536871196,
+    "tp3": 0.2403354287610335,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.24697900952802296,
+    "activated": false,
+    "signal_ts_ms": 1791331474355,
+    "status": "OPEN"
+  },
+  {
+    "symbol": "API3/USDT:USDT",
+    "direction": "LONG",
+    "score": 80.9,
+    "entry": 0.3451202710818245,
+    "stop": 0.33503376511803573,
+    "tp1": 0.3552067770456133,
+    "tp2": 0.3602500300275077,
+    "tp3": 0.3947,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.3451202710818245,
+    "activated": false,
+    "signal_ts_ms": 1791331476396,
     "status": "OPEN"
   }
 ]
