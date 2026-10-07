@@ -513,7 +513,7 @@
     "activated": false,
     "signal_ts_ms": 1791185135114,
     "status": "OPEN",
-    "last_checked_ms": 1791368491630
+    "last_checked_ms": 1791369564138
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -547,7 +547,7 @@
     "activated": false,
     "signal_ts_ms": 1791191270806,
     "status": "OPEN",
-    "last_checked_ms": 1791368491630
+    "last_checked_ms": 1791369564138
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -617,7 +617,7 @@
     "activated": false,
     "signal_ts_ms": 1791203027059,
     "status": "OPEN",
-    "last_checked_ms": 1791368491630
+    "last_checked_ms": 1791369564138
   },
   {
     "symbol": "NIL/USDT:USDT",
@@ -831,7 +831,7 @@
     "activated": false,
     "signal_ts_ms": 1791293235597,
     "status": "OPEN",
-    "last_checked_ms": 1791368491630
+    "last_checked_ms": 1791369564138
   },
   {
     "symbol": "FLUID/USDT:USDT",
@@ -847,7 +847,7 @@
     "activated": false,
     "signal_ts_ms": 1791295576906,
     "status": "OPEN",
-    "last_checked_ms": 1791368491630
+    "last_checked_ms": 1791369564138
   },
   {
     "symbol": "0G/USDT:USDT",
@@ -1079,7 +1079,7 @@
     "activated": false,
     "signal_ts_ms": 1791335685139,
     "status": "OPEN",
-    "last_checked_ms": 1791368491630
+    "last_checked_ms": 1791369564138
   },
   {
     "symbol": "KGEN/USDT:USDT",
@@ -1113,7 +1113,7 @@
     "activated": true,
     "signal_ts_ms": 1791339938045,
     "status": "OPEN",
-    "last_checked_ms": 1791368491630,
+    "last_checked_ms": 1791369564138,
     "activated_at_ms": 1791352800000
   },
   {
@@ -1145,10 +1145,11 @@
     "tp3": 0.026666,
     "phase": "PRE_BREAKOUT",
     "trigger": 0.02807606794214619,
-    "activated": false,
+    "activated": true,
     "signal_ts_ms": 1791360525755,
     "status": "OPEN",
-    "last_checked_ms": 1791368491630
+    "last_checked_ms": 1791369564138,
+    "activated_at_ms": 1791368100000
   },
   {
     "symbol": "RLC/USDT:USDT",
@@ -1164,7 +1165,7 @@
     "activated": false,
     "signal_ts_ms": 1791361561360,
     "status": "OPEN",
-    "last_checked_ms": 1791368491630
+    "last_checked_ms": 1791369564138
   },
   {
     "symbol": "XRP/USDT:USDT",
@@ -1195,9 +1196,10 @@
     "tp3": 0.08783,
     "phase": "PRE_BREAKOUT",
     "trigger": 0.08946426645423737,
-    "activated": false,
+    "activated": true,
     "signal_ts_ms": 1791367229128,
     "status": "OPEN",
-    "last_checked_ms": 1791368491630
+    "last_checked_ms": 1791369564138,
+    "activated_at_ms": 1791368100000
   }
 ]
