@@ -513,7 +513,7 @@
     "activated": false,
     "signal_ts_ms": 1791185135114,
     "status": "OPEN",
-    "last_checked_ms": 1791360514044
+    "last_checked_ms": 1791361555413
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -547,7 +547,7 @@
     "activated": false,
     "signal_ts_ms": 1791191270806,
     "status": "OPEN",
-    "last_checked_ms": 1791360514044
+    "last_checked_ms": 1791361555413
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -617,7 +617,7 @@
     "activated": false,
     "signal_ts_ms": 1791203027059,
     "status": "OPEN",
-    "last_checked_ms": 1791360514044
+    "last_checked_ms": 1791361555413
   },
   {
     "symbol": "NIL/USDT:USDT",
@@ -831,7 +831,7 @@
     "activated": false,
     "signal_ts_ms": 1791293235597,
     "status": "OPEN",
-    "last_checked_ms": 1791360514044
+    "last_checked_ms": 1791361555413
   },
   {
     "symbol": "FLUID/USDT:USDT",
@@ -847,7 +847,7 @@
     "activated": false,
     "signal_ts_ms": 1791295576906,
     "status": "OPEN",
-    "last_checked_ms": 1791360514044
+    "last_checked_ms": 1791361555413
   },
   {
     "symbol": "0G/USDT:USDT",
@@ -1079,7 +1079,7 @@
     "activated": false,
     "signal_ts_ms": 1791335685139,
     "status": "OPEN",
-    "last_checked_ms": 1791360514044
+    "last_checked_ms": 1791361555413
   },
   {
     "symbol": "KGEN/USDT:USDT",
@@ -1113,7 +1113,7 @@
     "activated": true,
     "signal_ts_ms": 1791339938045,
     "status": "OPEN",
-    "last_checked_ms": 1791360514044,
+    "last_checked_ms": 1791361555413,
     "activated_at_ms": 1791352800000
   },
   {
@@ -1147,6 +1147,22 @@
     "trigger": 0.02807606794214619,
     "activated": false,
     "signal_ts_ms": 1791360525755,
+    "status": "OPEN",
+    "last_checked_ms": 1791361555413
+  },
+  {
+    "symbol": "RLC/USDT:USDT",
+    "direction": "LONG",
+    "score": 86.2,
+    "entry": 0.7899259117520815,
+    "stop": 0.7414076767104502,
+    "tp1": 0.8384441467937128,
+    "tp2": 0.8627032643145285,
+    "tp3": 1.0774,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.7899259117520815,
+    "activated": false,
+    "signal_ts_ms": 1791361561360,
     "status": "OPEN"
   }
 ]
