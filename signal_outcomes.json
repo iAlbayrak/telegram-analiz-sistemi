@@ -513,7 +513,7 @@
     "activated": false,
     "signal_ts_ms": 1791185135114,
     "status": "OPEN",
-    "last_checked_ms": 1791366182441
+    "last_checked_ms": 1791367227687
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -547,7 +547,7 @@
     "activated": false,
     "signal_ts_ms": 1791191270806,
     "status": "OPEN",
-    "last_checked_ms": 1791366182441
+    "last_checked_ms": 1791367227687
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -617,7 +617,7 @@
     "activated": false,
     "signal_ts_ms": 1791203027059,
     "status": "OPEN",
-    "last_checked_ms": 1791366182441
+    "last_checked_ms": 1791367227687
   },
   {
     "symbol": "NIL/USDT:USDT",
@@ -831,7 +831,7 @@
     "activated": false,
     "signal_ts_ms": 1791293235597,
     "status": "OPEN",
-    "last_checked_ms": 1791366182441
+    "last_checked_ms": 1791367227687
   },
   {
     "symbol": "FLUID/USDT:USDT",
@@ -847,7 +847,7 @@
     "activated": false,
     "signal_ts_ms": 1791295576906,
     "status": "OPEN",
-    "last_checked_ms": 1791366182441
+    "last_checked_ms": 1791367227687
   },
   {
     "symbol": "0G/USDT:USDT",
@@ -1079,7 +1079,7 @@
     "activated": false,
     "signal_ts_ms": 1791335685139,
     "status": "OPEN",
-    "last_checked_ms": 1791366182441
+    "last_checked_ms": 1791367227687
   },
   {
     "symbol": "KGEN/USDT:USDT",
@@ -1113,7 +1113,7 @@
     "activated": true,
     "signal_ts_ms": 1791339938045,
     "status": "OPEN",
-    "last_checked_ms": 1791366182441,
+    "last_checked_ms": 1791367227687,
     "activated_at_ms": 1791352800000
   },
   {
@@ -1148,7 +1148,7 @@
     "activated": false,
     "signal_ts_ms": 1791360525755,
     "status": "OPEN",
-    "last_checked_ms": 1791366182441
+    "last_checked_ms": 1791367227687
   },
   {
     "symbol": "RLC/USDT:USDT",
@@ -1164,7 +1164,7 @@
     "activated": false,
     "signal_ts_ms": 1791361561360,
     "status": "OPEN",
-    "last_checked_ms": 1791366182441
+    "last_checked_ms": 1791367227687
   },
   {
     "symbol": "XRP/USDT:USDT",
@@ -1177,9 +1177,26 @@
     "tp3": 1.4299,
     "phase": "PRE_BREAKOUT",
     "trigger": 1.458366276431869,
-    "activated": false,
+    "activated": true,
     "signal_ts_ms": 1791364126964,
-    "status": "OPEN",
-    "last_checked_ms": 1791366182441
+    "status": "TP1",
+    "last_checked_ms": 1791367227687,
+    "activated_at_ms": 1791365400000,
+    "resolved_at_ms": 1791365400000
+  },
+  {
+    "symbol": "DOGE/USDT:USDT",
+    "direction": "SHORT",
+    "score": 80.0,
+    "entry": 0.08946426645423737,
+    "stop": 0.09017893736948976,
+    "tp1": 0.08874959553898498,
+    "tp2": 0.08839226008135878,
+    "tp3": 0.08783,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.08946426645423737,
+    "activated": false,
+    "signal_ts_ms": 1791367229128,
+    "status": "OPEN"
   }
 ]
