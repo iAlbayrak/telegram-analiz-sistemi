@@ -619,7 +619,7 @@
     "activated": false,
     "signal_ts_ms": 1791203027059,
     "status": "OPEN",
-    "last_checked_ms": 1791455217373
+    "last_checked_ms": 1791456505450
   },
   {
     "symbol": "NIL/USDT:USDT",
@@ -1085,7 +1085,7 @@
     "activated": false,
     "signal_ts_ms": 1791335685139,
     "status": "OPEN",
-    "last_checked_ms": 1791455217373
+    "last_checked_ms": 1791456505450
   },
   {
     "symbol": "KGEN/USDT:USDT",
@@ -1425,7 +1425,7 @@
     "activated": false,
     "signal_ts_ms": 1791397267119,
     "status": "OPEN",
-    "last_checked_ms": 1791455217373
+    "last_checked_ms": 1791456505450
   },
   {
     "symbol": "IOTX/USDT:USDT",
@@ -1531,7 +1531,7 @@
     "activated": false,
     "signal_ts_ms": 1791449218203,
     "status": "OPEN",
-    "last_checked_ms": 1791455217373
+    "last_checked_ms": 1791456505450
   },
   {
     "symbol": "LDO/USDT:USDT",
@@ -1547,7 +1547,7 @@
     "activated": false,
     "signal_ts_ms": 1791451616377,
     "status": "OPEN",
-    "last_checked_ms": 1791455217373
+    "last_checked_ms": 1791456505450
   },
   {
     "symbol": "SYN/USDT:USDT",
@@ -1562,6 +1562,52 @@
     "trigger": 0.20043195858992546,
     "activated": false,
     "signal_ts_ms": 1791455218731,
+    "status": "OPEN",
+    "last_checked_ms": 1791456505450
+  },
+  {
+    "symbol": "DEXE/USDT:USDT",
+    "direction": "SHORT",
+    "score": 82.5,
+    "entry": 1.8213178685558622,
+    "stop": 1.8349604974386193,
+    "tp1": 1.807675239673105,
+    "tp2": 1.8008539252317264,
+    "tp3": 1.7913040850137965,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 1.8213178685558622,
+    "activated": false,
+    "signal_ts_ms": 1791456508774,
+    "status": "OPEN"
+  },
+  {
+    "symbol": "BOME/USDT:USDT",
+    "direction": "LONG",
+    "score": 81.5,
+    "entry": 0.0010826650510251824,
+    "stop": 0.0010593640305215349,
+    "tp1": 0.0011059660715288298,
+    "tp2": 0.0011176165817806537,
+    "tp3": 0.0011339272961332068,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.0010826650510251824,
+    "activated": false,
+    "signal_ts_ms": 1791456509556,
+    "status": "OPEN"
+  },
+  {
+    "symbol": "PAXG/USDT:USDT",
+    "direction": "SHORT",
+    "score": 80.3,
+    "entry": 4126.977625702816,
+    "stop": 4138.554608835233,
+    "tp1": 4115.400642570399,
+    "tp2": 4109.61215100419,
+    "tp3": 4088.08,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 4126.977625702816,
+    "activated": false,
+    "signal_ts_ms": 1791456511663,
     "status": "OPEN"
   }
 ]
