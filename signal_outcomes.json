@@ -1086,7 +1086,7 @@
     "activated": false,
     "signal_ts_ms": 1791335685139,
     "status": "OPEN",
-    "last_checked_ms": 1791490433227
+    "last_checked_ms": 1791491493271
   },
   {
     "symbol": "KGEN/USDT:USDT",
@@ -1876,7 +1876,7 @@
     "activated": false,
     "signal_ts_ms": 1791474394392,
     "status": "OPEN",
-    "last_checked_ms": 1791490433227
+    "last_checked_ms": 1791491493271
   },
   {
     "symbol": "SYRUP/USDT:USDT",
@@ -1910,7 +1910,7 @@
     "activated": true,
     "signal_ts_ms": 1791475741186,
     "status": "OPEN",
-    "last_checked_ms": 1791490433227,
+    "last_checked_ms": 1791491493271,
     "activated_at_ms": 1791477900000
   },
   {
@@ -1962,9 +1962,10 @@
     "trigger": 0.0031974333609572944,
     "activated": true,
     "signal_ts_ms": 1791475745668,
-    "status": "OPEN",
-    "last_checked_ms": 1791490433227,
-    "activated_at_ms": 1791477900000
+    "status": "STOP",
+    "last_checked_ms": 1791491493271,
+    "activated_at_ms": 1791477900000,
+    "resolved_at_ms": 1791489600000
   },
   {
     "symbol": "CFX/USDT:USDT",
@@ -1979,9 +1980,10 @@
     "trigger": 0.048571559403366174,
     "activated": true,
     "signal_ts_ms": 1791475746730,
-    "status": "OPEN",
-    "last_checked_ms": 1791490433227,
-    "activated_at_ms": 1791477000000
+    "status": "STOP",
+    "last_checked_ms": 1791491493271,
+    "activated_at_ms": 1791477000000,
+    "resolved_at_ms": 1791489600000
   },
   {
     "symbol": "ETC/USDT:USDT",
@@ -2015,7 +2017,7 @@
     "activated": false,
     "signal_ts_ms": 1791475749226,
     "status": "OPEN",
-    "last_checked_ms": 1791490433227
+    "last_checked_ms": 1791491493271
   },
   {
     "symbol": "AR/USDT:USDT",
@@ -2030,9 +2032,10 @@
     "trigger": 3.8435174561445224,
     "activated": true,
     "signal_ts_ms": 1791475750404,
-    "status": "OPEN",
-    "last_checked_ms": 1791490433227,
-    "activated_at_ms": 1791481500000
+    "status": "STOP",
+    "last_checked_ms": 1791491493271,
+    "activated_at_ms": 1791481500000,
+    "resolved_at_ms": 1791489600000
   },
   {
     "symbol": "NEO/USDT:USDT",
@@ -2048,7 +2051,7 @@
     "activated": false,
     "signal_ts_ms": 1791475751502,
     "status": "OPEN",
-    "last_checked_ms": 1791490433227
+    "last_checked_ms": 1791491493271
   },
   {
     "symbol": "HOT/USDT:USDT",
@@ -2100,7 +2103,7 @@
     "activated": true,
     "signal_ts_ms": 1791475754835,
     "status": "OPEN",
-    "last_checked_ms": 1791490433227,
+    "last_checked_ms": 1791491493271,
     "activated_at_ms": 1791477900000
   },
   {
@@ -2117,7 +2120,7 @@
     "activated": false,
     "signal_ts_ms": 1791475758635,
     "status": "OPEN",
-    "last_checked_ms": 1791490433227
+    "last_checked_ms": 1791491493271
   },
   {
     "symbol": "CFG/USDT:USDT",
@@ -2133,7 +2136,7 @@
     "activated": false,
     "signal_ts_ms": 1791475759624,
     "status": "OPEN",
-    "last_checked_ms": 1791490433227
+    "last_checked_ms": 1791491493271
   },
   {
     "symbol": "POLYX/USDT:USDT",
@@ -2167,7 +2170,7 @@
     "activated": true,
     "signal_ts_ms": 1791475770741,
     "status": "OPEN",
-    "last_checked_ms": 1791490433227,
+    "last_checked_ms": 1791491493271,
     "activated_at_ms": 1791477900000
   },
   {
@@ -2202,6 +2205,6 @@
     "activated": false,
     "signal_ts_ms": 1791482935745,
     "status": "OPEN",
-    "last_checked_ms": 1791490433227
+    "last_checked_ms": 1791491493271
   }
 ]
