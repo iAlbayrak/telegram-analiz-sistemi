@@ -547,8 +547,9 @@
     "trigger": 0.8839772462131803,
     "activated": false,
     "signal_ts_ms": 1791191270806,
-    "status": "OPEN",
-    "last_checked_ms": 1791449217112
+    "status": "EXPIRED",
+    "last_checked_ms": 1791450593852,
+    "resolved_at": "2026-10-08T09:09:53+00:00"
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -618,7 +619,7 @@
     "activated": false,
     "signal_ts_ms": 1791203027059,
     "status": "OPEN",
-    "last_checked_ms": 1791449217112
+    "last_checked_ms": 1791450593852
   },
   {
     "symbol": "NIL/USDT:USDT",
@@ -1084,7 +1085,7 @@
     "activated": false,
     "signal_ts_ms": 1791335685139,
     "status": "OPEN",
-    "last_checked_ms": 1791449217112
+    "last_checked_ms": 1791450593852
   },
   {
     "symbol": "KGEN/USDT:USDT",
@@ -1424,7 +1425,7 @@
     "activated": false,
     "signal_ts_ms": 1791397267119,
     "status": "OPEN",
-    "last_checked_ms": 1791449217112
+    "last_checked_ms": 1791450593852
   },
   {
     "symbol": "IOTX/USDT:USDT",
@@ -1491,10 +1492,11 @@
     "tp3": 572.0,
     "phase": "PRE_BREAKOUT",
     "trigger": 562.5457038609139,
-    "activated": false,
+    "activated": true,
     "signal_ts_ms": 1791433322088,
     "status": "OPEN",
-    "last_checked_ms": 1791449217112
+    "last_checked_ms": 1791450593852,
+    "activated_at_ms": 1791448200000
   },
   {
     "symbol": "BULLA/USDT:USDT",
@@ -1510,7 +1512,7 @@
     "activated": false,
     "signal_ts_ms": 1791439210012,
     "status": "OPEN",
-    "last_checked_ms": 1791449217112
+    "last_checked_ms": 1791450593852
   },
   {
     "symbol": "XTZ/USDT:USDT",
@@ -1525,6 +1527,7 @@
     "trigger": 0.29930381983620824,
     "activated": false,
     "signal_ts_ms": 1791449218203,
-    "status": "OPEN"
+    "status": "OPEN",
+    "last_checked_ms": 1791450593852
   }
 ]
