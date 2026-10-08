@@ -513,7 +513,7 @@
     "activated": false,
     "signal_ts_ms": 1791185135114,
     "status": "OPEN",
-    "last_checked_ms": 1791431860502
+    "last_checked_ms": 1791433320327
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -547,7 +547,7 @@
     "activated": false,
     "signal_ts_ms": 1791191270806,
     "status": "OPEN",
-    "last_checked_ms": 1791431860502
+    "last_checked_ms": 1791433320327
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -617,7 +617,7 @@
     "activated": false,
     "signal_ts_ms": 1791203027059,
     "status": "OPEN",
-    "last_checked_ms": 1791431860502
+    "last_checked_ms": 1791433320327
   },
   {
     "symbol": "NIL/USDT:USDT",
@@ -1083,7 +1083,7 @@
     "activated": false,
     "signal_ts_ms": 1791335685139,
     "status": "OPEN",
-    "last_checked_ms": 1791431860502
+    "last_checked_ms": 1791433320327
   },
   {
     "symbol": "KGEN/USDT:USDT",
@@ -1171,7 +1171,7 @@
     "activated": false,
     "signal_ts_ms": 1791361561360,
     "status": "OPEN",
-    "last_checked_ms": 1791431860502
+    "last_checked_ms": 1791433320327
   },
   {
     "symbol": "XRP/USDT:USDT",
@@ -1403,7 +1403,7 @@
     "activated": false,
     "signal_ts_ms": 1791382510648,
     "status": "OPEN",
-    "last_checked_ms": 1791431860502
+    "last_checked_ms": 1791433320327
   },
   {
     "symbol": "PENDLE/USDT:USDT",
@@ -1419,7 +1419,7 @@
     "activated": false,
     "signal_ts_ms": 1791397267119,
     "status": "OPEN",
-    "last_checked_ms": 1791431860502
+    "last_checked_ms": 1791433320327
   },
   {
     "symbol": "IOTX/USDT:USDT",
@@ -1435,7 +1435,7 @@
     "activated": false,
     "signal_ts_ms": 1791422095149,
     "status": "OPEN",
-    "last_checked_ms": 1791431860502
+    "last_checked_ms": 1791433320327
   },
   {
     "symbol": "MASK/USDT:USDT",
@@ -1451,7 +1451,7 @@
     "activated": true,
     "signal_ts_ms": 1791426283926,
     "status": "OPEN",
-    "last_checked_ms": 1791431860502,
+    "last_checked_ms": 1791433320327,
     "activated_at_ms": 1791428400000
   },
   {
@@ -1465,9 +1465,25 @@
     "tp3": 0.2525,
     "phase": "PRE_BREAKOUT",
     "trigger": 0.26169913355659735,
-    "activated": false,
+    "activated": true,
     "signal_ts_ms": 1791430681759,
     "status": "OPEN",
-    "last_checked_ms": 1791431860502
+    "last_checked_ms": 1791433320327,
+    "activated_at_ms": 1791432000000
+  },
+  {
+    "symbol": "XMR/USDT:USDT",
+    "direction": "LONG",
+    "score": 87.4,
+    "entry": 562.5457038609139,
+    "stop": 558.231626642637,
+    "tp1": 566.8597810791908,
+    "tp2": 569.0168196883293,
+    "tp3": 572.0,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 562.5457038609139,
+    "activated": false,
+    "signal_ts_ms": 1791433322088,
+    "status": "OPEN"
   }
 ]
