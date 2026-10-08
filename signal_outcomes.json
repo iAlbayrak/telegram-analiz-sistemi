@@ -512,8 +512,9 @@
     "trigger": 47.73573456423303,
     "activated": false,
     "signal_ts_ms": 1791185135114,
-    "status": "OPEN",
-    "last_checked_ms": 1791443530931
+    "status": "EXPIRED",
+    "last_checked_ms": 1791445594916,
+    "resolved_at": "2026-10-08T07:46:34+00:00"
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -547,7 +548,7 @@
     "activated": false,
     "signal_ts_ms": 1791191270806,
     "status": "OPEN",
-    "last_checked_ms": 1791443530931
+    "last_checked_ms": 1791445594916
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -617,7 +618,7 @@
     "activated": false,
     "signal_ts_ms": 1791203027059,
     "status": "OPEN",
-    "last_checked_ms": 1791443530931
+    "last_checked_ms": 1791445594916
   },
   {
     "symbol": "NIL/USDT:USDT",
@@ -1083,7 +1084,7 @@
     "activated": false,
     "signal_ts_ms": 1791335685139,
     "status": "OPEN",
-    "last_checked_ms": 1791443530931
+    "last_checked_ms": 1791445594916
   },
   {
     "symbol": "KGEN/USDT:USDT",
@@ -1170,9 +1171,10 @@
     "trigger": 0.7899259117520815,
     "activated": true,
     "signal_ts_ms": 1791361561360,
-    "status": "OPEN",
-    "last_checked_ms": 1791443530931,
-    "activated_at_ms": 1791441000000
+    "status": "STOP",
+    "last_checked_ms": 1791445594916,
+    "activated_at_ms": 1791441000000,
+    "resolved_at_ms": 1791365400000
   },
   {
     "symbol": "XRP/USDT:USDT",
@@ -1404,7 +1406,7 @@
     "activated": false,
     "signal_ts_ms": 1791382510648,
     "status": "OPEN",
-    "last_checked_ms": 1791443530931
+    "last_checked_ms": 1791445594916
   },
   {
     "symbol": "PENDLE/USDT:USDT",
@@ -1420,7 +1422,7 @@
     "activated": false,
     "signal_ts_ms": 1791397267119,
     "status": "OPEN",
-    "last_checked_ms": 1791443530931
+    "last_checked_ms": 1791445594916
   },
   {
     "symbol": "IOTX/USDT:USDT",
@@ -1490,7 +1492,7 @@
     "activated": false,
     "signal_ts_ms": 1791433322088,
     "status": "OPEN",
-    "last_checked_ms": 1791443530931
+    "last_checked_ms": 1791445594916
   },
   {
     "symbol": "BULLA/USDT:USDT",
@@ -1506,6 +1508,6 @@
     "activated": false,
     "signal_ts_ms": 1791439210012,
     "status": "OPEN",
-    "last_checked_ms": 1791443530931
+    "last_checked_ms": 1791445594916
   }
 ]
