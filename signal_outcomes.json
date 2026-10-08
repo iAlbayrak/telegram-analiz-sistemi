@@ -548,7 +548,7 @@
     "activated": false,
     "signal_ts_ms": 1791191270806,
     "status": "OPEN",
-    "last_checked_ms": 1791447907773
+    "last_checked_ms": 1791449217112
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -618,7 +618,7 @@
     "activated": false,
     "signal_ts_ms": 1791203027059,
     "status": "OPEN",
-    "last_checked_ms": 1791447907773
+    "last_checked_ms": 1791449217112
   },
   {
     "symbol": "NIL/USDT:USDT",
@@ -1084,7 +1084,7 @@
     "activated": false,
     "signal_ts_ms": 1791335685139,
     "status": "OPEN",
-    "last_checked_ms": 1791447907773
+    "last_checked_ms": 1791449217112
   },
   {
     "symbol": "KGEN/USDT:USDT",
@@ -1405,9 +1405,10 @@
     "trigger": 0.16306980499939844,
     "activated": true,
     "signal_ts_ms": 1791382510648,
-    "status": "OPEN",
-    "last_checked_ms": 1791447907773,
-    "activated_at_ms": 1791446400000
+    "status": "STOP",
+    "last_checked_ms": 1791449217112,
+    "activated_at_ms": 1791446400000,
+    "resolved_at_ms": 1791387000000
   },
   {
     "symbol": "PENDLE/USDT:USDT",
@@ -1423,7 +1424,7 @@
     "activated": false,
     "signal_ts_ms": 1791397267119,
     "status": "OPEN",
-    "last_checked_ms": 1791447907773
+    "last_checked_ms": 1791449217112
   },
   {
     "symbol": "IOTX/USDT:USDT",
@@ -1493,7 +1494,7 @@
     "activated": false,
     "signal_ts_ms": 1791433322088,
     "status": "OPEN",
-    "last_checked_ms": 1791447907773
+    "last_checked_ms": 1791449217112
   },
   {
     "symbol": "BULLA/USDT:USDT",
@@ -1509,6 +1510,21 @@
     "activated": false,
     "signal_ts_ms": 1791439210012,
     "status": "OPEN",
-    "last_checked_ms": 1791447907773
+    "last_checked_ms": 1791449217112
+  },
+  {
+    "symbol": "XTZ/USDT:USDT",
+    "direction": "SHORT",
+    "score": 81.3,
+    "entry": 0.29930381983620824,
+    "stop": 0.30322742311204365,
+    "tp1": 0.29538021656037283,
+    "tp2": 0.29341841492245513,
+    "tp3": 0.2906718926293703,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.29930381983620824,
+    "activated": false,
+    "signal_ts_ms": 1791449218203,
+    "status": "OPEN"
   }
 ]
