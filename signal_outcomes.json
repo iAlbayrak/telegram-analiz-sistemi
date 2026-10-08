@@ -1086,7 +1086,7 @@
     "activated": false,
     "signal_ts_ms": 1791335685139,
     "status": "OPEN",
-    "last_checked_ms": 1791486692867
+    "last_checked_ms": 1791487784854
   },
   {
     "symbol": "KGEN/USDT:USDT",
@@ -1876,7 +1876,7 @@
     "activated": false,
     "signal_ts_ms": 1791474394392,
     "status": "OPEN",
-    "last_checked_ms": 1791486692867
+    "last_checked_ms": 1791487784854
   },
   {
     "symbol": "SYRUP/USDT:USDT",
@@ -1910,7 +1910,7 @@
     "activated": true,
     "signal_ts_ms": 1791475741186,
     "status": "OPEN",
-    "last_checked_ms": 1791486692867,
+    "last_checked_ms": 1791487784854,
     "activated_at_ms": 1791477900000
   },
   {
@@ -1927,7 +1927,7 @@
     "activated": true,
     "signal_ts_ms": 1791475742266,
     "status": "OPEN",
-    "last_checked_ms": 1791486692867,
+    "last_checked_ms": 1791487784854,
     "activated_at_ms": 1791479700000
   },
   {
@@ -1962,7 +1962,7 @@
     "activated": true,
     "signal_ts_ms": 1791475745668,
     "status": "OPEN",
-    "last_checked_ms": 1791486692867,
+    "last_checked_ms": 1791487784854,
     "activated_at_ms": 1791477900000
   },
   {
@@ -1979,7 +1979,7 @@
     "activated": true,
     "signal_ts_ms": 1791475746730,
     "status": "OPEN",
-    "last_checked_ms": 1791486692867,
+    "last_checked_ms": 1791487784854,
     "activated_at_ms": 1791477000000
   },
   {
@@ -1996,7 +1996,7 @@
     "activated": true,
     "signal_ts_ms": 1791475747949,
     "status": "OPEN",
-    "last_checked_ms": 1791486692867,
+    "last_checked_ms": 1791487784854,
     "activated_at_ms": 1791479700000
   },
   {
@@ -2013,7 +2013,7 @@
     "activated": false,
     "signal_ts_ms": 1791475749226,
     "status": "OPEN",
-    "last_checked_ms": 1791486692867
+    "last_checked_ms": 1791487784854
   },
   {
     "symbol": "AR/USDT:USDT",
@@ -2029,7 +2029,7 @@
     "activated": true,
     "signal_ts_ms": 1791475750404,
     "status": "OPEN",
-    "last_checked_ms": 1791486692867,
+    "last_checked_ms": 1791487784854,
     "activated_at_ms": 1791481500000
   },
   {
@@ -2046,7 +2046,7 @@
     "activated": false,
     "signal_ts_ms": 1791475751502,
     "status": "OPEN",
-    "last_checked_ms": 1791486692867
+    "last_checked_ms": 1791487784854
   },
   {
     "symbol": "HOT/USDT:USDT",
@@ -2062,7 +2062,7 @@
     "activated": true,
     "signal_ts_ms": 1791475752681,
     "status": "OPEN",
-    "last_checked_ms": 1791486692867,
+    "last_checked_ms": 1791487784854,
     "activated_at_ms": 1791479700000
   },
   {
@@ -2097,7 +2097,7 @@
     "activated": true,
     "signal_ts_ms": 1791475754835,
     "status": "OPEN",
-    "last_checked_ms": 1791486692867,
+    "last_checked_ms": 1791487784854,
     "activated_at_ms": 1791477900000
   },
   {
@@ -2114,7 +2114,7 @@
     "activated": false,
     "signal_ts_ms": 1791475758635,
     "status": "OPEN",
-    "last_checked_ms": 1791486692867
+    "last_checked_ms": 1791487784854
   },
   {
     "symbol": "CFG/USDT:USDT",
@@ -2130,7 +2130,7 @@
     "activated": false,
     "signal_ts_ms": 1791475759624,
     "status": "OPEN",
-    "last_checked_ms": 1791486692867
+    "last_checked_ms": 1791487784854
   },
   {
     "symbol": "POLYX/USDT:USDT",
@@ -2145,9 +2145,10 @@
     "trigger": 0.03737757208000473,
     "activated": true,
     "signal_ts_ms": 1791475767564,
-    "status": "OPEN",
-    "last_checked_ms": 1791486692867,
-    "activated_at_ms": 1791479700000
+    "status": "STOP",
+    "last_checked_ms": 1791487784854,
+    "activated_at_ms": 1791479700000,
+    "resolved_at_ms": 1791486000000
   },
   {
     "symbol": "YFI/USDT:USDT",
@@ -2163,7 +2164,7 @@
     "activated": true,
     "signal_ts_ms": 1791475770741,
     "status": "OPEN",
-    "last_checked_ms": 1791486692867,
+    "last_checked_ms": 1791487784854,
     "activated_at_ms": 1791477900000
   },
   {
@@ -2180,7 +2181,7 @@
     "activated": true,
     "signal_ts_ms": 1791479492109,
     "status": "OPEN",
-    "last_checked_ms": 1791486692867,
+    "last_checked_ms": 1791487784854,
     "activated_at_ms": 1791481500000
   },
   {
@@ -2197,6 +2198,6 @@
     "activated": false,
     "signal_ts_ms": 1791482935745,
     "status": "OPEN",
-    "last_checked_ms": 1791486692867
+    "last_checked_ms": 1791487784854
   }
 ]
