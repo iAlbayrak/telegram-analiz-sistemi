@@ -548,7 +548,7 @@
     "activated": false,
     "signal_ts_ms": 1791191270806,
     "status": "OPEN",
-    "last_checked_ms": 1791447063404
+    "last_checked_ms": 1791447907773
   },
   {
     "symbol": "PARTI/USDT:USDT",
@@ -618,7 +618,7 @@
     "activated": false,
     "signal_ts_ms": 1791203027059,
     "status": "OPEN",
-    "last_checked_ms": 1791447063404
+    "last_checked_ms": 1791447907773
   },
   {
     "symbol": "NIL/USDT:USDT",
@@ -1084,7 +1084,7 @@
     "activated": false,
     "signal_ts_ms": 1791335685139,
     "status": "OPEN",
-    "last_checked_ms": 1791447063404
+    "last_checked_ms": 1791447907773
   },
   {
     "symbol": "KGEN/USDT:USDT",
@@ -1403,10 +1403,11 @@
     "tp3": 0.1573412249729298,
     "phase": "PRE_BREAKOUT",
     "trigger": 0.16306980499939844,
-    "activated": false,
+    "activated": true,
     "signal_ts_ms": 1791382510648,
     "status": "OPEN",
-    "last_checked_ms": 1791447063404
+    "last_checked_ms": 1791447907773,
+    "activated_at_ms": 1791446400000
   },
   {
     "symbol": "PENDLE/USDT:USDT",
@@ -1422,7 +1423,7 @@
     "activated": false,
     "signal_ts_ms": 1791397267119,
     "status": "OPEN",
-    "last_checked_ms": 1791447063404
+    "last_checked_ms": 1791447907773
   },
   {
     "symbol": "IOTX/USDT:USDT",
@@ -1492,7 +1493,7 @@
     "activated": false,
     "signal_ts_ms": 1791433322088,
     "status": "OPEN",
-    "last_checked_ms": 1791447063404
+    "last_checked_ms": 1791447907773
   },
   {
     "symbol": "BULLA/USDT:USDT",
@@ -1508,6 +1509,6 @@
     "activated": false,
     "signal_ts_ms": 1791439210012,
     "status": "OPEN",
-    "last_checked_ms": 1791447063404
+    "last_checked_ms": 1791447907773
   }
 ]
