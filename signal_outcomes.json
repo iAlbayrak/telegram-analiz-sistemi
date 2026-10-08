@@ -1086,7 +1086,7 @@
     "activated": false,
     "signal_ts_ms": 1791335685139,
     "status": "OPEN",
-    "last_checked_ms": 1791503142490
+    "last_checked_ms": 1791503784356
   },
   {
     "symbol": "KGEN/USDT:USDT",
@@ -1876,7 +1876,7 @@
     "activated": false,
     "signal_ts_ms": 1791474394392,
     "status": "OPEN",
-    "last_checked_ms": 1791503142490
+    "last_checked_ms": 1791503784356
   },
   {
     "symbol": "SYRUP/USDT:USDT",
@@ -1910,7 +1910,7 @@
     "activated": true,
     "signal_ts_ms": 1791475741186,
     "status": "OPEN",
-    "last_checked_ms": 1791503142490,
+    "last_checked_ms": 1791503784356,
     "activated_at_ms": 1791477900000
   },
   {
@@ -2017,7 +2017,7 @@
     "activated": false,
     "signal_ts_ms": 1791475749226,
     "status": "OPEN",
-    "last_checked_ms": 1791503142490
+    "last_checked_ms": 1791503784356
   },
   {
     "symbol": "AR/USDT:USDT",
@@ -2051,7 +2051,7 @@
     "activated": false,
     "signal_ts_ms": 1791475751502,
     "status": "OPEN",
-    "last_checked_ms": 1791503142490
+    "last_checked_ms": 1791503784356
   },
   {
     "symbol": "HOT/USDT:USDT",
@@ -2121,7 +2121,7 @@
     "activated": false,
     "signal_ts_ms": 1791475758635,
     "status": "OPEN",
-    "last_checked_ms": 1791503142490
+    "last_checked_ms": 1791503784356
   },
   {
     "symbol": "CFG/USDT:USDT",
@@ -2137,7 +2137,7 @@
     "activated": false,
     "signal_ts_ms": 1791475759624,
     "status": "OPEN",
-    "last_checked_ms": 1791503142490
+    "last_checked_ms": 1791503784356
   },
   {
     "symbol": "POLYX/USDT:USDT",
@@ -2207,7 +2207,7 @@
     "activated": false,
     "signal_ts_ms": 1791482935745,
     "status": "OPEN",
-    "last_checked_ms": 1791503142490
+    "last_checked_ms": 1791503784356
   },
   {
     "symbol": "UAI/USDT:USDT",
@@ -2223,6 +2223,21 @@
     "activated": false,
     "signal_ts_ms": 1791502199771,
     "status": "OPEN",
-    "last_checked_ms": 1791503142490
+    "last_checked_ms": 1791503784356
+  },
+  {
+    "symbol": "STABLE/USDT:USDT",
+    "direction": "SHORT",
+    "score": 81.2,
+    "entry": 0.02591474223062053,
+    "stop": 0.02628092869572781,
+    "tp1": 0.02554855576551325,
+    "tp2": 0.025365462532959612,
+    "tp3": 0.02482,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.02591474223062053,
+    "activated": false,
+    "signal_ts_ms": 1791503788732,
+    "status": "OPEN"
   }
 ]
