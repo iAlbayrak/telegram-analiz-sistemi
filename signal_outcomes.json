@@ -1086,7 +1086,7 @@
     "activated": false,
     "signal_ts_ms": 1791335685139,
     "status": "OPEN",
-    "last_checked_ms": 1791462374051
+    "last_checked_ms": 1791464022416
   },
   {
     "symbol": "KGEN/USDT:USDT",
@@ -1426,7 +1426,7 @@
     "activated": false,
     "signal_ts_ms": 1791397267119,
     "status": "OPEN",
-    "last_checked_ms": 1791462374051
+    "last_checked_ms": 1791464022416
   },
   {
     "symbol": "IOTX/USDT:USDT",
@@ -1585,9 +1585,10 @@
     "trigger": 1.8213178685558622,
     "activated": true,
     "signal_ts_ms": 1791456508774,
-    "status": "OPEN",
-    "last_checked_ms": 1791462374051,
-    "activated_at_ms": 1791460800000
+    "status": "TP1",
+    "last_checked_ms": 1791464022416,
+    "activated_at_ms": 1791460800000,
+    "resolved_at_ms": 1791461700000
   },
   {
     "symbol": "BOME/USDT:USDT",
@@ -1603,7 +1604,7 @@
     "activated": false,
     "signal_ts_ms": 1791456509556,
     "status": "OPEN",
-    "last_checked_ms": 1791462374051
+    "last_checked_ms": 1791464022416
   },
   {
     "symbol": "PAXG/USDT:USDT",
@@ -1619,7 +1620,7 @@
     "activated": false,
     "signal_ts_ms": 1791456511663,
     "status": "OPEN",
-    "last_checked_ms": 1791462374051
+    "last_checked_ms": 1791464022416
   },
   {
     "symbol": "TRB/USDT:USDT",
@@ -1635,7 +1636,7 @@
     "activated": true,
     "signal_ts_ms": 1791457716556,
     "status": "OPEN",
-    "last_checked_ms": 1791462374051,
+    "last_checked_ms": 1791464022416,
     "activated_at_ms": 1791460800000
   },
   {
@@ -1652,7 +1653,7 @@
     "activated": true,
     "signal_ts_ms": 1791458997329,
     "status": "OPEN",
-    "last_checked_ms": 1791462374051,
+    "last_checked_ms": 1791464022416,
     "activated_at_ms": 1791460800000
   },
   {
@@ -1669,7 +1670,7 @@
     "activated": false,
     "signal_ts_ms": 1791459846643,
     "status": "OPEN",
-    "last_checked_ms": 1791462374051
+    "last_checked_ms": 1791464022416
   },
   {
     "symbol": "ICP/USDT:USDT",
@@ -1685,7 +1686,7 @@
     "activated": true,
     "signal_ts_ms": 1791459851227,
     "status": "OPEN",
-    "last_checked_ms": 1791462374051,
+    "last_checked_ms": 1791464022416,
     "activated_at_ms": 1791459900000
   },
   {
@@ -1719,7 +1720,8 @@
     "trigger": 12.960667523034784,
     "activated": false,
     "signal_ts_ms": 1791462385908,
-    "status": "OPEN"
+    "status": "OPEN",
+    "last_checked_ms": 1791464022416
   },
   {
     "symbol": "BAND/USDT:USDT",
@@ -1734,6 +1736,67 @@
     "trigger": 0.23058556888532286,
     "activated": false,
     "signal_ts_ms": 1791462386860,
+    "status": "OPEN",
+    "last_checked_ms": 1791464022416
+  },
+  {
+    "symbol": "FLUID/USDT:USDT",
+    "direction": "SHORT",
+    "score": 81.7,
+    "entry": 1.9531531761172387,
+    "stop": 1.9900896537724668,
+    "tp1": 1.9162166984620106,
+    "tp2": 1.8977484596343965,
+    "tp3": 1.846,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 1.9531531761172387,
+    "activated": false,
+    "signal_ts_ms": 1791464025005,
+    "status": "OPEN"
+  },
+  {
+    "symbol": "ZRX/USDT:USDT",
+    "direction": "SHORT",
+    "score": 80.9,
+    "entry": 0.11613278915627204,
+    "stop": 0.1177458494057431,
+    "tp1": 0.11451972890680097,
+    "tp2": 0.11371319878206543,
+    "tp3": 0.11258405660743569,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.11613278915627204,
+    "activated": false,
+    "signal_ts_ms": 1791464025909,
+    "status": "OPEN"
+  },
+  {
+    "symbol": "KAS/USDT:USDT",
+    "direction": "SHORT",
+    "score": 80.9,
+    "entry": 0.039307349570144146,
+    "stop": 0.03976035816726113,
+    "tp1": 0.03885434097302716,
+    "tp2": 0.03862783667446867,
+    "tp3": 0.038310730656486776,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.039307349570144146,
+    "activated": false,
+    "signal_ts_ms": 1791464028125,
+    "status": "OPEN"
+  },
+  {
+    "symbol": "BTW/USDT:USDT",
+    "direction": "LONG",
+    "score": 80.3,
+    "entry": 1.396440794337946,
+    "stop": 1.369061730227242,
+    "tp1": 1.4238198584486499,
+    "tp2": 1.437509390504002,
+    "tp3": 1.4566747353814946,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 1.396440794337946,
+    "activated": false,
+    "signal_ts_ms": 1791464029040,
     "status": "OPEN"
   }
 ]
