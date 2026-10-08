@@ -619,7 +619,7 @@
     "activated": false,
     "signal_ts_ms": 1791203027059,
     "status": "OPEN",
-    "last_checked_ms": 1791456505450
+    "last_checked_ms": 1791457714843
   },
   {
     "symbol": "NIL/USDT:USDT",
@@ -1085,7 +1085,7 @@
     "activated": false,
     "signal_ts_ms": 1791335685139,
     "status": "OPEN",
-    "last_checked_ms": 1791456505450
+    "last_checked_ms": 1791457714843
   },
   {
     "symbol": "KGEN/USDT:USDT",
@@ -1425,7 +1425,7 @@
     "activated": false,
     "signal_ts_ms": 1791397267119,
     "status": "OPEN",
-    "last_checked_ms": 1791456505450
+    "last_checked_ms": 1791457714843
   },
   {
     "symbol": "IOTX/USDT:USDT",
@@ -1531,7 +1531,7 @@
     "activated": false,
     "signal_ts_ms": 1791449218203,
     "status": "OPEN",
-    "last_checked_ms": 1791456505450
+    "last_checked_ms": 1791457714843
   },
   {
     "symbol": "LDO/USDT:USDT",
@@ -1544,10 +1544,11 @@
     "tp3": 0.4224,
     "phase": "PRE_BREAKOUT",
     "trigger": 0.44413329284144987,
-    "activated": false,
+    "activated": true,
     "signal_ts_ms": 1791451616377,
     "status": "OPEN",
-    "last_checked_ms": 1791456505450
+    "last_checked_ms": 1791457714843,
+    "activated_at_ms": 1791456300000
   },
   {
     "symbol": "SYN/USDT:USDT",
@@ -1563,7 +1564,7 @@
     "activated": false,
     "signal_ts_ms": 1791455218731,
     "status": "OPEN",
-    "last_checked_ms": 1791456505450
+    "last_checked_ms": 1791457714843
   },
   {
     "symbol": "DEXE/USDT:USDT",
@@ -1578,7 +1579,8 @@
     "trigger": 1.8213178685558622,
     "activated": false,
     "signal_ts_ms": 1791456508774,
-    "status": "OPEN"
+    "status": "OPEN",
+    "last_checked_ms": 1791457714843
   },
   {
     "symbol": "BOME/USDT:USDT",
@@ -1593,7 +1595,8 @@
     "trigger": 0.0010826650510251824,
     "activated": false,
     "signal_ts_ms": 1791456509556,
-    "status": "OPEN"
+    "status": "OPEN",
+    "last_checked_ms": 1791457714843
   },
   {
     "symbol": "PAXG/USDT:USDT",
@@ -1608,6 +1611,22 @@
     "trigger": 4126.977625702816,
     "activated": false,
     "signal_ts_ms": 1791456511663,
+    "status": "OPEN",
+    "last_checked_ms": 1791457714843
+  },
+  {
+    "symbol": "TRB/USDT:USDT",
+    "direction": "SHORT",
+    "score": 81.2,
+    "entry": 19.326091906900626,
+    "stop": 19.646289711719252,
+    "tp1": 19.005894102082,
+    "tp2": 18.845795199672686,
+    "tp3": 18.62165673629965,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 19.326091906900626,
+    "activated": false,
+    "signal_ts_ms": 1791457716556,
     "status": "OPEN"
   }
 ]
