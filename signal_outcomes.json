@@ -619,7 +619,7 @@
     "activated": false,
     "signal_ts_ms": 1791203027059,
     "status": "OPEN",
-    "last_checked_ms": 1791457714843
+    "last_checked_ms": 1791458976667
   },
   {
     "symbol": "NIL/USDT:USDT",
@@ -1085,7 +1085,7 @@
     "activated": false,
     "signal_ts_ms": 1791335685139,
     "status": "OPEN",
-    "last_checked_ms": 1791457714843
+    "last_checked_ms": 1791458976667
   },
   {
     "symbol": "KGEN/USDT:USDT",
@@ -1425,7 +1425,7 @@
     "activated": false,
     "signal_ts_ms": 1791397267119,
     "status": "OPEN",
-    "last_checked_ms": 1791457714843
+    "last_checked_ms": 1791458976667
   },
   {
     "symbol": "IOTX/USDT:USDT",
@@ -1528,10 +1528,11 @@
     "tp3": 0.2906718926293703,
     "phase": "PRE_BREAKOUT",
     "trigger": 0.29930381983620824,
-    "activated": false,
+    "activated": true,
     "signal_ts_ms": 1791449218203,
     "status": "OPEN",
-    "last_checked_ms": 1791457714843
+    "last_checked_ms": 1791458976667,
+    "activated_at_ms": 1791457200000
   },
   {
     "symbol": "LDO/USDT:USDT",
@@ -1546,9 +1547,10 @@
     "trigger": 0.44413329284144987,
     "activated": true,
     "signal_ts_ms": 1791451616377,
-    "status": "OPEN",
-    "last_checked_ms": 1791457714843,
-    "activated_at_ms": 1791456300000
+    "status": "STOP",
+    "last_checked_ms": 1791458976667,
+    "activated_at_ms": 1791456300000,
+    "resolved_at_ms": 1791451800000
   },
   {
     "symbol": "SYN/USDT:USDT",
@@ -1564,7 +1566,7 @@
     "activated": false,
     "signal_ts_ms": 1791455218731,
     "status": "OPEN",
-    "last_checked_ms": 1791457714843
+    "last_checked_ms": 1791458976667
   },
   {
     "symbol": "DEXE/USDT:USDT",
@@ -1580,7 +1582,7 @@
     "activated": false,
     "signal_ts_ms": 1791456508774,
     "status": "OPEN",
-    "last_checked_ms": 1791457714843
+    "last_checked_ms": 1791458976667
   },
   {
     "symbol": "BOME/USDT:USDT",
@@ -1596,7 +1598,7 @@
     "activated": false,
     "signal_ts_ms": 1791456509556,
     "status": "OPEN",
-    "last_checked_ms": 1791457714843
+    "last_checked_ms": 1791458976667
   },
   {
     "symbol": "PAXG/USDT:USDT",
@@ -1612,7 +1614,7 @@
     "activated": false,
     "signal_ts_ms": 1791456511663,
     "status": "OPEN",
-    "last_checked_ms": 1791457714843
+    "last_checked_ms": 1791458976667
   },
   {
     "symbol": "TRB/USDT:USDT",
@@ -1627,6 +1629,22 @@
     "trigger": 19.326091906900626,
     "activated": false,
     "signal_ts_ms": 1791457716556,
+    "status": "OPEN",
+    "last_checked_ms": 1791458976667
+  },
+  {
+    "symbol": "TAO/USDT:USDT",
+    "direction": "SHORT",
+    "score": 82.9,
+    "entry": 279.2218675083341,
+    "stop": 283.784517341651,
+    "tp1": 274.65921767501726,
+    "tp2": 272.3778927583588,
+    "tp3": 269.184037875037,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 279.2218675083341,
+    "activated": false,
+    "signal_ts_ms": 1791458997329,
     "status": "OPEN"
   }
 ]
