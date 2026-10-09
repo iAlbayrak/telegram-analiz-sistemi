@@ -633,11 +633,11 @@
   },
   "CTR/USDT:USDT:LONG": {
     "tier": "SKOR 85+",
-    "score": 85.2,
+    "score": 85.5,
     "phase": "PRE_BREAKOUT",
     "market_cap_rank": 723,
     "alert_threshold": 85.0,
-    "last_seen": 1791521048
+    "last_seen": 1791533428
   },
   "KMNO/USDT:USDT:SHORT": {
     "tier": "SKOR 80+",
@@ -646,5 +646,21 @@
     "market_cap_rank": 403,
     "alert_threshold": 80.0,
     "last_seen": 1791528682
+  },
+  "ALICE/USDT:USDT:SHORT": {
+    "tier": "SKOR 90+",
+    "score": 93.2,
+    "phase": "PRE_BREAKOUT",
+    "market_cap_rank": 718,
+    "alert_threshold": 85.0,
+    "last_seen": 1791533205
+  },
+  "H/USDT:USDT:SHORT": {
+    "tier": "SKOR 80+",
+    "score": 80.2,
+    "phase": "PRE_BREAKOUT",
+    "market_cap_rank": 247,
+    "alert_threshold": 80.0,
+    "last_seen": 1791533241
   }
 }
