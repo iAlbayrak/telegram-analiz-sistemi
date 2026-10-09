@@ -1086,7 +1086,7 @@
     "activated": false,
     "signal_ts_ms": 1791335685139,
     "status": "OPEN",
-    "last_checked_ms": 1791582283333
+    "last_checked_ms": 1791583555872
   },
   {
     "symbol": "KGEN/USDT:USDT",
@@ -1876,7 +1876,7 @@
     "activated": false,
     "signal_ts_ms": 1791474394392,
     "status": "OPEN",
-    "last_checked_ms": 1791582283333
+    "last_checked_ms": 1791583555872
   },
   {
     "symbol": "SYRUP/USDT:USDT",
@@ -2018,7 +2018,7 @@
     "activated": false,
     "signal_ts_ms": 1791475749226,
     "status": "OPEN",
-    "last_checked_ms": 1791582283333
+    "last_checked_ms": 1791583555872
   },
   {
     "symbol": "AR/USDT:USDT",
@@ -2052,7 +2052,7 @@
     "activated": false,
     "signal_ts_ms": 1791475751502,
     "status": "OPEN",
-    "last_checked_ms": 1791582283333
+    "last_checked_ms": 1791583555872
   },
   {
     "symbol": "HOT/USDT:USDT",
@@ -2122,7 +2122,7 @@
     "activated": false,
     "signal_ts_ms": 1791475758635,
     "status": "OPEN",
-    "last_checked_ms": 1791582283333
+    "last_checked_ms": 1791583555872
   },
   {
     "symbol": "CFG/USDT:USDT",
@@ -2138,7 +2138,7 @@
     "activated": false,
     "signal_ts_ms": 1791475759624,
     "status": "OPEN",
-    "last_checked_ms": 1791582283333
+    "last_checked_ms": 1791583555872
   },
   {
     "symbol": "POLYX/USDT:USDT",
@@ -2622,7 +2622,7 @@
     "activated": false,
     "signal_ts_ms": 1791544962600,
     "status": "OPEN",
-    "last_checked_ms": 1791582283333
+    "last_checked_ms": 1791583555872
   },
   {
     "symbol": "UNI/USDT:USDT",
@@ -2872,7 +2872,7 @@
     "activated": false,
     "signal_ts_ms": 1791555073529,
     "status": "OPEN",
-    "last_checked_ms": 1791582283333
+    "last_checked_ms": 1791583555872
   },
   {
     "symbol": "AZTEC/USDT:USDT",
@@ -2888,7 +2888,7 @@
     "activated": false,
     "signal_ts_ms": 1791555074689,
     "status": "OPEN",
-    "last_checked_ms": 1791582283333
+    "last_checked_ms": 1791583555872
   },
   {
     "symbol": "XMR/USDT:USDT",
@@ -2939,9 +2939,10 @@
     "trigger": 4.723145552780126,
     "activated": true,
     "signal_ts_ms": 1791565287455,
-    "status": "OPEN",
-    "last_checked_ms": 1791582283333,
-    "activated_at_ms": 1791566100000
+    "status": "STOP",
+    "last_checked_ms": 1791583555872,
+    "activated_at_ms": 1791566100000,
+    "resolved_at_ms": 1791581400000
   },
   {
     "symbol": "COMP/USDT:USDT",
@@ -2975,6 +2976,51 @@
     "activated": false,
     "signal_ts_ms": 1791577468929,
     "status": "OPEN",
-    "last_checked_ms": 1791582283333
+    "last_checked_ms": 1791583555872
+  },
+  {
+    "symbol": "CAP/USDT:USDT",
+    "direction": "LONG",
+    "score": 84.3,
+    "entry": 0.08228368624430735,
+    "stop": 0.08000996135816055,
+    "tp1": 0.08455741113045415,
+    "tp2": 0.08569427357352755,
+    "tp3": 0.0872858809938303,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.08228368624430735,
+    "activated": false,
+    "signal_ts_ms": 1791583557696,
+    "status": "OPEN"
+  },
+  {
+    "symbol": "FOLKS/USDT:USDT",
+    "direction": "LONG",
+    "score": 82.6,
+    "entry": 2.488578546034399,
+    "stop": 2.4209057447587217,
+    "tp1": 2.5562513473100763,
+    "tp2": 2.5900877479479147,
+    "tp3": 2.861,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 2.488578546034399,
+    "activated": false,
+    "signal_ts_ms": 1791583558748,
+    "status": "OPEN"
+  },
+  {
+    "symbol": "STX/USDT:USDT",
+    "direction": "LONG",
+    "score": 80.0,
+    "entry": 0.3846586396639238,
+    "stop": 0.3784512877297542,
+    "tp1": 0.3908659915980933,
+    "tp2": 0.3939696675651781,
+    "tp3": 0.4023,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.3846586396639238,
+    "activated": false,
+    "signal_ts_ms": 1791583559738,
+    "status": "OPEN"
   }
 ]
