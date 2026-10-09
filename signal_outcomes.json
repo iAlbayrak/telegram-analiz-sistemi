@@ -1086,7 +1086,7 @@
     "activated": false,
     "signal_ts_ms": 1791335685139,
     "status": "OPEN",
-    "last_checked_ms": 1791557964372
+    "last_checked_ms": 1791558916596
   },
   {
     "symbol": "KGEN/USDT:USDT",
@@ -1876,7 +1876,7 @@
     "activated": false,
     "signal_ts_ms": 1791474394392,
     "status": "OPEN",
-    "last_checked_ms": 1791557964372
+    "last_checked_ms": 1791558916596
   },
   {
     "symbol": "SYRUP/USDT:USDT",
@@ -2018,7 +2018,7 @@
     "activated": false,
     "signal_ts_ms": 1791475749226,
     "status": "OPEN",
-    "last_checked_ms": 1791557964372
+    "last_checked_ms": 1791558916596
   },
   {
     "symbol": "AR/USDT:USDT",
@@ -2052,7 +2052,7 @@
     "activated": false,
     "signal_ts_ms": 1791475751502,
     "status": "OPEN",
-    "last_checked_ms": 1791557964372
+    "last_checked_ms": 1791558916596
   },
   {
     "symbol": "HOT/USDT:USDT",
@@ -2122,7 +2122,7 @@
     "activated": false,
     "signal_ts_ms": 1791475758635,
     "status": "OPEN",
-    "last_checked_ms": 1791557964372
+    "last_checked_ms": 1791558916596
   },
   {
     "symbol": "CFG/USDT:USDT",
@@ -2138,7 +2138,7 @@
     "activated": false,
     "signal_ts_ms": 1791475759624,
     "status": "OPEN",
-    "last_checked_ms": 1791557964372
+    "last_checked_ms": 1791558916596
   },
   {
     "symbol": "POLYX/USDT:USDT",
@@ -2262,7 +2262,7 @@
     "activated": false,
     "signal_ts_ms": 1791508229413,
     "status": "OPEN",
-    "last_checked_ms": 1791557964372
+    "last_checked_ms": 1791558916596
   },
   {
     "symbol": "FLUID/USDT:USDT",
@@ -2350,7 +2350,7 @@
     "activated": false,
     "signal_ts_ms": 1791519896941,
     "status": "OPEN",
-    "last_checked_ms": 1791557964372
+    "last_checked_ms": 1791558916596
   },
   {
     "symbol": "KMNO/USDT:USDT",
@@ -2528,7 +2528,7 @@
     "activated": true,
     "signal_ts_ms": 1791544174585,
     "status": "OPEN",
-    "last_checked_ms": 1791557964372,
+    "last_checked_ms": 1791558916596,
     "activated_at_ms": 1791551700000
   },
   {
@@ -2617,7 +2617,7 @@
     "activated": false,
     "signal_ts_ms": 1791544962600,
     "status": "OPEN",
-    "last_checked_ms": 1791557964372
+    "last_checked_ms": 1791558916596
   },
   {
     "symbol": "UNI/USDT:USDT",
@@ -2759,7 +2759,7 @@
     "activated": true,
     "signal_ts_ms": 1791546039432,
     "status": "OPEN",
-    "last_checked_ms": 1791557964372,
+    "last_checked_ms": 1791558916596,
     "activated_at_ms": 1791551700000
   },
   {
@@ -2775,9 +2775,10 @@
     "trigger": 2.058672008651321,
     "activated": true,
     "signal_ts_ms": 1791548021896,
-    "status": "OPEN",
-    "last_checked_ms": 1791557964372,
-    "activated_at_ms": 1791556200000
+    "status": "STOP",
+    "last_checked_ms": 1791558916596,
+    "activated_at_ms": 1791556200000,
+    "resolved_at_ms": 1791549000000
   },
   {
     "symbol": "DRIFT/USDT:USDT",
@@ -2847,7 +2848,7 @@
     "activated": true,
     "signal_ts_ms": 1791551005190,
     "status": "OPEN",
-    "last_checked_ms": 1791557964372,
+    "last_checked_ms": 1791558916596,
     "activated_at_ms": 1791552600000
   },
   {
@@ -2864,7 +2865,7 @@
     "activated": false,
     "signal_ts_ms": 1791555073529,
     "status": "OPEN",
-    "last_checked_ms": 1791557964372
+    "last_checked_ms": 1791558916596
   },
   {
     "symbol": "AZTEC/USDT:USDT",
@@ -2880,7 +2881,7 @@
     "activated": false,
     "signal_ts_ms": 1791555074689,
     "status": "OPEN",
-    "last_checked_ms": 1791557964372
+    "last_checked_ms": 1791558916596
   },
   {
     "symbol": "XMR/USDT:USDT",
@@ -2896,7 +2897,7 @@
     "activated": false,
     "signal_ts_ms": 1791556216439,
     "status": "OPEN",
-    "last_checked_ms": 1791557964372
+    "last_checked_ms": 1791558916596
   },
   {
     "symbol": "WAL/USDT:USDT",
@@ -2909,8 +2910,10 @@
     "tp3": 0.03241,
     "phase": "PRE_BREAKOUT",
     "trigger": 0.03324705272031101,
-    "activated": false,
+    "activated": true,
     "signal_ts_ms": 1791557965832,
-    "status": "OPEN"
+    "status": "OPEN",
+    "last_checked_ms": 1791558916596,
+    "activated_at_ms": 1791558000000
   }
 ]
