@@ -1,28 +1,47 @@
-Altcoin Alert Scanner V13.1
-Alert-only MEXC USDT perpetual scanner. No MEXC account/API keys and no order placement.
-V13.1 changes
-Parabolic SAR added as a low/medium-weight trend/reversal confirmation.
-Conservative Libra-like structure detector added using confirmed swing pivots and the 78.6% retracement zone. It contributes to the holistic score but is never a standalone alert trigger.
-Breakout confirmation strengthened: higher volume requirement plus candle-body direction/quality.
-`BREAKOUT_RETEST` phase added. A prior confirmed break followed by a controlled retest can be preferred over chasing a fresh breakout.
-Live retest validation prevents sending a retest alert after price has moved too far from the trigger.
-Move-potential weight increased so genuinely exceptional setups can score materially above routine small opportunities without artificially widening TP levels.
-Unknown market-cap rank is now conservatively treated as the 90+ tier instead of accidentally falling into the 501-800 tier.
-Existing spot radar, full active futures discovery, market-cap tiers, RR/geometry, live-price validation, state, diagnostic log and outcome tracking are preserved.
-Alert tiers
-75-79.9: radar only
-80-84.9: normal alert when all gates pass
-85-89.9: strong alert
-90-94.9: high-potential alert
-95+: rare/exceptional
-Market-cap gate:
-#1-500 -> score 80+
-#501-800 -> score 85+
-#801+ or unknown -> score 90+
-Important
-Do not replace `.github/workflows/scan.yml` or GitHub Secrets for this package. Replace only `altcoin_alert_scanner.py`; keep existing `requirements.txt` if it already contains the required dependencies. Preserve `alert_state.json`, `scan_diagnostic.log`, `market_cap_cache.json`, and `signal_outcomes.json`.
-Validation
-Python `py_compile` passed.
-Offline indicator/score smoke tests passed with exchange calls stubbed.
-Market-cap unknown-rank gate test passed.
-No live MEXC or Telegram request was made during package validation.
+MEXC TELEGRAM ALTCOIN ALERT SCANNER — V13.6
+================================================
+
+Bu paket sadece analiz ve Telegram uyarısı üretir; otomatik emir açmaz.
+GitHub Actions'taki mevcut workflow dosyanızı ( .github/workflows/scan.yml ),
+Secrets değerlerini ve mevcut durum dosyalarını değiştirmeyin.
+
+GÜNCELLEME
+1. ZIP içindeki altcoin_alert_scanner.py dosyasını GitHub deposundaki aynı isimli dosyayla değiştirin.
+2. README dosyasını isterseniz inceleyin; workflow, secrets ve state/log dosyalarını silmeyin.
+3. GitHub Actions > Altcoin Alert Scanner > Run workflow ile bir kez elle çalıştırın.
+4. Logda V13.6 başlığını ve hedef filtresi açıklamasını kontrol edin.
+
+YENİ MANTIK
+- Teknik skor hâlâ yön, giriş kalitesi, hazırlık ve hareket potansiyelini birlikte ölçer.
+- Ayrı “hedef güven skoru” 0–100 arası sezgisel bir teknik puandır; kazanma olasılığı yüzdesi değildir.
+  Örneğin 90/100, geçmişte %90 hedef tutmuş demek değildir. Bunu söylemek için yeterli örneklemle
+  ileriye dönük sonuç kalibrasyonu gerekir.
+- TP3 hedefinin giriş fiyatına göre gerçek fiyat mesafesi ayrıca hesaplanır. Kaldıraç bu yüzdeye dahil değildir.
+- İşlem uyarısı için mevcut sıralama/teknik skor, setup doğrulaması, likidite, R:R ve hedef kapıları birlikte geçmelidir.
+- Market-cap rank'a göre minimum TP3 fiyat mesafesi:
+  rank 1–300: mevcut hedef mesafesi yeterli (0% ek taban)
+  rank 301–600: en az 3%
+  rank 601–1000: en az 5%
+  rank 1001–2000: en az 10%
+  rank 2001+: en az 15%
+  rank bilinmiyorsa: en az 15% (temkinli)
+- Hedef güven skoru için varsayılan minimum 58/100.
+- LONG ve SHORT aynı filtrelerden geçer.
+- Bu yüzdeler ilk seçicilik ayarlarıdır; kanıtlanmış başarı oranı değildir. Sonuç dosyası ve sinyal
+  sonuçları izlenerek ileride kalibre edilmelidir.
+
+AYARLAR (isteğe bağlı GitHub Variables / environment)
+MIN_TARGET_MOVE_RANK_1_300=0
+MIN_TARGET_MOVE_RANK_301_600=3
+MIN_TARGET_MOVE_RANK_601_1000=5
+MIN_TARGET_MOVE_RANK_1001_2000=10
+MIN_TARGET_MOVE_RANK_2001_PLUS=15
+MIN_TARGET_MOVE_UNKNOWN=15
+MIN_TARGET_CONFIDENCE=58
+
+ÖNEMLİ
+- Yüksek skor daha iyi teknik yapı ve hedef alanına ilişkin daha güçlü sinyal demektir; garanti değildir.
+- Düşük market-cap coinlerde %15 TP3 şartı, sinyal sayısını ciddi azaltabilir. Bu kasıtlı kalite filtresidir.
+- Hedef yüzdesi dayandığı teknik hedef/direnç-destek yapısını aşacak şekilde zorla büyütülmez.
+- Sadece kaynak kodunu güncelleyin; scan.yml, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
+  alert_state.json, scan_diagnostic.log, market_cap_cache.json ve signal_outcomes.json dosyalarını koruyun.
