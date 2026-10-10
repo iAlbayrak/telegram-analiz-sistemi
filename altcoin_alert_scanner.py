@@ -1621,7 +1621,7 @@ def write_diagnostic(all_results, ctx, spot_results=None, error_counts=None, sou
              f"ETH4h={ctx['eth']['4h']} ETH1h={ctx['eth']['1h']} | "
              f"perp_taranan={len(all_results)} | en_iyi={best} | marketcap={source} ==="]
     for r in top:
-        lines.append(f"PERP {r['symbol']:20} {r['direction']:5} phase={r.get('phase','?'):16} score={r['score']:5.1f} pot={r.get('move_potential',0):4.1f} spot_bonus={r.get('spot_momentum_bonus',0):.1f} modeled_move={r.get('modeled_move_pct',0):.2f}% near_room={r.get('near_room_atr',0):.2f}ATR far_room={r.get('forward_room_atr',0):.2f}ATR early={r.get('early_move_score',0):4.1f} rr_internal={r['rr']:.2f} rel1h={r.get('relative_1h',0):+.2f} rel4h={r.get('relative_4h',0):+.2f} mc=#{r.get('market_cap_rank',501):4d} gate={r.get('alert_threshold',90):.0f} valid={r.get('setup_valid',False)} qv={r.get('quote_volume_24h',0):.0f} reject={r.get('gate_reason','')}")
+        lines.append(f"PERP {r['symbol']:20} {r['direction']:5} phase={r.get('phase','?'):16} score={r['score']:5.1f} pot={r.get('move_potential',0):4.1f} target_move={r.get('target_move_pct',0):.2f}% target_min={r.get('min_target_move_pct',0):.2f}% target_conf={r.get('target_confidence',0):.0f}/100 spot_bonus={r.get('spot_momentum_bonus',0):.1f} modeled_move={r.get('modeled_move_pct',0):.2f}% near_room={r.get('near_room_atr',0):.2f}ATR far_room={r.get('forward_room_atr',0):.2f}ATR early={r.get('early_move_score',0):4.1f} rr_internal={r['rr']:.2f} rel1h={r.get('relative_1h',0):+.2f} rel4h={r.get('relative_4h',0):+.2f} mc=#{r.get('market_cap_rank',9999):4d} rank_known={r.get('market_cap_rank_known',False)} gate={r.get('alert_threshold',90):.0f} valid={r.get('setup_valid',False)} qv={r.get('quote_volume_24h',0):.0f} reject={r.get('gate_reason','')}")
     for r in (spot_results or [])[:10]:
         lines.append(f"SPOT {r['symbol']:20} {r['direction']:15} 15m={r['change_15m']:+.2f}% 1h={r['change_1h']:+.2f}% 24h={r['change_24h']:+.2f}% vol={r['volume_ratio']:.2f}x swap={r['swap_available']} discovery={r.get('discovery_candidate',False)}")
     for r in (missed_candidates or [])[:20]:
@@ -1699,15 +1699,45 @@ def collect_missed_candidates(all_symbols, analyzed_symbols, all_results, spot_r
     return rows[:30]
 
 
+def diagnostic_rejection_reasons(x):
+    """Return every currently failing alert gate for diagnostics; does not change eligibility."""
+    reasons = []
+    if not x.get('alert_eligible', False):
+        reasons.append(f"SKOR {float(x.get('score', 0)):.1f} < EŞİK {float(x.get('alert_threshold', 90)):.0f}")
+    rr = x.get('rr')
+    if pd.isna(rr) or float(rr) < MIN_CONFIRMED_RR:
+        reasons.append(f"R:R {float(rr) if pd.notna(rr) else 0:.2f} < {MIN_CONFIRMED_RR:.2f}")
+    if not x.get('setup_valid', False):
+        reasons.append("KURULUM/ERKEN GİRİŞ TEYİDİ")
+    if not x.get('liquidity_ok_diagnostic', True):
+        reasons.append("LİKİDİTE")
+    if not x.get('target_gate_ok', False):
+        reasons.append(
+            f"TP3 MESAFESİ {float(x.get('target_move_pct', 0)):.2f}% "
+            f"< GEREKEN {float(x.get('min_target_move_pct', 0)):.2f}% veya "
+            f"HEDEF GÜVEN {float(x.get('target_confidence', 0)):.0f}/100 "
+            f"< {MIN_TARGET_CONFIDENCE:.0f}"
+        )
+    if not reasons:
+        reasons.append("ÖN FİLTRELER GEÇİLDİ; SON GEOMETRİ/LİVE FİYAT KONTROLÜNE BAK")
+    return reasons
+
 def main():
-    print('=== ALTCOIN ALERT SCANNER V13.6 — BREAKOUT/RETEST FIX + MOVE POTENTIAL + LIBRA + SAR ===')
+    print('=== ALTCOIN ALERT SCANNER V13.6.1 — DIAGNOSTIC LOGGING ONLY (STRATEGY UNCHANGED) ===')
     scan_started = time.monotonic()
     ctx = market_context()
     print(f"BTC 4h={ctx['btc']['4h']} 1h={ctx['btc']['1h']} | ETH 4h={ctx['eth']['4h']} 1h={ctx['eth']['1h']}")
     all_symbols = list(dict.fromkeys(liquid_usdt_swaps()))
     state = load_state(); new_state = {}; qualifying = []; all_results = []; error_counts = {}; data_skips = {}
     market_caps, market_cap_updated_at, market_cap_source = market_cap_rankings()
-    print(f'Market-cap kaynağı: {market_cap_source} | skor eşiği: 1-500=>80+, 501-800=>85+, 801+ / bilinmiyor=>90+ | hedef filtresi: rank bazlı TP3 + hedef güven skoru')
+    cache_age_min = max(0.0, (time.time() - float(market_cap_updated_at)) / 60.0) if market_cap_updated_at else None
+    known_rank_bases = {str(k).upper() for k in market_caps}
+    all_bases = {str(s).split('/')[0].upper() for s in all_symbols}
+    known_rank_count = len(all_bases & known_rank_bases)
+    unknown_rank_count = len(all_bases - known_rank_bases)
+    cache_age_text = f"{cache_age_min:.0f} dk" if cache_age_min is not None else "bilinmiyor"
+    print(f'Market-cap kaynağı: {market_cap_source} | önbellek/veri yaşı: {cache_age_text} | sırası bilinen vadeli coin: {known_rank_count}/{len(all_bases)} | sırası bilinmeyen: {unknown_rank_count}')
+    print('Skor eşiği: 1-500=>80+, 501-800=>85+, 801+ / bilinmiyor=>90+ | hedef filtresi: rank bazlı TP3 + hedef güven skoru (strateji eşikleri değişmedi)')
 
     # Spot discovers unusual movers first; the corresponding perpetual contract
     # is then analyzed with futures candles and futures prices, never spot prices.
@@ -1731,7 +1761,18 @@ def main():
     symbols = list(dict.fromkeys(regular_symbols + [s for s in all_symbols if s in spot_discovery_symbols]))
     eligible_count = len(symbols)
     extra_count = len(set(symbols) - set(regular_symbols))
+    spot_flagged = [r for r in spot_results if r.get('discovery_candidate')]
+    spot_no_perp = sum(1 for r in spot_flagged if not r.get('perp_symbol'))
+    spot_matched = [r for r in spot_flagged if r.get('perp_symbol')]
+    spot_volume_reject = sum(
+        1 for r in spot_matched
+        if float(r.get('quote_volume', 0.0)) < MIN_SPOT_24H_VOLUME
+        or float(r.get('perp_quote_volume', SWAP_QUOTE_VOLUMES.get(r.get('perp_symbol'), 0.0))) < MIN_SPOT_DISCOVERY_PERP_VOLUME
+    )
+    spot_passed = [r for r in spot_matched if r.get('perp_symbol') in spot_discovery_symbols]
+    spot_already_regular = sum(1 for r in spot_passed if r.get('perp_symbol') in set(regular_symbols))
     print(f'MEXC aktif USDT vadeli evreni: {len(all_symbols)} benzersiz sözleşme ticker/fiyat-hacim aşamasında tarandı.')
+    print(f'SPOT RADAR AYRIMI: işaretli={len(spot_flagged)} | vadeli eşleşmesi yok={spot_no_perp} | hacim filtresinde elenen={spot_volume_reject} | uygun ve normal listede zaten var={spot_already_regular} | normal listeye yeni eklenen={extra_count}.')
     print(f'Derin mum analizi: {eligible_count} sözleşme; normal vadeli hacim eşiği {MIN_ALERT_24H_VOLUME:,.0f} USDT; spot radarıyla eklenen {extra_count} aday (spot hacim >= {MIN_SPOT_24H_VOLUME:,.0f}, vadeli hacim >= {MIN_SPOT_DISCOVERY_PERP_VOLUME:,.0f} USDT; sabit %6 hareket şartı yok).')
 
     def analyze_symbol(s):
@@ -1799,6 +1840,7 @@ def main():
             liquidity_ok = spot_qv_ok and x['quote_volume_24h'] >= MIN_SPOT_DISCOVERY_PERP_VOLUME
         else:
             liquidity_ok = x['quote_volume_24h'] >= MIN_ALERT_24H_VOLUME
+        x['liquidity_ok_diagnostic'] = liquidity_ok
         x['gate_reason'] = ('OK' if x['alert_eligible'] and rr_ok and setup_ok and liquidity_ok and x['target_gate_ok'] else
                             (f'SPOT KEŞİF LİKİDİTE FİLTRESİ (spot>={MIN_SPOT_24H_VOLUME:,.0f}, vadeli>={MIN_SPOT_DISCOVERY_PERP_VOLUME:,.0f})' if x.get('spot_discovered') else f'LIKIDITE<{MIN_ALERT_24H_VOLUME:,.0f} USDT') if not liquidity_ok else
                             'ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ' if not setup_ok else
@@ -1860,11 +1902,27 @@ def main():
     )
     missed_candidates = collect_missed_candidates(all_symbols, analyzed_symbol_set, all_results, spot_results)
     write_diagnostic(all_results, ctx, spot_results, error_counts, market_cap_source, missed_candidates, data_skips)
-    top = sorted(all_results, key=lambda r: r['score'], reverse=True)[:8]
+    top = sorted(
+        [r for r in all_results if r.get('symbol') not in ('BTC/USDT:USDT', 'ETH/USDT:USDT')],
+        key=lambda r: r['score'], reverse=True
+    )[:8]
     if top:
-        print('En iyi vadeli adaylar: ' + ' | '.join(
-            f"{x['symbol']} {x['direction']} BÜTÜNSEL_SKOR={x['score']:.1f} eşik={x['alert_threshold']:.0f} faz={x['phase']} valid={x['setup_valid']} neden={x.get('gate_reason','')}"
-            for x in top))
+        print('EN İYİ 8 ADAY — HEDEF VE TÜM ELEME NEDENLERİ:')
+        for x in top:
+            rank_text = x.get('market_cap_label', 'bilinmiyor')
+            fails = diagnostic_rejection_reasons(x)
+            print(
+                f"ADAY {x['symbol']} {x['direction']} | skor={x['score']:.1f}/100 "
+                f"eşik={x.get('alert_threshold',90):.0f} | market-cap={rank_text} "
+                f"(rank_biliniyor={x.get('market_cap_rank_known', False)}) | "
+                f"TP3_fiyat_mesafesi={x.get('target_move_pct',0):.2f}% "
+                f"gerekli_min={x.get('min_target_move_pct',0):.2f}% | "
+                f"hedef_güven_skoru={x.get('target_confidence',0):.0f}/100 "
+                f"(min={MIN_TARGET_CONFIDENCE:.0f}) | R:R={float(x.get('rr',0) or 0):.2f} "
+                f"| faz={x.get('phase','?')} | geçerli={x.get('setup_valid',False)}"
+            )
+            print('  ELEME_KAPILARI: ' + ' ; '.join(fails))
+
     if spot_results:
         print('Spot radar (tanı amaçlı; Telegram izleme spamı gönderilmez): ' + ', '.join(
             f"{x['symbol']} {x['direction']} 15m={x['change_15m']:+.1f}% 1h={x['change_1h']:+.1f}%"
