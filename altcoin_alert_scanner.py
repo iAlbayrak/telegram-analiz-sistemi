@@ -1,5 +1,5 @@
 """
-V13.6 bütünsel skor düzeltmesi + kırılım/retest mantık onarımı + potansiyel puanı + canlı giriş koruması -- BULUTTA çalışır (GitHub Actions),
+V13.8 hedef kalitesi + market-cap kapsamı + tanılama düzeltmeleri -- BULUTTA çalışır (GitHub Actions),
 telefondaki/bilgisayardaki hiçbir şeye bağımlı değil. Mevcut MEXC trading
 bot'unuzdan TAMAMEN bağımsızdır -- hiçbir dosyasını içe aktarmaz, hiçbir
 emir göndermez. Sadece MEXC'nin herkese açık (public) piyasa verisini
@@ -76,7 +76,8 @@ MIN_DIRECTION_GAP = float(os.getenv('MIN_DIRECTION_GAP', '5'))  # yalnızca çok
 ALERT_MIN_SCORE      = float(os.getenv('ALERT_MIN_SCORE', '80'))   # base technical score; rank tiers decide the actual alert gate
 MARKET_CAP_CACHE_FILE = Path(os.getenv('MARKET_CAP_CACHE_FILE', 'market_cap_cache.json'))
 MARKET_CAP_REFRESH_MINUTES = int(os.getenv('MARKET_CAP_REFRESH_MINUTES', '360'))
-MARKET_CAP_TOP_N = 800
+# Rank coverage supports 1001-2000 target tiers; outside scope remains UNKNOWN.
+MARKET_CAP_TOP_N = max(800, int(os.getenv('MARKET_CAP_TOP_N', '2000')))
 # V13.6: minimum modeled TP3 price movement by market-cap tier.
 # These are selectivity rules, not claims that a move is guaranteed.
 # Rank unknown is treated conservatively as very low / unverified cap.
@@ -87,6 +88,12 @@ MIN_TARGET_MOVE_RANK_1001_2000 = float(os.getenv('MIN_TARGET_MOVE_RANK_1001_2000
 MIN_TARGET_MOVE_RANK_2001_PLUS = float(os.getenv('MIN_TARGET_MOVE_RANK_2001_PLUS', '15.0'))
 MIN_TARGET_MOVE_UNKNOWN = float(os.getenv('MIN_TARGET_MOVE_UNKNOWN', '15.0'))
 MIN_TARGET_CONFIDENCE = float(os.getenv('MIN_TARGET_CONFIDENCE', '58.0'))
+# Minimum TP3 underlying price movement for ANY actionable alert. This is a
+# rejection floor, not a command to push targets farther away. If structure
+# cannot support this distance, the setup is skipped.
+MIN_ACTIONABLE_TARGET_MOVE_PCT = float(os.getenv('MIN_ACTIONABLE_TARGET_MOVE_PCT', '5.0'))
+OPEN_AIR_ROOM_ATR = float(os.getenv('OPEN_AIR_ROOM_ATR', '3.0'))
+MIN_BARRIER_DISTANCE_ATR = float(os.getenv('MIN_BARRIER_DISTANCE_ATR', '0.5'))
 EARLY_TRIGGER_MAX_ATR = float(os.getenv('EARLY_TRIGGER_MAX_ATR', '1.25'))  # kırılım öncesi seviyeye yakınlık
 MAX_BREAKOUT_STRETCH_ATR = float(os.getenv('MAX_BREAKOUT_STRETCH_ATR', '1.75'))  # teyitli kırılımda kovalamama sınırı
 MIN_SETUP_READINESS = float(os.getenv('MIN_SETUP_READINESS', '65'))
@@ -385,33 +392,34 @@ def fast_priority_symbols(symbols, spot_discovery_symbols):
     ), reverse=True)
 
 def market_cap_rankings():
-    """Market-cap rank with persistent cache and provider fallbacks.
+    """Fetch/cache market-cap ranks with explicit coverage and conservative ambiguity handling.
 
-    Uses CoinPaprika first, then CoinCap, then CoinGecko as fallback. A provider failure
-    never prevents scanning; a previous cache is retained. Unknown ranks use
-    the conservative 90+ tier. Symbols with ambiguous duplicate tickers are
-    removed rather than assigned a potentially wrong rank.
+    Symbol-only providers cannot safely disambiguate identical tickers. Ambiguous symbols
+    remain unknown (strict alert/target gates) rather than being assigned a potentially
+    wrong rank. Cache metadata records requested coverage so an old top-800 cache is not
+    mistaken for a complete top-2000 cache.
     """
     now = time.time()
-    cache, cache_ts = {}, 0.0
+    cache, cache_ts, cache_top_n = {}, 0.0, 0
     if MARKET_CAP_CACHE_FILE.exists():
         try:
             raw = json.loads(MARKET_CAP_CACHE_FILE.read_text(encoding='utf-8'))
             cache_ts = float(raw.get('updated_at', 0))
             cache = raw.get('ranks', {}) or {}
+            cache_top_n = int(raw.get('top_n', 0) or 0)
         except Exception:
-            cache, cache_ts = {}, 0.0
-    cache_max_rank = max((int(v) for v in cache.values() if str(v).isdigit()), default=0)
-    if cache and cache_max_rank >= min(MARKET_CAP_TOP_N, 800) and (now - cache_ts) < MARKET_CAP_REFRESH_MINUTES * 60:
+            cache, cache_ts, cache_top_n = {}, 0.0, 0
+    if cache and cache_top_n >= MARKET_CAP_TOP_N and (now - cache_ts) < MARKET_CAP_REFRESH_MINUTES * 60:
+        max_rank = max((int(v) for v in cache.values() if str(v).isdigit()), default=0)
+        print(f'Market-cap önbelleği: {len(cache)} sembol | kapsam=ilk {cache_top_n} | en yüksek kayıtlı sıra=#{max_rank}.')
         return cache, cache_ts, 'cache'
-    if cache and cache_max_rank < min(MARKET_CAP_TOP_N, 800):
-        print(f'Market-cap önbelleği eski kapsamda ({cache_max_rank} sıra); yeni 800+ kapsamı için yenileniyor.')
+    if cache:
+        print(f'Market-cap önbelleği yenileniyor: kayıtlı kapsam ilk {cache_top_n or "bilinmiyor"}; istenen kapsam ilk {MARKET_CAP_TOP_N}.')
 
-    providers = []
-    # CoinGecko API fallback (may deny requests from some cloud IP ranges).
     def get_coingecko():
         out = []
-        for page in range(1, 5):
+        pages = max(1, (MARKET_CAP_TOP_N + 249) // 250)
+        for page in range(1, pages + 1):
             r = requests.get(
                 'https://api.coingecko.com/api/v3/coins/markets',
                 params={'vs_currency':'usd','order':'market_cap_desc','per_page':250,'page':page,'sparkline':'false'},
@@ -426,52 +434,76 @@ def market_cap_rankings():
                        for x in rows if x.get('symbol') and x.get('market_cap_rank') and int(x['market_cap_rank']) <= MARKET_CAP_TOP_N)
         return out
 
-    # CoinPaprika public tickers; ranks are supplied by the API.
     def get_coinpaprika():
         r = requests.get('https://api.coinpaprika.com/v1/tickers', params={'quotes':'USD'},
                          timeout=25, headers={'accept':'application/json','user-agent':'altcoin-alert-scanner/5.0'})
         r.raise_for_status()
         rows = r.json()
-        if not isinstance(rows, list): raise ValueError('CoinPaprika unexpected response')
+        if not isinstance(rows, list):
+            raise ValueError('CoinPaprika unexpected response')
         return [(str(x.get('symbol') or '').upper(), int(x['rank']))
-                for x in rows if x.get('symbol') and x.get('rank') and int(x['rank']) > 0 and int(x['rank']) <= MARKET_CAP_TOP_N]
+                for x in rows if x.get('symbol') and x.get('rank') and 0 < int(x['rank']) <= MARKET_CAP_TOP_N]
 
-    # CoinCap assets endpoint as a separate fallback.
     def get_coincap():
         r = requests.get('https://api.coincap.io/v2/assets', params={'limit':MARKET_CAP_TOP_N},
                          timeout=20, headers={'accept':'application/json','user-agent':'altcoin-alert-scanner/5.0'})
         r.raise_for_status()
-        payload = r.json(); rows = payload.get('data', []) if isinstance(payload, dict) else []
-        if not isinstance(rows, list): raise ValueError('CoinCap unexpected response')
+        payload = r.json()
+        rows = payload.get('data', []) if isinstance(payload, dict) else []
+        if not isinstance(rows, list):
+            raise ValueError('CoinCap unexpected response')
         return [(str(x.get('symbol') or '').upper(), int(x['rank']))
-                for x in rows if x.get('symbol') and x.get('rank') and str(x['rank']).isdigit()]
+                for x in rows if x.get('symbol') and x.get('rank') and str(x['rank']).isdigit()
+                and 0 < int(x['rank']) <= MARKET_CAP_TOP_N]
 
-    # GitHub-hosted runners commonly receive 403 from CoinGecko's public API.
-    # Prefer the providers that worked in the latest deployment; CoinGecko remains
-    # the final fallback instead of adding a predictable 403 to every fresh scan.
     providers = [('coinpaprika', get_coinpaprika), ('coincap', get_coincap), ('coingecko', get_coingecko)]
+    best = None
     for provider_name, fetcher in providers:
         try:
             pairs = fetcher()
-            fresh, collisions = {}, set()
+            grouped = {}
             for sym, rank in pairs:
-                if not sym or rank <= 0: continue
-                if sym in fresh and fresh[sym] != rank:
-                    collisions.add(sym)
+                sym = str(sym or '').strip().upper()
+                try:
+                    rank = int(rank)
+                except (TypeError, ValueError):
+                    continue
+                if sym and 0 < rank <= MARKET_CAP_TOP_N:
+                    grouped.setdefault(sym, set()).add(rank)
+            fresh, collisions = {}, set()
+            for sym, ranks in grouped.items():
+                if len(ranks) == 1:
+                    fresh[sym] = next(iter(ranks))
                 else:
-                    fresh[sym] = rank
-            for sym in collisions: fresh.pop(sym, None)
-            if len(fresh) >= 100:
-                MARKET_CAP_CACHE_FILE.write_text(json.dumps({'updated_at':now,'source':provider_name,'ranks':fresh}, indent=2), encoding='utf-8')
-                print(f'Market-cap kaynağı: {provider_name} | {len(fresh)} sembol sıralandı.')
-                return fresh, now, provider_name
-            print(f'Market-cap {provider_name}: yetersiz veri ({len(fresh)} sembol), yedek kaynağa geçiliyor.')
+                    collisions.add(sym)
+            if len(fresh) < 100:
+                print(f'Market-cap {provider_name}: yetersiz veri ({len(fresh)} tekil sembol), sonraki kaynağa geçiliyor.')
+                continue
+            candidate = (len(fresh), provider_name, fresh, len(collisions), max(fresh.values(), default=0))
+            if best is None or candidate[0] > best[0]:
+                best = candidate
+            print(f'Market-cap {provider_name}: {len(fresh)} tekil sembol; '
+                  f'{len(collisions)} çakışan ticker güvenli biçimde bilinmiyor sayıldı.')
         except Exception as e:
             print(f'Market-cap {provider_name} başarısız: {type(e).__name__}: {str(e)[:180]}')
 
+    if best is not None:
+        _, provider_name, fresh, collision_count, max_rank = best
+        MARKET_CAP_CACHE_FILE.write_text(json.dumps({
+            'updated_at':now, 'source':provider_name, 'top_n':MARKET_CAP_TOP_N,
+            'max_rank_seen':max_rank, 'ambiguous_symbol_count':collision_count, 'ranks':fresh
+        }, indent=2), encoding='utf-8')
+        print(f'Market-cap seçilen kaynak: {provider_name} | {len(fresh)} tekil sembol | '
+              f'kapsam=ilk {MARKET_CAP_TOP_N} | en yüksek tekil sıra=#{max_rank} | '
+              f'ambiguous ticker={collision_count} (bilinmiyor/katı eşik uygulanır).')
+        return fresh, now, provider_name
+
     if cache:
-        print(f'Market-cap: kayıtlı önbellek kullanılıyor ({len(cache)} sembol; güncellik sınırlı olabilir).')
+        print(f'Market-cap: sağlayıcılar başarısız; kayıtlı önbellek kullanılıyor '
+              f'({len(cache)} sembol, kapsam ilk {cache_top_n or "bilinmiyor"}; '
+              f'kapsama girmeyen coinler bilinmiyor/katı eşik kabul edilir).')
         return cache, cache_ts, 'stale-cache'
+    print('Market-cap: kullanılabilir kaynak yok; eşleşmeyen sembollere bilinmiyor için katı eşik uygulanacak.')
     return {}, 0.0, 'unavailable'
 
 def market_cap_rank_for_symbol(symbol, rankings):
@@ -509,21 +541,24 @@ def target_move_pct(x):
     return abs(target / entry - 1.0) * 100.0
 
 def calculate_target_confidence(x):
-    """Heuristic target-reach confidence score (0-100), NOT a probability."""
+    """Heuristic setup-strength score (0-100), NOT target-hit probability.
+
+    setup_quality is intentionally excluded because it is itself composed from
+    directional confidence, entry quality, and readiness. This avoids double-counting
+    the same inputs as if they were independent evidence.
+    """
     directional = clamp(float(x.get('directional_confidence', 0.0)))
     entry_q = clamp(float(x.get('entry_quality', 0.0)))
     readiness = clamp(float(x.get('readiness', 0.0)))
     potential = clamp(float(x.get('move_potential', 0.0)))
-    setup_q = clamp(float(x.get('setup_quality', 0.0)))
     rr = float(x.get('rr', 0.0) or 0.0)
     rr_component = clamp((rr / 2.5) * 100.0)
     phase_component = 100.0 if x.get('phase') == 'BREAKOUT_RETEST' else 88.0 if x.get('phase') == 'BREAKOUT_STARTED' else 72.0
     if x.get('overextended', False):
         phase_component *= 0.45
     return round(clamp(
-        0.24 * directional + 0.22 * entry_q + 0.18 * readiness +
-        0.18 * potential + 0.10 * setup_q + 0.05 * rr_component +
-        0.03 * phase_component
+        0.28 * directional + 0.25 * entry_q + 0.20 * readiness +
+        0.17 * potential + 0.07 * rr_component + 0.03 * phase_component
     ), 1)
 
 def alert_gate_for_rank(score, market_cap_rank):
@@ -929,35 +964,38 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
     price1 = max(float(c1.close), 1e-12)
     price4 = max(float(c4.close), 1e-12)
 
-    # Forward structural room: look only at confirmed/closed highs/lows ABOVE
-    # the entry for LONG (BELOW for SHORT). The nearest barrier is the first
-    # realistic objective; the wider envelope measures whether the move can
-    # plausibly expand beyond that objective.
+    # Forward structural room: use only meaningful closed-candle barriers at
+    # least MIN_BARRIER_DISTANCE_ATR away. Tiny nearby highs/lows are noise,
+    # not useful evidence that the market has no room to move.
     h1_closed = df1.iloc[:-1] if len(df1) > 1 else df1
     h4_closed = df4.iloc[:-1] if len(df4) > 1 else df4
+    atr_unit = max(atr1, atr4 * (price1 / price4), 1e-12)
+    min_barrier_gap = MIN_BARRIER_DISTANCE_ATR * atr_unit
     if direction == 'LONG':
-        barriers1 = [float(v) for v in h1_closed.high if float(v) > entry * 1.002]
-        barriers4 = [float(v) for v in h4_closed.high if float(v) > entry * 1.005]
+        barriers1 = [float(v) for v in h1_closed.high if float(v) - entry >= min_barrier_gap]
+        barriers4 = [float(v) for v in h4_closed.high if float(v) - entry >= min_barrier_gap]
         near_room1 = min(barriers1) - entry if barriers1 else 0.0
         near_room4 = min(barriers4) - entry if barriers4 else 0.0
         far_room1 = max(barriers1) - entry if barriers1 else 0.0
         far_room4 = max(barriers4) - entry if barriers4 else 0.0
     else:
-        barriers1 = [float(v) for v in h1_closed.low if float(v) < entry * 0.998]
-        barriers4 = [float(v) for v in h4_closed.low if float(v) < entry * 0.995]
+        barriers1 = [float(v) for v in h1_closed.low if entry - float(v) >= min_barrier_gap]
+        barriers4 = [float(v) for v in h4_closed.low if entry - float(v) >= min_barrier_gap]
         near_room1 = entry - max(barriers1) if barriers1 else 0.0
         near_room4 = entry - max(barriers4) if barriers4 else 0.0
         far_room1 = entry - min(barriers1) if barriers1 else 0.0
         far_room4 = entry - min(barriers4) if barriers4 else 0.0
 
-    # The nearest meaningful overhead/underfoot barrier matters first. Using
-    # the farther of 1h and 4h nearest barriers overstates immediately available
-    # room; choose the nearest positive barrier and keep the wider envelope
-    # separately as expansion potential.
     positive_near_rooms = [v for v in (near_room1, near_room4) if v > 0]
     near_room = min(positive_near_rooms) if positive_near_rooms else 0.0
     far_room = max(far_room1, far_room4)
-    atr_unit = max(atr1, atr4 * (price1 / price4), 1e-12)
+    open_air_fallback = not barriers1 and not barriers4
+    # When price is beyond all meaningful historical barriers, do not score
+    # the setup as having zero room. Use a bounded 3-ATR proxy for ranking only;
+    # this does NOT move TP3 or claim that 3 ATR is guaranteed.
+    if open_air_fallback:
+        near_room = OPEN_AIR_ROOM_ATR * atr_unit
+        far_room = OPEN_AIR_ROOM_ATR * atr_unit
     near_room_atr = near_room / atr_unit
     far_room_atr = far_room / atr_unit
 
@@ -1048,6 +1086,7 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
             'entry_quality':round(entry_quality,1),'move_potential':round(move_potential,1),'early_move_score':round(early_move,1),
             'modeled_move_pct':round(float(modeled_room_pct),2),
             'forward_room_atr':round(float(far_room_atr),2),
+            'open_air_fallback':bool(open_air_fallback),
             'near_room_atr':round(float(near_room_atr),2),
             'room_score':round(float(room_score),1),
             'expansion_score':round(float(expansion_score),1),
@@ -1410,16 +1449,16 @@ def render_signal_card(x, ctx):
             txt((xx+115, yy-4), val, f_value, trend_color(val))
 
     # One holistic score + exact trigger distance; percentage is not presented as win probability.
-    section(354, 'İŞLEM KALİTESİ VE HEDEF GÜVENİ')
+    section(354, 'İŞLEM KALİTESİ / POTANSİYEL')
     card((m, 392, W-m, 520), fill=panel, radius=20)
     txt((m+24, 410), f"{float(x['score']):.1f}/100", f_big, accent)
     status = 'KIRILIM TEYİTLİ' if x['phase'] in ('BREAKOUT_STARTED','BREAKOUT_RETEST') else 'TETİK BEKLENİYOR'
     status_color = accent if x['phase'] in ('BREAKOUT_STARTED','BREAKOUT_RETEST') else yellow
     txt((m+390, 412), status, _font(23, True), status_color)
     prog = float(x.get('level_progress', 0.0))
-    txt((m+390, 451), f'Hedef güven skoru: {float(x.get("target_confidence", 0)):.0f}/100', f_sub, white)
+    txt((m+390, 451), f'Kurulum gücü: {float(x.get("target_confidence", 0)):.0f}/100', f_sub, white)
     txt((m+390, 480), f'TP3 fiyat hareketi: {float(x.get("target_move_pct", target_move_pct(x))):.2f}%', f_small, accent)
-    txt((m+24, 475), f"Potansiyel: {float(x.get('move_potential',0)):.0f}/100 | Libra: {'VAR' if x.get('libra_match') else 'YOK'} | SAR: {'ONAY' if x.get('sar_ok') else 'ZAYIF'}", f_small, muted)
+    txt((m+24, 475), f"Pot {float(x.get('move_potential',0)):.0f} | Libra {'+' if x.get('libra_match') else '-'} | SAR {'+' if x.get('sar_ok') else '-'}", f_small, muted)
 
     # Entry / stop levels
     section(542, 'GİRİŞ PLANI')
@@ -1602,6 +1641,17 @@ def record_sent_signal(x):
         'trigger': float(x.get('trigger', x['entry'])),
         'move_potential': float(x.get('move_potential', 0.0)),
         'modeled_move_pct': float(x.get('modeled_move_pct', 0.0)),
+        'target_move_pct': float(x.get('target_move_pct', target_move_pct(x))),
+        'target_confidence': float(x.get('target_confidence', 0.0)),
+        'market_cap_rank': int(x.get('market_cap_rank', 9999)),
+        'market_cap_rank_known': bool(x.get('market_cap_rank_known', False)),
+        'market_cap_label': str(x.get('market_cap_label', 'unknown')),
+        'target_method': str(x.get('target_method', 'unknown')),
+        'forward_room_atr': float(x.get('forward_room_atr', 0.0)),
+        'near_room_atr': float(x.get('near_room_atr', 0.0)),
+        'open_air_fallback': bool(x.get('open_air_fallback', False)),
+        'setup_quality': float(x.get('setup_quality', 0.0)),
+        'min_target_move_pct': float(x.get('min_target_move_pct', MIN_ACTIONABLE_TARGET_MOVE_PCT)),
         'directional_confidence': float(x.get('directional_confidence', 0.0)),
         'entry_quality': float(x.get('entry_quality', 0.0)),
         'spot_momentum_bonus': float(x.get('spot_momentum_bonus', 0.0)),
@@ -1621,7 +1671,7 @@ def write_diagnostic(all_results, ctx, spot_results=None, error_counts=None, sou
              f"ETH4h={ctx['eth']['4h']} ETH1h={ctx['eth']['1h']} | "
              f"perp_taranan={len(all_results)} | en_iyi={best} | marketcap={source} ==="]
     for r in top:
-        lines.append(f"PERP {r['symbol']:20} {r['direction']:5} phase={r.get('phase','?'):16} score={r['score']:5.1f} pot={r.get('move_potential',0):4.1f} target_move={r.get('target_move_pct',0):.2f}% target_min={r.get('min_target_move_pct',0):.2f}% target_conf={r.get('target_confidence',0):.0f}/100 spot_bonus={r.get('spot_momentum_bonus',0):.1f} modeled_move={r.get('modeled_move_pct',0):.2f}% near_room={r.get('near_room_atr',0):.2f}ATR far_room={r.get('forward_room_atr',0):.2f}ATR early={r.get('early_move_score',0):4.1f} rr_internal={r['rr']:.2f} rel1h={r.get('relative_1h',0):+.2f} rel4h={r.get('relative_4h',0):+.2f} mc=#{r.get('market_cap_rank',9999):4d} rank_known={r.get('market_cap_rank_known',False)} gate={r.get('alert_threshold',90):.0f} valid={r.get('setup_valid',False)} qv={r.get('quote_volume_24h',0):.0f} reject={r.get('gate_reason','')}")
+        lines.append(f"PERP {r['symbol']:20} {r['direction']:5} phase={r.get('phase','?'):16} score={r['score']:5.1f} pot={r.get('move_potential',0):4.1f} target_move={r.get('target_move_pct',0):.2f}% target_min={r.get('min_target_move_pct',0):.2f}% setup_strength={r.get('target_confidence',0):.0f}/100 spot_bonus={r.get('spot_momentum_bonus',0):.1f} modeled_move={r.get('modeled_move_pct',0):.2f}% near_room={r.get('near_room_atr',0):.2f}ATR far_room={r.get('forward_room_atr',0):.2f}ATR early={r.get('early_move_score',0):4.1f} rr_internal={r['rr']:.2f} rel1h={r.get('relative_1h',0):+.2f} rel4h={r.get('relative_4h',0):+.2f} mc=#{r.get('market_cap_rank',9999):4d} rank_known={r.get('market_cap_rank_known',False)} gate={r.get('alert_threshold',90):.0f} valid={r.get('setup_valid',False)} qv={r.get('quote_volume_24h',0):.0f} reject={r.get('gate_reason','')}")
     for r in (spot_results or [])[:10]:
         lines.append(f"SPOT {r['symbol']:20} {r['direction']:15} 15m={r['change_15m']:+.2f}% 1h={r['change_1h']:+.2f}% 24h={r['change_24h']:+.2f}% vol={r['volume_ratio']:.2f}x swap={r['swap_available']} discovery={r.get('discovery_candidate',False)}")
     for r in (missed_candidates or [])[:20]:
@@ -1715,7 +1765,7 @@ def diagnostic_rejection_reasons(x):
         reasons.append(
             f"TP3 MESAFESİ {float(x.get('target_move_pct', 0)):.2f}% "
             f"< GEREKEN {float(x.get('min_target_move_pct', 0)):.2f}% veya "
-            f"HEDEF GÜVEN {float(x.get('target_confidence', 0)):.0f}/100 "
+            f"KURULUM GÜCÜ {float(x.get('target_confidence', 0)):.0f}/100 "
             f"< {MIN_TARGET_CONFIDENCE:.0f}"
         )
     if not reasons:
@@ -1723,7 +1773,7 @@ def diagnostic_rejection_reasons(x):
     return reasons
 
 def main():
-    print('=== ALTCOIN ALERT SCANNER V13.6.1 — DIAGNOSTIC LOGGING ONLY (STRATEGY UNCHANGED) ===')
+    print('=== ALTCOIN ALERT SCANNER V13.8 — TARGET QUALITY + MARKET-CAP COVERAGE + DIAGNOSTICS ===')
     scan_started = time.monotonic()
     ctx = market_context()
     print(f"BTC 4h={ctx['btc']['4h']} 1h={ctx['btc']['1h']} | ETH 4h={ctx['eth']['4h']} 1h={ctx['eth']['1h']}")
@@ -1733,11 +1783,16 @@ def main():
     cache_age_min = max(0.0, (time.time() - float(market_cap_updated_at)) / 60.0) if market_cap_updated_at else None
     known_rank_bases = {str(k).upper() for k in market_caps}
     all_bases = {str(s).split('/')[0].upper() for s in all_symbols}
+    known_market_bases = all_bases & known_rank_bases
+    unknown_market_bases = all_bases - known_rank_bases
+    print(f'Market-cap eşleşmesi: kaynak={market_cap_source} | MEXC aktif baz={len(all_bases)} | '
+          f'eşleşen={len(known_market_bases)} | bilinmeyen/ambiguous={len(unknown_market_bases)} | '
+          f'kapsam=ilk {MARKET_CAP_TOP_N}; bilinmeyenlerde 90+ skor ve {MIN_TARGET_MOVE_UNKNOWN:.1f}% hedef tabanı.')
     known_rank_count = len(all_bases & known_rank_bases)
     unknown_rank_count = len(all_bases - known_rank_bases)
     cache_age_text = f"{cache_age_min:.0f} dk" if cache_age_min is not None else "bilinmiyor"
     print(f'Market-cap kaynağı: {market_cap_source} | önbellek/veri yaşı: {cache_age_text} | sırası bilinen vadeli coin: {known_rank_count}/{len(all_bases)} | sırası bilinmeyen: {unknown_rank_count}')
-    print('Skor eşiği: 1-500=>80+, 501-800=>85+, 801+ / bilinmiyor=>90+ | hedef filtresi: rank bazlı TP3 + hedef güven skoru (strateji eşikleri değişmedi)')
+    print(f'Skor eşiği: 1-500=>80+, 501-800=>85+, 801+ / bilinmiyor=>90+ | market-cap kapsamı ilk {MARKET_CAP_TOP_N} | TP3 alt sınırı={MIN_ACTIONABLE_TARGET_MOVE_PCT:.1f}% | kurulum gücü eşiği={MIN_TARGET_CONFIDENCE:.0f}')
 
     # Spot discovers unusual movers first; the corresponding perpetual contract
     # is then analyzed with futures candles and futures prices, never spot prices.
@@ -1795,8 +1850,13 @@ def main():
         x['market_cap_rank_known'] = market_cap_rank_known(s, market_caps)
         x['alert_eligible'], x['alert_threshold'] = alert_gate_for_rank(x['score'], x['market_cap_rank'])
         x['target_move_pct'] = target_move_pct(x)
-        x['min_target_move_pct'] = minimum_target_move_for_rank(
+        tier_min_target = minimum_target_move_for_rank(
             x['market_cap_rank'], x['market_cap_rank_known'])
+        x['tier_min_target_move_pct'] = tier_min_target
+        # Global floor prevents 1-2% TP3 alerts even for top market-cap coins.
+        # Never stretch TP3 artificially: if the modeled/structural target is
+        # closer than this floor, target_gate_ok will reject the setup.
+        x['min_target_move_pct'] = max(MIN_ACTIONABLE_TARGET_MOVE_PCT, tier_min_target)
         x['target_confidence'] = calculate_target_confidence(x)
         x['target_gate_ok'] = (
             x['target_move_pct'] >= x['min_target_move_pct'] and
@@ -1845,7 +1905,7 @@ def main():
                             (f'SPOT KEŞİF LİKİDİTE FİLTRESİ (spot>={MIN_SPOT_24H_VOLUME:,.0f}, vadeli>={MIN_SPOT_DISCOVERY_PERP_VOLUME:,.0f})' if x.get('spot_discovered') else f'LIKIDITE<{MIN_ALERT_24H_VOLUME:,.0f} USDT') if not liquidity_ok else
                             'ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ' if not setup_ok else
                             'SKOR/EŞİK' if not x['alert_eligible'] else
-                            f'HEDEF MESAFESİ/GÜVENİ YETERSİZ (TP3={x["target_move_pct"]:.1f}%, min={x["min_target_move_pct"]:.1f}%, hedef güven skoru={x["target_confidence"]:.0f}/100)' if not x['target_gate_ok'] else
+                            f'HEDEF MESAFESİ/KURULUM GÜCÜ YETERSİZ (TP3={x["target_move_pct"]:.1f}%, min={x["min_target_move_pct"]:.1f}%, kurulum gücü={x["target_confidence"]:.0f}/100)' if not x['target_gate_ok'] else
                             'HEDEF/STOP GEOMETRİSİ UYGUN DEĞİL')
         if x['alert_eligible'] and rr_ok and setup_ok and liquidity_ok and x['target_gate_ok']:
             t = tier(x)
@@ -1902,6 +1962,10 @@ def main():
     )
     missed_candidates = collect_missed_candidates(all_symbols, analyzed_symbol_set, all_results, spot_results)
     write_diagnostic(all_results, ctx, spot_results, error_counts, market_cap_source, missed_candidates, data_skips)
+    trade_results = [r for r in all_results if r.get('symbol') not in ('BTC/USDT:USDT', 'ETH/USDT:USDT')]
+    target_distance_rejects = sum(1 for r in trade_results if r.get('target_move_pct', 0.0) < r.get('min_target_move_pct', MIN_ACTIONABLE_TARGET_MOVE_PCT))
+    target_confidence_rejects = sum(1 for r in trade_results if r.get('target_confidence', 0.0) < MIN_TARGET_CONFIDENCE)
+    print(f"HEDEF FİLTRESİ: evrensel TP3 alt sınırı={MIN_ACTIONABLE_TARGET_MOVE_PCT:.1f}%; hedef mesafesi nedeniyle elenecek aday={target_distance_rejects}; kurulum gücü eşiğinin altında={target_confidence_rejects}; uygun hedef yoksa hedef uzağa taşınmaz.")
     top = sorted(
         [r for r in all_results if r.get('symbol') not in ('BTC/USDT:USDT', 'ETH/USDT:USDT')],
         key=lambda r: r['score'], reverse=True
@@ -1917,7 +1981,7 @@ def main():
                 f"(rank_biliniyor={x.get('market_cap_rank_known', False)}) | "
                 f"TP3_fiyat_mesafesi={x.get('target_move_pct',0):.2f}% "
                 f"gerekli_min={x.get('min_target_move_pct',0):.2f}% | "
-                f"hedef_güven_skoru={x.get('target_confidence',0):.0f}/100 "
+                f"kurulum_gücü={x.get('target_confidence',0):.0f}/100 "
                 f"(min={MIN_TARGET_CONFIDENCE:.0f}) | R:R={float(x.get('rr',0) or 0):.2f} "
                 f"| faz={x.get('phase','?')} | geçerli={x.get('setup_valid',False)}"
             )
