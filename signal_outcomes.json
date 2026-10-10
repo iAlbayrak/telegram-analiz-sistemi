@@ -2021,7 +2021,7 @@
     "activated": false,
     "signal_ts_ms": 1791475749226,
     "status": "OPEN",
-    "last_checked_ms": 1791624207362
+    "last_checked_ms": 1791625209324
   },
   {
     "symbol": "AR/USDT:USDT",
@@ -2055,7 +2055,7 @@
     "activated": false,
     "signal_ts_ms": 1791475751502,
     "status": "OPEN",
-    "last_checked_ms": 1791624207362
+    "last_checked_ms": 1791625209324
   },
   {
     "symbol": "HOT/USDT:USDT",
@@ -2125,7 +2125,7 @@
     "activated": false,
     "signal_ts_ms": 1791475758635,
     "status": "OPEN",
-    "last_checked_ms": 1791624207362
+    "last_checked_ms": 1791625209324
   },
   {
     "symbol": "CFG/USDT:USDT",
@@ -2141,7 +2141,7 @@
     "activated": false,
     "signal_ts_ms": 1791475759624,
     "status": "OPEN",
-    "last_checked_ms": 1791624207362
+    "last_checked_ms": 1791625209324
   },
   {
     "symbol": "POLYX/USDT:USDT",
@@ -2625,7 +2625,7 @@
     "activated": false,
     "signal_ts_ms": 1791544962600,
     "status": "OPEN",
-    "last_checked_ms": 1791624207362
+    "last_checked_ms": 1791625209324
   },
   {
     "symbol": "UNI/USDT:USDT",
@@ -2875,7 +2875,7 @@
     "activated": false,
     "signal_ts_ms": 1791555073529,
     "status": "OPEN",
-    "last_checked_ms": 1791624207362
+    "last_checked_ms": 1791625209324
   },
   {
     "symbol": "AZTEC/USDT:USDT",
@@ -2891,7 +2891,7 @@
     "activated": false,
     "signal_ts_ms": 1791555074689,
     "status": "OPEN",
-    "last_checked_ms": 1791624207362
+    "last_checked_ms": 1791625209324
   },
   {
     "symbol": "XMR/USDT:USDT",
@@ -3069,7 +3069,7 @@
     "activated": false,
     "signal_ts_ms": 1791602655914,
     "status": "OPEN",
-    "last_checked_ms": 1791624207362
+    "last_checked_ms": 1791625209324
   },
   {
     "symbol": "DEBIT/USDT:USDT",
@@ -3103,7 +3103,7 @@
     "activated": false,
     "signal_ts_ms": 1791607336848,
     "status": "OPEN",
-    "last_checked_ms": 1791624207362
+    "last_checked_ms": 1791625209324
   },
   {
     "symbol": "PIEVERSE/USDT:USDT",
@@ -3119,6 +3119,36 @@
     "activated": false,
     "signal_ts_ms": 1791613428754,
     "status": "OPEN",
-    "last_checked_ms": 1791624207362
+    "last_checked_ms": 1791625209324
+  },
+  {
+    "symbol": "SUPER/USDT:USDT",
+    "direction": "SHORT",
+    "score": 82.0,
+    "entry": 0.2184162769158173,
+    "stop": 0.22090563093620214,
+    "tp1": 0.21592692289543247,
+    "tp2": 0.21468224588524004,
+    "tp3": 0.21293969807097068,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.2184162769158173,
+    "activated": false,
+    "signal_ts_ms": 1791625211020,
+    "status": "OPEN"
+  },
+  {
+    "symbol": "RUNE/USDT:USDT",
+    "direction": "SHORT",
+    "score": 80.3,
+    "entry": 0.688523266456507,
+    "stop": 0.6927648715003386,
+    "tp1": 0.6842816614126753,
+    "tp2": 0.6821608588907595,
+    "tp3": 0.6709,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.688523266456507,
+    "activated": false,
+    "signal_ts_ms": 1791625212155,
+    "status": "OPEN"
   }
 ]
