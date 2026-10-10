@@ -1,5 +1,5 @@
 """
-V13.2 bütünsel skor + güvenilir veri yedeği + Libra/SAR teyidi + retest koruması + paralel derin tarama -- BULUTTA çalışır (GitHub Actions),
+V13.5 bütünsel skor düzeltmesi + kırılım/retest mantık onarımı + potansiyel puanı + canlı giriş koruması -- BULUTTA çalışır (GitHub Actions),
 telefondaki/bilgisayardaki hiçbir şeye bağımlı değil. Mevcut MEXC trading
 bot'unuzdan TAMAMEN bağımsızdır -- hiçbir dosyasını içe aktarmaz, hiçbir
 emir göndermez. Sadece MEXC'nin herkese açık (public) piyasa verisini
@@ -77,7 +77,8 @@ ALERT_MIN_SCORE      = float(os.getenv('ALERT_MIN_SCORE', '80'))   # base techni
 MARKET_CAP_CACHE_FILE = Path(os.getenv('MARKET_CAP_CACHE_FILE', 'market_cap_cache.json'))
 MARKET_CAP_REFRESH_MINUTES = int(os.getenv('MARKET_CAP_REFRESH_MINUTES', '360'))
 MARKET_CAP_TOP_N = 800
-EARLY_TRIGGER_MAX_ATR = float(os.getenv('EARLY_TRIGGER_MAX_ATR', '1.25'))
+EARLY_TRIGGER_MAX_ATR = float(os.getenv('EARLY_TRIGGER_MAX_ATR', '1.25'))  # kırılım öncesi seviyeye yakınlık
+MAX_BREAKOUT_STRETCH_ATR = float(os.getenv('MAX_BREAKOUT_STRETCH_ATR', '1.75'))  # teyitli kırılımda kovalamama sınırı
 MIN_SETUP_READINESS = float(os.getenv('MIN_SETUP_READINESS', '65'))
 SLEEP_BETWEEN_COINS  = float(os.getenv('SLEEP_BETWEEN_COINS', '0.0'))
 SCAN_WORKERS = max(1, min(4, int(os.getenv('SCAN_WORKERS', '2'))))
@@ -235,7 +236,10 @@ def _fetch_ohlcv_rate_limited(ex, symbol, timeframe, limit):
                 if wait > 0:
                     time.sleep(wait)
                 _LAST_MEXC_REQUEST_AT = time.monotonic()
-                return ex.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+            # Reserve a globally paced request slot, then release the lock while
+            # the network call runs. Thread-local CCXT clients can now overlap
+            # safely instead of serializing the entire scan behind one HTTP call.
+            return ex.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
         except ccxt.RateLimitExceeded as exc:
             last_error = exc
             if attempt >= MEXC_RATE_LIMIT_RETRIES:
@@ -710,7 +714,9 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
     sup, res = structure_levels(df15)
     atr = max(float(c.atr), ref_price*0.0001)
     atr_pct = float(c.atr_pct)
-    local = df15.iloc[-22:-2]
+    # Exclude the two most recent closed candles so a prior candle can confirm
+    # a level break and the latest closed candle can form a genuine retest.
+    local = df15.iloc[-23:-3]
     if len(local) < 10:
         raise InsufficientCandleDataError('Yeterli kapalı mum yok: yapı seviyeleri hesaplanamadı')
     local_res = float(local.high.max())
@@ -729,6 +735,7 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
     libra = _libra_pattern_score(df15, direction, atr)
     sar_score, sar_ok, sar_flip = _sar_confirmation(df15, direction)
 
+    prev_closed = df15.iloc[-3]
     if direction == 'LONG':
         trigger = local_res + 0.10*atr
         dist_atr = (local_res-ref_price)/atr
@@ -737,15 +744,22 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
         broken = (ref_price > trigger and float(c.volume_ratio) >= BREAKOUT_MIN_VOLUME_RATIO and
                   body_ratio >= BREAKOUT_MIN_BODY_RATIO and float(c.close) > float(c.open))
         trend_ok = ref_price >= float(c.ema20) and float(df1.iloc[-2].close) >= float(df1.iloc[-2].ema20)
-        early_trend_ok = trend_ok
-        if broken:
+        emerging_trend_ok = (float(c.ema20) >= float(df15.iloc[-6].ema20) and
+                             float(df1.iloc[-2].ema20) >= float(df1.iloc[-6].ema20))
+        early_trend_ok = trend_ok or (emerging_trend_ok and early_move >= 58.0)
+        prior_break = (float(prev_closed.close) > trigger and
+                       float(prev_closed.volume_ratio) >= BREAKOUT_MIN_VOLUME_RATIO)
+        retest_touch = float(c.low) <= trigger + 0.20*atr
+        retest_close = ref_price > trigger and float(c.close) >= float(c.open)
+        if prior_break and retest_touch and retest_close and float(c.volume_ratio) >= 0.95:
+            phase = 'BREAKOUT_RETEST'
+            entry = ref_price
+            stretch_atr = abs(ref_price-trigger)/max(atr,1e-12)
+        elif broken:
             phase = 'BREAKOUT_STARTED'
             entry = ref_price
             stretch_atr = max((ref_price-trigger)/atr, 0.0)
-        emerging_trend_ok = (float(c.ema20) >= float(df15.iloc[-6].ema20) and
-                              float(df1.iloc[-2].ema20) >= float(df1.iloc[-6].ema20))
-        early_trend_ok = trend_ok or (emerging_trend_ok and early_move >= 58.0)
-        if 0 <= dist_atr <= EARLY_TRIGGER_MAX_ATR and early_trend_ok:
+        elif 0 <= dist_atr <= EARLY_TRIGGER_MAX_ATR and early_trend_ok:
             phase = 'PRE_BREAKOUT'
             entry = trigger
             stretch_atr = 0.0
@@ -761,15 +775,22 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
         broken = (ref_price < trigger and float(c.volume_ratio) >= BREAKOUT_MIN_VOLUME_RATIO and
                   body_ratio >= BREAKOUT_MIN_BODY_RATIO and float(c.close) < float(c.open))
         trend_ok = ref_price <= float(c.ema20) and float(df1.iloc[-2].close) <= float(df1.iloc[-2].ema20)
-        early_trend_ok = trend_ok
-        if broken:
+        emerging_trend_ok = (float(c.ema20) <= float(df15.iloc[-6].ema20) and
+                             float(df1.iloc[-2].ema20) <= float(df1.iloc[-6].ema20))
+        early_trend_ok = trend_ok or (emerging_trend_ok and early_move >= 58.0)
+        prior_break = (float(prev_closed.close) < trigger and
+                       float(prev_closed.volume_ratio) >= BREAKOUT_MIN_VOLUME_RATIO)
+        retest_touch = float(c.high) >= trigger - 0.20*atr
+        retest_close = ref_price < trigger and float(c.close) <= float(c.open)
+        if prior_break and retest_touch and retest_close and float(c.volume_ratio) >= 0.95:
+            phase = 'BREAKOUT_RETEST'
+            entry = ref_price
+            stretch_atr = abs(ref_price-trigger)/max(atr,1e-12)
+        elif broken:
             phase = 'BREAKOUT_STARTED'
             entry = ref_price
             stretch_atr = max((trigger-ref_price)/atr, 0.0)
-        emerging_trend_ok = (float(c.ema20) <= float(df15.iloc[-6].ema20) and
-                              float(df1.iloc[-2].ema20) <= float(df1.iloc[-6].ema20))
-        early_trend_ok = trend_ok or (emerging_trend_ok and early_move >= 58.0)
-        if 0 <= dist_atr <= EARLY_TRIGGER_MAX_ATR and early_trend_ok:
+        elif 0 <= dist_atr <= EARLY_TRIGGER_MAX_ATR and early_trend_ok:
             phase = 'PRE_BREAKOUT'
             entry = trigger
             stretch_atr = 0.0
@@ -778,19 +799,14 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
             entry = trigger
             stretch_atr = max((trigger-ref_price)/atr, 0.0)
 
-    # A confirmed breakout followed by a controlled retest is preferred over chasing.
-    prev_closed = df15.iloc[-3]
-    if phase == 'PRE_BREAKOUT' and len(df15) >= 5:
-        # The previous closed candle must have broken the trigger; the latest
-        # candle may then retest it and close back in the intended direction.
-        prior_break = (float(prev_closed.close) > trigger and float(prev_closed.volume_ratio) >= BREAKOUT_MIN_VOLUME_RATIO) if direction=='LONG' else (float(prev_closed.close) < trigger and float(prev_closed.volume_ratio) >= BREAKOUT_MIN_VOLUME_RATIO)
-        retest_touch = ((float(c.low) <= trigger + 0.20*atr) if direction=='LONG' else (float(c.high) >= trigger - 0.20*atr))
-        retest_close = (ref_price > trigger and float(c.close) >= float(c.open)) if direction=='LONG' else (ref_price < trigger and float(c.close) <= float(c.open))
-        if prior_break and retest_touch and retest_close and float(c.volume_ratio) >= 0.95:
-            phase = 'BREAKOUT_RETEST'; entry = ref_price; stretch_atr = abs(ref_price-trigger)/max(atr,1e-12)
-
-    # A breakout that has already run too far is not an entry signal.
-    overextended = stretch_atr > EARLY_TRIGGER_MAX_ATR
+    # Use separate thresholds: pre-breakout proximity is not the same as
+    # confirmed-breakout extension. A valid retest gets the stricter retest band.
+    if phase == 'BREAKOUT_RETEST':
+        overextended = stretch_atr > RETEST_MAX_ATR
+    elif phase == 'BREAKOUT_STARTED':
+        overextended = stretch_atr > MAX_BREAKOUT_STRETCH_ATR
+    else:
+        overextended = False
     stop_mult = clamp(2.0+(0.4 if c.adx<22 else 0)+(0.25 if atr_pct>0.035 else 0),2.0,2.8)
     atr_stop = entry - stop_mult*atr if direction=='LONG' else entry + stop_mult*atr
     # Use a nearby structure invalidation when it is neither too tight nor too wide.
@@ -880,16 +896,21 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
         far_room1 = entry - min(barriers1) if barriers1 else 0.0
         far_room4 = entry - min(barriers4) if barriers4 else 0.0
 
-    near_room = max(near_room1, near_room4)
+    # The nearest meaningful overhead/underfoot barrier matters first. Using
+    # the farther of 1h and 4h nearest barriers overstates immediately available
+    # room; choose the nearest positive barrier and keep the wider envelope
+    # separately as expansion potential.
+    positive_near_rooms = [v for v in (near_room1, near_room4) if v > 0]
+    near_room = min(positive_near_rooms) if positive_near_rooms else 0.0
     far_room = max(far_room1, far_room4)
-    near_room_atr = near_room / max(atr1, atr4 * (price1 / price4), 1e-12)
-    far_room_atr = far_room / max(atr1, atr4 * (price1 / price4), 1e-12)
+    atr_unit = max(atr1, atr4 * (price1 / price4), 1e-12)
+    near_room_atr = near_room / atr_unit
+    far_room_atr = far_room / atr_unit
 
-    # Do not reward unlimited historical room. Cap the normalized room at a
-    # practical range; the score is an opportunity-quality ranking, not a
-    # promise that price will travel the whole distance.
+    # Wider forward room raises potential; a nearby barrier lowers it. This is
+    # an opportunity ranking, not a promise that price will travel the distance.
     room_score = clamp(25.0 + 16.0 * min(far_room_atr, 5.0), 0.0, 100.0)
-    near_room_score = clamp(100.0 - 22.0 * max(near_room_atr - 0.5, 0.0), 35.0, 100.0)
+    near_room_score = clamp(25.0 + 18.0 * min(near_room_atr, 4.0), 25.0, 97.0)
     expansion_score = clamp(
         0.35 * early_move +
         0.25 * clamp((float(c.volume_ratio) - 0.8) / 1.7 * 100.0, 0.0, 100.0) +
@@ -907,7 +928,7 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
     atr_pct_base = max(float(c.atr_pct), float(c1.atr_pct), float(c4.atr_pct), 1e-6)
     modeled_room_pct = max(
         far_room / max(entry, 1e-12) * 100.0,
-        atr_pct_base * min(max(2.5, far_room_atr * 0.65), 7.0)
+        atr_pct_base * 100.0 * min(max(2.5, far_room_atr * 0.65), 7.0)
     )
     # Early formation is still important: a huge historical room without an
     # active catalyst should not become an elite score.
@@ -1056,13 +1077,19 @@ def spot_early_radar(swap_symbols, market_caps):
             continue
         pool.append({'symbol':sym,'base':base,'quote_volume':qv,'pct24':pct,'last':last})
 
-    # Every spot USDT pair above the spot-liquidity floor is checked; there is
-    # no fixed 40-coin cap. A nonzero env override can cap OHLCV work if needed.
+    # Every eligible spot ticker is inspected. For expensive OHLCV work, scan
+    # the dynamic top movers, the dynamic top-volume group, and EVERY coin that
+    # has moved at least +/-5% in 24h. This is not a fixed coin-count cap; it
+    # avoids spending most of the run on quiet spot pairs while preserving the
+    # large-mover discovery goal. A nonzero env override can impose an explicit cap.
     by_move = sorted(pool, key=lambda x: abs(x['pct24']), reverse=True)
     mover_count = max(1, int(np.ceil(len(by_move) * clamp(SPOT_RELATIVE_MOVER_SHARE, 0.05, 1.0)))) if by_move else 0
     relative_mover_symbols = {x['symbol'] for x in by_move[:mover_count]}
+    by_volume = sorted(pool, key=lambda x: x['quote_volume'], reverse=True)
+    volume_count = max(1, int(np.ceil(len(by_volume) * 0.20))) if by_volume else 0
+    top_volume_symbols = {x['symbol'] for x in by_volume[:volume_count]}
+    forced_movers = {x['symbol'] for x in pool if abs(x['pct24']) >= 5.0}
     if SPOT_RADAR_MAX_CANDIDATES > 0 and len(pool) > SPOT_RADAR_MAX_CANDIDATES:
-        by_volume = sorted(pool, key=lambda x: x['quote_volume'], reverse=True)
         limit = SPOT_RADAR_MAX_CANDIDATES
         move_quota = (limit + 1) // 2
         volume_quota = limit // 2
@@ -1074,18 +1101,20 @@ def spot_early_radar(swap_symbols, market_caps):
                     break
         candidates = list(selected.values())[:limit]
     else:
-        candidates = sorted(pool, key=lambda x: (abs(x['pct24']), x['quote_volume']), reverse=True)
+        selected_symbols = relative_mover_symbols | top_volume_symbols | forced_movers
+        candidates = [x for x in pool if x['symbol'] in selected_symbols]
+        candidates.sort(key=lambda x: (abs(x['pct24']), x['quote_volume']), reverse=True)
     out = []
     for item in candidates:
         sym = item['symbol']
         try:
-            rows = spot_exchange.fetch_ohlcv(sym, timeframe='15m', limit=OHLCV_LIMIT)
+            rows = _fetch_ohlcv_rate_limited(spot_exchange, sym, '15m', OHLCV_LIMIT)
             raw = _ohlcv_frame(rows)
             if len(raw) < 60:
                 print(f'SPOT RADAR VERİ ATLANDI {sym}: yetersiz 15m mum ({len(raw)}; en az 60 gerekli); ticker hareketi keşif için korunuyor.')
                 perp_symbol = next((ps for ps in swap_symbols if ps.split('/')[0].upper() == item['base']), None)
                 perp_qv = float(SWAP_QUOTE_VOLUMES.get(perp_symbol, 0.0)) if perp_symbol else 0.0
-                if sym in relative_mover_symbols:
+                if sym in relative_mover_symbols or sym in forced_movers:
                     out.append({
                         'symbol':sym, 'base':item['base'],
                         'direction':'YUKARI HAREKET' if item['pct24'] >= 0 else 'AŞAĞI HAREKET',
@@ -1127,6 +1156,7 @@ def spot_early_radar(swap_symbols, market_caps):
             discovery_flag = bool(
                 momentum_flag
                 or sym in relative_mover_symbols
+                or sym in forced_movers
                 or near_breakout
                 or (abs(ch1h) >= MIN_SPOT_DISCOVERY_1H_MOVE and vr >= MIN_SPOT_DISCOVERY_VOLUME_RATIO)
             )
@@ -1143,13 +1173,13 @@ def spot_early_radar(swap_symbols, market_caps):
                 'momentum_flag':momentum_flag, 'discovery_candidate':discovery_flag,
                 'near_breakout':near_breakout,
                 'discovery_reason':('spot 15m/1h momentum' if momentum_flag else
+                                    'spot 24s hareketi >=5%' if sym in forced_movers else
                                     'spot göreli 24h hareket' if sym in relative_mover_symbols else
                                     'yakın kırılım bölgesi' if near_breakout else
                                     'spot 1h impulse' if abs(ch1h) >= MIN_SPOT_DISCOVERY_1H_MOVE else 'radar only')
             })
         except Exception as e:
             print(f'SPOT RADAR {sym}: {type(e).__name__}: {e}')
-        time.sleep(0.05)
     out.sort(key=lambda x: (bool(x.get('discovery_candidate')), abs(x['change_24h']),
                             abs(x['change_1h']) * min(x['volume_ratio'],4)), reverse=True)
     flagged = sum(1 for x in out if x.get('discovery_candidate'))
@@ -1244,7 +1274,7 @@ def refresh_live_price_and_validate(x):
     entry = float(x['entry'])
     trigger = float(x.get('trigger', entry))
     atr = max(float(x.get('atr', 0.0) or 0.0), entry * 0.0001)
-    zone_pad = max(0.15 * atr, entry * 0.0010)
+    zone_pad = max(0.40 * atr, entry * 0.0015)
     # Pending alerts are only useful before the trigger is crossed; wait for the
     # next closed 15m candle rather than labeling an intrabar cross as pending.
     if x.get('phase') == 'PRE_BREAKOUT':
@@ -1404,7 +1434,11 @@ def load_outcomes():
 
 
 def update_signal_outcomes():
-    """Measure first target/stop touch using closed 15m candles; stop wins same-candle ties."""
+    """Track TP1/TP2/TP3 independently through stop/TP3/72h expiry.
+
+    Stop wins a same-candle tie for targets not reached on an earlier candle.
+    A TP1 touch no longer closes the record, so continuation to TP2/TP3 remains measurable.
+    """
     records = load_outcomes()
     now_ms = int(time.time() * 1000)
     changed = False
@@ -1418,8 +1452,10 @@ def update_signal_outcomes():
         changed = True
         age_ms = now_ms - int(rec.get('signal_ts_ms', now_ms))
         if age_ms > 72 * 60 * 60 * 1000:
-            rec['status'] = 'EXPIRED'; rec['resolved_at'] = datetime.now(timezone.utc).isoformat(timespec='seconds')
-            changed = True; continue
+            rec['status'] = 'EXPIRED'
+            rec['resolved_at'] = datetime.now(timezone.utc).isoformat(timespec='seconds')
+            changed = True
+            continue
         try:
             df = candles(rec['symbol'], '15m')
         except Exception as exc:
@@ -1444,24 +1480,56 @@ def update_signal_outcomes():
                 changed = True
             targets = [float(rec[k]) for k in ('tp1','tp2','tp3')]
             stop_hit = (low <= stop) if direction == 'LONG' else (high >= stop)
-            hit = [i+1 for i,t in enumerate(targets) if (high >= t if direction == 'LONG' else low <= t)]
-            # OHLC candles cannot reveal the intrabar path; count stop-first if
-            # stop and any target were touched in the same candle.
-            if stop_hit and hit:
-                rec['status'] = 'STOP_SAME_CANDLE'; rec['resolved_at_ms'] = int(candle.timestamp); changed = True; break
+            hit = [i+1 for i,t in enumerate(targets)
+                   if (high >= t if direction == 'LONG' else low <= t)]
+            previously_hit = int(rec.get('max_tp_hit', 0) or 0)
+            # Read legacy OPEN records with a target history if one exists.
+            if rec.get('targets_hit'):
+                previously_hit = max(previously_hit, max(rec['targets_hit']))
             if stop_hit:
-                rec['status'] = 'STOP'; rec['resolved_at_ms'] = int(candle.timestamp); changed = True; break
+                if hit and previously_hit == 0:
+                    rec['status'] = 'STOP_SAME_CANDLE'
+                elif previously_hit > 0:
+                    rec['status'] = f'STOP_AFTER_TP{previously_hit}'
+                else:
+                    rec['status'] = 'STOP'
+                rec['resolved_at_ms'] = int(candle.timestamp)
+                rec['max_tp_hit'] = previously_hit
+                rec['resolved_after_tp'] = previously_hit
+                changed = True
+                break
             if hit:
-                rec['status'] = f'TP{max(hit)}'; rec['resolved_at_ms'] = int(candle.timestamp); changed = True; break
+                new_max = max(previously_hit, max(hit))
+                rec['max_tp_hit'] = new_max
+                rec['targets_hit'] = list(range(1, new_max + 1))
+                for level in hit:
+                    rec.setdefault(f'tp{level}_hit_ms', int(candle.timestamp))
+                changed = True
+                if new_max >= 3:
+                    rec['status'] = 'TP3'
+                    rec['resolved_at_ms'] = int(candle.timestamp)
+                    changed = True
+                    break
     if changed:
         OUTCOME_FILE.write_text(json.dumps(records[-500:], ensure_ascii=False, indent=2), encoding='utf-8')
     counts = {}
+    target_hits = {1:0, 2:0, 3:0}
     for rec in records:
-        counts[rec.get('status','?')] = counts.get(rec.get('status','?'), 0) + 1
+        status = rec.get('status','?')
+        counts[status] = counts.get(status, 0) + 1
+        max_hit = int(rec.get('max_tp_hit', 0) or 0)
+        if status in ('TP1','TP2','TP3'):
+            max_hit = max(max_hit, int(status[-1]))
+        elif status.startswith('STOP_AFTER_TP'):
+            try: max_hit = max(max_hit, int(status.split('TP',1)[1]))
+            except (ValueError, IndexError): pass
+        for level in target_hits:
+            if max_hit >= level:
+                target_hits[level] += 1
     if records:
-        print('SİNYAL SONUÇ TAKİBİ: ' + ', '.join(f'{k}={v}' for k,v in sorted(counts.items())))
+        print('SİNYAL SONUÇ TAKİBİ: ' + ', '.join(f'{k}={v}' for k,v in sorted(counts.items())) +
+              f" | hedefe ulaşan sinyaller: TP1={target_hits[1]}, TP2={target_hits[2]}, TP3={target_hits[3]}")
     return records
-
 
 def record_sent_signal(x):
     """Persist a sent signal for later outcome measurement."""
@@ -1474,7 +1542,13 @@ def record_sent_signal(x):
         'tp1': float(tps['TP1']['price']), 'tp2': float(tps['TP2']['price']), 'tp3': float(tps['TP3']['price']),
         'phase': x.get('phase', 'BREAKOUT_STARTED'),
         'trigger': float(x.get('trigger', x['entry'])),
+        'move_potential': float(x.get('move_potential', 0.0)),
+        'modeled_move_pct': float(x.get('modeled_move_pct', 0.0)),
+        'directional_confidence': float(x.get('directional_confidence', 0.0)),
+        'entry_quality': float(x.get('entry_quality', 0.0)),
+        'spot_momentum_bonus': float(x.get('spot_momentum_bonus', 0.0)),
         'activated': x.get('phase', 'BREAKOUT_STARTED') != 'PRE_BREAKOUT',
+        'max_tp_hit': 0, 'targets_hit': [],
         'signal_ts_ms': int(time.time()*1000), 'status': 'OPEN'
     })
     OUTCOME_FILE.write_text(json.dumps(records[-500:], ensure_ascii=False, indent=2), encoding='utf-8')
@@ -1489,7 +1563,7 @@ def write_diagnostic(all_results, ctx, spot_results=None, error_counts=None, sou
              f"ETH4h={ctx['eth']['4h']} ETH1h={ctx['eth']['1h']} | "
              f"perp_taranan={len(all_results)} | en_iyi={best} | marketcap={source} ==="]
     for r in top:
-        lines.append(f"PERP {r['symbol']:20} {r['direction']:5} phase={r.get('phase','?'):16} score={r['score']:5.1f} early={r.get('early_move_score',0):4.1f} rr_internal={r['rr']:.2f} rel1h={r.get('relative_1h',0):+.2f} rel4h={r.get('relative_4h',0):+.2f} mc=#{r.get('market_cap_rank',501):4d} gate={r.get('alert_threshold',90):.0f} valid={r.get('setup_valid',False)} qv={r.get('quote_volume_24h',0):.0f} reject={r.get('gate_reason','')}")
+        lines.append(f"PERP {r['symbol']:20} {r['direction']:5} phase={r.get('phase','?'):16} score={r['score']:5.1f} pot={r.get('move_potential',0):4.1f} spot_bonus={r.get('spot_momentum_bonus',0):.1f} modeled_move={r.get('modeled_move_pct',0):.2f}% near_room={r.get('near_room_atr',0):.2f}ATR far_room={r.get('forward_room_atr',0):.2f}ATR early={r.get('early_move_score',0):4.1f} rr_internal={r['rr']:.2f} rel1h={r.get('relative_1h',0):+.2f} rel4h={r.get('relative_4h',0):+.2f} mc=#{r.get('market_cap_rank',501):4d} gate={r.get('alert_threshold',90):.0f} valid={r.get('setup_valid',False)} qv={r.get('quote_volume_24h',0):.0f} reject={r.get('gate_reason','')}")
     for r in (spot_results or [])[:10]:
         lines.append(f"SPOT {r['symbol']:20} {r['direction']:15} 15m={r['change_15m']:+.2f}% 1h={r['change_1h']:+.2f}% 24h={r['change_24h']:+.2f}% vol={r['volume_ratio']:.2f}x swap={r['swap_available']} discovery={r.get('discovery_candidate',False)}")
     for r in (missed_candidates or [])[:20]:
@@ -1568,7 +1642,8 @@ def collect_missed_candidates(all_symbols, analyzed_symbols, all_results, spot_r
 
 
 def main():
-    print('=== ALTCOIN ALERT SCANNER V13.4 — QUALITY + MOVE POTENTIAL + LIBRA + SAR + RETEST ===')
+    print('=== ALTCOIN ALERT SCANNER V13.5 — BREAKOUT/RETEST FIX + MOVE POTENTIAL + LIBRA + SAR ===')
+    scan_started = time.monotonic()
     ctx = market_context()
     print(f"BTC 4h={ctx['btc']['4h']} 1h={ctx['btc']['1h']} | ETH 4h={ctx['eth']['4h']} 1h={ctx['eth']['1h']}")
     all_symbols = list(dict.fromkeys(liquid_usdt_swaps()))
@@ -1578,7 +1653,9 @@ def main():
 
     # Spot discovers unusual movers first; the corresponding perpetual contract
     # is then analyzed with futures candles and futures prices, never spot prices.
+    spot_started = time.monotonic()
     spot_results = spot_early_radar(set(all_symbols), market_caps)
+    print(f'SPOT RADAR SÜRESİ: {time.monotonic()-spot_started:.1f}s; ticker evreni tam, mum analizi dinamik öncelikli.')
     regular_symbols = select_deep_scan_symbols(all_symbols)
     spot_discovery_symbols = set()
     spot_discovery_by_perp = {}
@@ -1617,6 +1694,36 @@ def main():
         x['spot_discovered'] = s in spot_discovery_symbols
         x['spot_discovery_change_24h'] = float(spot_discovery_by_perp.get(s, {}).get('change_24h', 0.0))
         x['alert_eligible'], x['alert_threshold'] = alert_gate_for_rank(x['score'], x['market_cap_rank'])
+
+        # A large spot move is only a small positive contribution when futures
+        # direction and forward potential agree. It cannot rescue a weak,
+        # overextended, or directionally conflicting futures setup.
+        spot_data = spot_discovery_by_perp.get(s, {})
+        spot_change = float(spot_data.get('change_24h', 0.0) or 0.0)
+        spot_side_aligned = ((x['direction'] == 'LONG' and spot_change >= 5.0) or
+                             (x['direction'] == 'SHORT' and spot_change <= -5.0))
+        if (x['spot_discovered'] and spot_side_aligned and x.get('setup_valid', False) and
+                x.get('move_potential', 0.0) >= 70.0 and x.get('directional_confidence', 0.0) >= 65.0 and
+                not x.get('overextended', False)):
+            spot_bonus = min(5.0, 1.0 + max(abs(spot_change) - 5.0, 0.0) * 0.20)
+            x['score'] = round(min(100.0, float(x['score']) + spot_bonus), 1)
+            x['spot_momentum_bonus'] = round(spot_bonus, 1)
+            x['elite_gate'] = bool(
+                x['score'] >= 90 and x.get('directional_confidence', 0) >= 85 and
+                x.get('entry_quality', 0) >= 80 and x.get('move_potential', 0) >= 85 and
+                pd.notna(x.get('rr')) and x['rr'] >= 2.0 and
+                x.get('direction_gap', 0) >= 15 and x.get('setup_valid', False)
+            )
+            x['quality'] = 'ELITE' if x['elite_gate'] else 'STRONG' if x['score'] >= 85 else 'SELECTIVE' if x['score'] >= 72 else 'WEAK'
+            # Unknown/very-low-cap ranks normally require 90+. Let a verified
+            # large mover through at 85+ only when futures potential and direction
+            # independently confirm it; RR, setup, liquidity and live checks remain.
+            if x['score'] >= 85.0 and x.get('move_potential', 0.0) >= 75.0:
+                x['alert_eligible'] = True
+                x['alert_threshold'] = min(float(x['alert_threshold']), 85.0)
+        else:
+            x['spot_momentum_bonus'] = 0.0
+
         all_results.append(x)
         rr_ok = pd.notna(x['rr']) and x['rr'] >= MIN_CONFIRMED_RR
         setup_ok = bool(x.get('setup_valid'))
@@ -1657,6 +1764,7 @@ def main():
             print(f'VERİ/ANALİZ HATASI {base}: {type(e).__name__}: {e}')
 
     symbols = fast_priority_symbols(symbols, spot_discovery_symbols)
+    deep_scan_started = time.monotonic()
     print(f'Paralel derin analiz: {SCAN_WORKERS} worker; tam evren={len(symbols)} sözleşme; ticker keşfi korunuyor.')
     with ThreadPoolExecutor(max_workers=SCAN_WORKERS) as pool:
         for i, (status, item, err) in enumerate(pool.map(analyze_symbol, symbols), 1):
@@ -1671,6 +1779,7 @@ def main():
                 print(f'VERİ/ANALİZ HATASI {item}: {err}')
             if i % 25 == 0: print(f'  ... {i}/{len(symbols)} vadeli coin tarandı')
 
+    print(f'VADELİ DERİN TARAMA SÜRESİ: {time.monotonic()-deep_scan_started:.1f}s.')
     analyzed_symbol_set = {r.get('symbol') for r in all_results}
     successful_deep = len(analyzed_symbol_set - {'BTC/USDT:USDT', 'ETH/USDT:USDT'})
     failed_deep = len(symbols) - successful_deep
@@ -1727,6 +1836,7 @@ def main():
         print('Bu turda gönderilebilir yeni plan yok. Uygun kurulum çıkmaması normaldir; elenen planlar için yukarıdaki SİNYAL ELENDİ nedenlerine bakın. Bildirim gönderilmedi.')
 
     save_state(new_state)
+    print(f'TOPLAM TARAMA SÜRESİ: {time.monotonic()-scan_started:.1f}s.')
 
 if __name__ == '__main__':
     main()
