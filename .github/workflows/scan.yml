@@ -31,7 +31,7 @@ jobs:
       - name: Bağımlılıkları kur
         run: pip install -r requirements.txt
 
-      - name: V13.3 taramasını çalıştır
+      - name: V13.8 taramasını çalıştır
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -52,6 +52,14 @@ jobs:
           MIN_CONFIRMED_RR: '1.8'
           MIN_DIRECTION_GAP: '5'
           MIN_SETUP_READINESS: '65'
+          # TP3 fiyat hareketi için genel alt sınır: %5. Hedefi zorla uzaklaştırmaz;
+          # gerçekçi hedef bu mesafeyi karşılamıyorsa sinyal gönderilmez.
+          MIN_ACTIONABLE_TARGET_MOVE_PCT: '5.0'
+          # Market-cap kaynağından ilk 2000 sıralamayı çek; 2000 sonrası bilinmiyor/katı eşik kalır.
+          MARKET_CAP_TOP_N: '2000'
+          # Açık hava puanlaması yalnızca potansiyel skorunu etkiler, TP seviyesini değil.
+          OPEN_AIR_ROOM_ATR: '3.0'
+          MIN_BARRIER_DISTANCE_ATR: '0.5'
         run: python altcoin_alert_scanner.py
 
       - name: Durumu ve sonuç takibini güvenli kaydet
