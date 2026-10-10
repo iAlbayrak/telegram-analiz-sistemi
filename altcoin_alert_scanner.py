@@ -1,5 +1,5 @@
 """
-V13.5 bütünsel skor düzeltmesi + kırılım/retest mantık onarımı + potansiyel puanı + canlı giriş koruması -- BULUTTA çalışır (GitHub Actions),
+V13.6 bütünsel skor düzeltmesi + kırılım/retest mantık onarımı + potansiyel puanı + canlı giriş koruması -- BULUTTA çalışır (GitHub Actions),
 telefondaki/bilgisayardaki hiçbir şeye bağımlı değil. Mevcut MEXC trading
 bot'unuzdan TAMAMEN bağımsızdır -- hiçbir dosyasını içe aktarmaz, hiçbir
 emir göndermez. Sadece MEXC'nin herkese açık (public) piyasa verisini
@@ -77,6 +77,16 @@ ALERT_MIN_SCORE      = float(os.getenv('ALERT_MIN_SCORE', '80'))   # base techni
 MARKET_CAP_CACHE_FILE = Path(os.getenv('MARKET_CAP_CACHE_FILE', 'market_cap_cache.json'))
 MARKET_CAP_REFRESH_MINUTES = int(os.getenv('MARKET_CAP_REFRESH_MINUTES', '360'))
 MARKET_CAP_TOP_N = 800
+# V13.6: minimum modeled TP3 price movement by market-cap tier.
+# These are selectivity rules, not claims that a move is guaranteed.
+# Rank unknown is treated conservatively as very low / unverified cap.
+MIN_TARGET_MOVE_RANK_1_300 = float(os.getenv('MIN_TARGET_MOVE_RANK_1_300', '0.0'))
+MIN_TARGET_MOVE_RANK_301_600 = float(os.getenv('MIN_TARGET_MOVE_RANK_301_600', '3.0'))
+MIN_TARGET_MOVE_RANK_601_1000 = float(os.getenv('MIN_TARGET_MOVE_RANK_601_1000', '5.0'))
+MIN_TARGET_MOVE_RANK_1001_2000 = float(os.getenv('MIN_TARGET_MOVE_RANK_1001_2000', '10.0'))
+MIN_TARGET_MOVE_RANK_2001_PLUS = float(os.getenv('MIN_TARGET_MOVE_RANK_2001_PLUS', '15.0'))
+MIN_TARGET_MOVE_UNKNOWN = float(os.getenv('MIN_TARGET_MOVE_UNKNOWN', '15.0'))
+MIN_TARGET_CONFIDENCE = float(os.getenv('MIN_TARGET_CONFIDENCE', '58.0'))
 EARLY_TRIGGER_MAX_ATR = float(os.getenv('EARLY_TRIGGER_MAX_ATR', '1.25'))  # kırılım öncesi seviyeye yakınlık
 MAX_BREAKOUT_STRETCH_ATR = float(os.getenv('MAX_BREAKOUT_STRETCH_ATR', '1.75'))  # teyitli kırılımda kovalamama sınırı
 MIN_SETUP_READINESS = float(os.getenv('MIN_SETUP_READINESS', '65'))
@@ -468,9 +478,53 @@ def market_cap_rank_for_symbol(symbol, rankings):
     base = str(symbol).split('/')[0].upper()
     return int(rankings.get(base, 9999))
 
+def market_cap_rank_known(symbol, rankings):
+    base = str(symbol).split('/')[0].upper()
+    return base in rankings
+
 def market_cap_label_for_symbol(symbol, rankings):
     base = str(symbol).split('/')[0].upper()
     return f"#{int(rankings[base])}" if base in rankings else 'bilinmiyor (90+ eşiği uygulanır)'
+
+def minimum_target_move_for_rank(market_cap_rank, rank_known=True):
+    """Minimum underlying-price TP3 distance for an actionable alert."""
+    if not rank_known:
+        return MIN_TARGET_MOVE_UNKNOWN
+    try:
+        rank = int(market_cap_rank)
+    except (TypeError, ValueError):
+        return MIN_TARGET_MOVE_UNKNOWN
+    if rank <= 300: return MIN_TARGET_MOVE_RANK_1_300
+    if rank <= 600: return MIN_TARGET_MOVE_RANK_301_600
+    if rank <= 1000: return MIN_TARGET_MOVE_RANK_601_1000
+    if rank <= 2000: return MIN_TARGET_MOVE_RANK_1001_2000
+    return MIN_TARGET_MOVE_RANK_2001_PLUS
+
+def target_move_pct(x):
+    """TP3's underlying price move in percent, independent of leverage."""
+    entry = float(x.get('entry') or 0.0)
+    target = float(x.get('target') or 0.0)
+    if entry <= 0 or target <= 0:
+        return 0.0
+    return abs(target / entry - 1.0) * 100.0
+
+def calculate_target_confidence(x):
+    """Heuristic target-reach confidence score (0-100), NOT a probability."""
+    directional = clamp(float(x.get('directional_confidence', 0.0)))
+    entry_q = clamp(float(x.get('entry_quality', 0.0)))
+    readiness = clamp(float(x.get('readiness', 0.0)))
+    potential = clamp(float(x.get('move_potential', 0.0)))
+    setup_q = clamp(float(x.get('setup_quality', 0.0)))
+    rr = float(x.get('rr', 0.0) or 0.0)
+    rr_component = clamp((rr / 2.5) * 100.0)
+    phase_component = 100.0 if x.get('phase') == 'BREAKOUT_RETEST' else 88.0 if x.get('phase') == 'BREAKOUT_STARTED' else 72.0
+    if x.get('overextended', False):
+        phase_component *= 0.45
+    return round(clamp(
+        0.24 * directional + 0.22 * entry_q + 0.18 * readiness +
+        0.18 * potential + 0.10 * setup_q + 0.05 * rr_component +
+        0.03 * phase_component
+    ), 1)
 
 def alert_gate_for_rank(score, market_cap_rank):
     """Recall-oriented market-cap gate: 1-500=>80+, 501-800=>85+, 801+/unknown=>90+.
@@ -970,8 +1024,9 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
     # routine trade from a genuinely open, expanding move, but it cannot rescue
     # a weak setup because setup_quality remains 58% of the score.
     raw_score = clamp(
-        0.58*setup_quality +
-        0.42*move_potential +
+        0.52*setup_quality +
+        0.40*move_potential +
+        0.08*clamp(0.50*entry_quality + 0.30*readiness + 0.20*direction_clarity) +
         pattern_bonus + rr_bonus + early_bonus
     )
     setup_valid = (phase in ('PRE_BREAKOUT','BREAKOUT_STARTED','BREAKOUT_RETEST') and early_trend_ok and
@@ -997,7 +1052,9 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
             'room_score':round(float(room_score),1),
             'expansion_score':round(float(expansion_score),1),
             'setup_quality':round(float(setup_quality),1),
-            'potential_label':potential_label,'relative_strength':round(vals['relative_strength'],1),
+            'potential_label':potential_label,
+            'target_move_pct':round(abs(float(target)/max(float(entry),1e-12)-1.0)*100.0,2),
+            'relative_strength':round(vals['relative_strength'],1),
             'relative_1h':round(vals['relative_1h'],2),'relative_4h':round(vals['relative_4h'],2),
             'libra_score':float(libra['score']),'libra_match':bool(libra['match']),'libra_fib':float(libra['fib']) if np.isfinite(libra['fib']) else float('nan'),
             'libra_distance_atr':float(libra['distance_atr']) if np.isfinite(libra['distance_atr']) else float('nan'),
@@ -1353,15 +1410,16 @@ def render_signal_card(x, ctx):
             txt((xx+115, yy-4), val, f_value, trend_color(val))
 
     # One holistic score + exact trigger distance; percentage is not presented as win probability.
-    section(354, 'ANALİZ SKORU')
+    section(354, 'İŞLEM KALİTESİ VE HEDEF GÜVENİ')
     card((m, 392, W-m, 520), fill=panel, radius=20)
     txt((m+24, 410), f"{float(x['score']):.1f}/100", f_big, accent)
-    status = 'KIRILIM TEYİTLİ' if x['phase'] == 'BREAKOUT_STARTED' else 'TETİK BEKLENİYOR'
-    status_color = accent if x['phase'] == 'BREAKOUT_STARTED' else yellow
+    status = 'KIRILIM TEYİTLİ' if x['phase'] in ('BREAKOUT_STARTED','BREAKOUT_RETEST') else 'TETİK BEKLENİYOR'
+    status_color = accent if x['phase'] in ('BREAKOUT_STARTED','BREAKOUT_RETEST') else yellow
     txt((m+390, 412), status, _font(23, True), status_color)
     prog = float(x.get('level_progress', 0.0))
-    txt((m+390, 463), f'Retest / seviye farkı: {prog:+.2f}%', f_sub, white)
-    txt((m+24, 475), f"Libra: {'VAR' if x.get('libra_match') else 'YOK'}  |  SAR: {'ONAY' if x.get('sar_ok') else 'ZAYIF'}", f_small, muted)
+    txt((m+390, 451), f'Hedef güven skoru: {float(x.get("target_confidence", 0)):.0f}/100', f_sub, white)
+    txt((m+390, 480), f'TP3 fiyat hareketi: {float(x.get("target_move_pct", target_move_pct(x))):.2f}%', f_small, accent)
+    txt((m+24, 475), f"Potansiyel: {float(x.get('move_potential',0)):.0f}/100 | Libra: {'VAR' if x.get('libra_match') else 'YOK'} | SAR: {'ONAY' if x.get('sar_ok') else 'ZAYIF'}", f_small, muted)
 
     # Entry / stop levels
     section(542, 'GİRİŞ PLANI')
@@ -1642,14 +1700,14 @@ def collect_missed_candidates(all_symbols, analyzed_symbols, all_results, spot_r
 
 
 def main():
-    print('=== ALTCOIN ALERT SCANNER V13.5 — BREAKOUT/RETEST FIX + MOVE POTENTIAL + LIBRA + SAR ===')
+    print('=== ALTCOIN ALERT SCANNER V13.6 — BREAKOUT/RETEST FIX + MOVE POTENTIAL + LIBRA + SAR ===')
     scan_started = time.monotonic()
     ctx = market_context()
     print(f"BTC 4h={ctx['btc']['4h']} 1h={ctx['btc']['1h']} | ETH 4h={ctx['eth']['4h']} 1h={ctx['eth']['1h']}")
     all_symbols = list(dict.fromkeys(liquid_usdt_swaps()))
     state = load_state(); new_state = {}; qualifying = []; all_results = []; error_counts = {}; data_skips = {}
     market_caps, market_cap_updated_at, market_cap_source = market_cap_rankings()
-    print(f'Market-cap kaynağı: {market_cap_source} | eşik: 1-500=>80+, 501-800=>85+, 801+ veya bilinmiyor=>90+')
+    print(f'Market-cap kaynağı: {market_cap_source} | skor eşiği: 1-500=>80+, 501-800=>85+, 801+ / bilinmiyor=>90+ | hedef filtresi: rank bazlı TP3 + hedef güven skoru')
 
     # Spot discovers unusual movers first; the corresponding perpetual contract
     # is then analyzed with futures candles and futures prices, never spot prices.
@@ -1693,7 +1751,16 @@ def main():
         x['quote_volume_24h'] = SWAP_QUOTE_VOLUMES.get(s, 0.0)
         x['spot_discovered'] = s in spot_discovery_symbols
         x['spot_discovery_change_24h'] = float(spot_discovery_by_perp.get(s, {}).get('change_24h', 0.0))
+        x['market_cap_rank_known'] = market_cap_rank_known(s, market_caps)
         x['alert_eligible'], x['alert_threshold'] = alert_gate_for_rank(x['score'], x['market_cap_rank'])
+        x['target_move_pct'] = target_move_pct(x)
+        x['min_target_move_pct'] = minimum_target_move_for_rank(
+            x['market_cap_rank'], x['market_cap_rank_known'])
+        x['target_confidence'] = calculate_target_confidence(x)
+        x['target_gate_ok'] = (
+            x['target_move_pct'] >= x['min_target_move_pct'] and
+            x['target_confidence'] >= MIN_TARGET_CONFIDENCE
+        )
 
         # A large spot move is only a small positive contribution when futures
         # direction and forward potential agree. It cannot rescue a weak,
@@ -1732,16 +1799,19 @@ def main():
             liquidity_ok = spot_qv_ok and x['quote_volume_24h'] >= MIN_SPOT_DISCOVERY_PERP_VOLUME
         else:
             liquidity_ok = x['quote_volume_24h'] >= MIN_ALERT_24H_VOLUME
-        x['gate_reason'] = ('OK' if x['alert_eligible'] and rr_ok and setup_ok and liquidity_ok else
+        x['gate_reason'] = ('OK' if x['alert_eligible'] and rr_ok and setup_ok and liquidity_ok and x['target_gate_ok'] else
                             (f'SPOT KEŞİF LİKİDİTE FİLTRESİ (spot>={MIN_SPOT_24H_VOLUME:,.0f}, vadeli>={MIN_SPOT_DISCOVERY_PERP_VOLUME:,.0f})' if x.get('spot_discovered') else f'LIKIDITE<{MIN_ALERT_24H_VOLUME:,.0f} USDT') if not liquidity_ok else
                             'ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ' if not setup_ok else
                             'SKOR/EŞİK' if not x['alert_eligible'] else
+                            f'HEDEF MESAFESİ/GÜVENİ YETERSİZ (TP3={x["target_move_pct"]:.1f}%, min={x["min_target_move_pct"]:.1f}%, hedef güven skoru={x["target_confidence"]:.0f}/100)' if not x['target_gate_ok'] else
                             'HEDEF/STOP GEOMETRİSİ UYGUN DEĞİL')
-        if x['alert_eligible'] and rr_ok and setup_ok and liquidity_ok:
+        if x['alert_eligible'] and rr_ok and setup_ok and liquidity_ok and x['target_gate_ok']:
             t = tier(x)
             key = f"{s}:{x['direction']}"
             new_state[key] = {'tier':t,'score':x['score'],'phase':x['phase'],
                               'market_cap_rank':x['market_cap_rank'],'alert_threshold':x['alert_threshold'],
+                              'target_move_pct':x.get('target_move_pct',0),
+                              'target_confidence':x.get('target_confidence',0),
                               'last_seen':int(time.time())}
             if is_new_or_upgraded(x, t, state): qualifying.append((x,t))
 
