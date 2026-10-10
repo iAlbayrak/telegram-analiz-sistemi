@@ -1,12 +1,12 @@
 """
-V13.8 hedef kalitesi + market-cap kapsamı + tanılama düzeltmeleri -- BULUTTA çalışır (GitHub Actions),
+V14.0 gerçek-fırsat filtresi + büyük hareket puanlaması + hedef kademesi düzeltmeleri -- BULUTTA çalışır (GitHub Actions),
 telefondaki/bilgisayardaki hiçbir şeye bağımlı değil. Mevcut MEXC trading
 bot'unuzdan TAMAMEN bağımsızdır -- hiçbir dosyasını içe aktarmaz, hiçbir
 emir göndermez. Sadece MEXC'nin herkese açık (public) piyasa verisini
 okur ve Telegram'a bildirim gönderir. API anahtarı / hesap bilgisi
 gerektirmez -- sadece TELEGRAM_BOT_TOKEN ve TELEGRAM_CHAT_ID.
 
---- V11: spot keşif + vadeli doğrulama + erken hareket analizi + recall odaklı market-cap katmanı ---
+--- V14.0: spot keşif + vadeli doğrulama + erken hareket analizi + gerçekçi hedef kademeleri ---
 
 Üç BAĞIMSIZ eksen var, hiçbiri diğerini beslemiyor / bloklamıyor:
 
@@ -78,20 +78,20 @@ MARKET_CAP_CACHE_FILE = Path(os.getenv('MARKET_CAP_CACHE_FILE', 'market_cap_cach
 MARKET_CAP_REFRESH_MINUTES = int(os.getenv('MARKET_CAP_REFRESH_MINUTES', '360'))
 # Rank coverage supports 1001-2000 target tiers; outside scope remains UNKNOWN.
 MARKET_CAP_TOP_N = max(800, int(os.getenv('MARKET_CAP_TOP_N', '2000')))
-# V13.6: minimum modeled TP3 price movement by market-cap tier.
+# V14.0: minimum TP3 price movement by market-cap tier; small-target alerts rejected.
 # These are selectivity rules, not claims that a move is guaranteed.
 # Rank unknown is treated conservatively as very low / unverified cap.
-MIN_TARGET_MOVE_RANK_1_300 = float(os.getenv('MIN_TARGET_MOVE_RANK_1_300', '0.0'))
-MIN_TARGET_MOVE_RANK_301_600 = float(os.getenv('MIN_TARGET_MOVE_RANK_301_600', '3.0'))
-MIN_TARGET_MOVE_RANK_601_1000 = float(os.getenv('MIN_TARGET_MOVE_RANK_601_1000', '5.0'))
-MIN_TARGET_MOVE_RANK_1001_2000 = float(os.getenv('MIN_TARGET_MOVE_RANK_1001_2000', '10.0'))
-MIN_TARGET_MOVE_RANK_2001_PLUS = float(os.getenv('MIN_TARGET_MOVE_RANK_2001_PLUS', '15.0'))
-MIN_TARGET_MOVE_UNKNOWN = float(os.getenv('MIN_TARGET_MOVE_UNKNOWN', '15.0'))
-MIN_TARGET_CONFIDENCE = float(os.getenv('MIN_TARGET_CONFIDENCE', '58.0'))
+MIN_TARGET_MOVE_RANK_1_300 = max(6.5, float(os.getenv('MIN_TARGET_MOVE_RANK_1_300', '6.5')))
+MIN_TARGET_MOVE_RANK_301_600 = max(7.0, float(os.getenv('MIN_TARGET_MOVE_RANK_301_600', '7.0')))
+MIN_TARGET_MOVE_RANK_601_1000 = max(8.0, float(os.getenv('MIN_TARGET_MOVE_RANK_601_1000', '8.0')))
+MIN_TARGET_MOVE_RANK_1001_2000 = max(10.0, float(os.getenv('MIN_TARGET_MOVE_RANK_1001_2000', '10.0')))
+MIN_TARGET_MOVE_RANK_2001_PLUS = max(10.0, float(os.getenv('MIN_TARGET_MOVE_RANK_2001_PLUS', '10.0')))
+MIN_TARGET_MOVE_UNKNOWN = max(8.0, float(os.getenv('MIN_TARGET_MOVE_UNKNOWN', '8.0')))
+MIN_TARGET_CONFIDENCE = max(62.0, float(os.getenv('MIN_TARGET_CONFIDENCE', '62.0')))
 # Minimum TP3 underlying price movement for ANY actionable alert. This is a
 # rejection floor, not a command to push targets farther away. If structure
 # cannot support this distance, the setup is skipped.
-MIN_ACTIONABLE_TARGET_MOVE_PCT = float(os.getenv('MIN_ACTIONABLE_TARGET_MOVE_PCT', '5.0'))
+MIN_ACTIONABLE_TARGET_MOVE_PCT = max(6.5, float(os.getenv('MIN_ACTIONABLE_TARGET_MOVE_PCT', '6.5')))
 OPEN_AIR_ROOM_ATR = float(os.getenv('OPEN_AIR_ROOM_ATR', '3.0'))
 MIN_BARRIER_DISTANCE_ATR = float(os.getenv('MIN_BARRIER_DISTANCE_ATR', '0.5'))
 EARLY_TRIGGER_MAX_ATR = float(os.getenv('EARLY_TRIGGER_MAX_ATR', '1.25'))  # kırılım öncesi seviyeye yakınlık
@@ -113,7 +113,7 @@ MAX_STOP_DISTANCE_PCT = float(os.getenv('MAX_STOP_DISTANCE_PCT', '0.08'))
 DIAG_LOG             = Path(os.getenv('DIAG_LOG_FILE', 'scan_diagnostic.log'))
 DIAG_LOG_MAX_LINES   = 500
 WIDE_STOP_BUFFER_ATR = float(os.getenv('WIDE_STOP_BUFFER_ATR', '0.6'))  # ek "geniş stop" ATR payı
-# V13.2: Libra-benzeri yapı + Parabolic SAR teyidi + sahte kırılım koruması + paralel tarama.
+# V14.0: Libra/SAR + hedef mesafesi filtresi + büyük hareket puanlaması + paralel tarama.
 LIBRA_FIB_TARGET = 0.786
 LIBRA_FIB_TOLERANCE = float(os.getenv('LIBRA_FIB_TOLERANCE', '0.08'))
 LIBRA_MIN_SCORE = float(os.getenv('LIBRA_MIN_SCORE', '55'))
@@ -1062,8 +1062,8 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
     # routine trade from a genuinely open, expanding move, but it cannot rescue
     # a weak setup because setup_quality remains 58% of the score.
     raw_score = clamp(
-        0.52*setup_quality +
-        0.40*move_potential +
+        0.47*setup_quality +
+        0.45*move_potential +
         0.08*clamp(0.50*entry_quality + 0.30*readiness + 0.20*direction_clarity) +
         pattern_bonus + rr_bonus + early_bonus
     )
@@ -1105,17 +1105,37 @@ def score_setup(df4, df1, df15, ctx, symbol_key=None):
 # TP1/TP2/TP3 -- mesafeye göre sıralı (en yakından en uzağa)
 # ---------------------------------------------------------------------
 def tp_levels(x):
-    entry=float(x['entry']); stop=float(x['stop']); direction=x['direction']; risk=abs(entry-stop)
-    if risk<=0: return None
-    planned_r = abs(float(x['target'])-entry)/risk
-    # Never advertise a take-profit beyond the actual modeled target/structure.
-    r_values = [min(1.0, planned_r), min(1.5, planned_r), planned_r]
-    labels = ['TP1','TP2','TP3']
-    out = {}
-    for label, r in zip(labels, r_values):
-        price = entry + risk*r if direction=='LONG' else entry-risk*r
-        out[label] = {'r': round(r,2), 'price': float(x['target']) if label=='TP3' else price}
-    return out
+    """Meaningful staged targets: avoid routine 1-2% TP cards.
+
+    TP3 remains the actual structural/projected target; it is never pushed out
+    to meet a threshold. Actionable gating rejects a plan whose TP3 is too near.
+    TP1/TP2 are placed at useful price-distance milestones when TP3 leaves room.
+    """
+    entry=float(x['entry']); stop=float(x['stop']); direction=x['direction']
+    target=float(x['target']); risk=abs(entry-stop)
+    if risk<=0 or entry<=0: return None
+    target_dist=abs(target-entry)
+    if target_dist<=0: return None
+    # These are underlying-price distances, not leveraged ROI.
+    tp1_dist=min(max(risk, entry*0.025), target_dist*0.40)
+    tp2_dist=min(max(1.5*risk, entry*0.045), target_dist*0.70)
+    # Ensure ordered levels even with an unusually wide stop.
+    tp2_dist=max(tp2_dist, min(tp1_dist*1.15, target_dist*0.70))
+    tp1_dist=min(tp1_dist, tp2_dist*0.90)
+    tp1_dist=min(tp1_dist, target_dist*0.40)
+    tp2_dist=min(tp2_dist, target_dist*0.70)
+    if direction=='LONG':
+        p1, p2, p3 = entry+tp1_dist, entry+tp2_dist, target
+    else:
+        p1, p2, p3 = entry-tp1_dist, entry-tp2_dist, target
+    # Defensive ordering check: bad geometry is not repaired by stretching TP3.
+    if direction=='LONG' and not (entry < p1 < p2 < p3): return None
+    if direction=='SHORT' and not (entry > p1 > p2 > p3): return None
+    return {
+        'TP1': {'r': round(tp1_dist/risk,2), 'price':float(p1)},
+        'TP2': {'r': round(tp2_dist/risk,2), 'price':float(p2)},
+        'TP3': {'r': round(target_dist/risk,2), 'price':float(p3)},
+    }
 
 def tier(x):
     # Repeat-alert state uses only the unified score, not hidden component labels.
@@ -1792,7 +1812,7 @@ def main():
     unknown_rank_count = len(all_bases - known_rank_bases)
     cache_age_text = f"{cache_age_min:.0f} dk" if cache_age_min is not None else "bilinmiyor"
     print(f'Market-cap kaynağı: {market_cap_source} | önbellek/veri yaşı: {cache_age_text} | sırası bilinen vadeli coin: {known_rank_count}/{len(all_bases)} | sırası bilinmeyen: {unknown_rank_count}')
-    print(f'Skor eşiği: 1-500=>80+, 501-800=>85+, 801+ / bilinmiyor=>90+ | market-cap kapsamı ilk {MARKET_CAP_TOP_N} | TP3 alt sınırı={MIN_ACTIONABLE_TARGET_MOVE_PCT:.1f}% | kurulum gücü eşiği={MIN_TARGET_CONFIDENCE:.0f}')
+    print(f'Skor eşiği: 1-500=>80+, 501-800=>85+, 801+ / bilinmiyor=>90+ | market-cap ilk {MARKET_CAP_TOP_N} | TP3 minimum={MIN_ACTIONABLE_TARGET_MOVE_PCT:.1f}% | kurulum gücü minimum={MIN_TARGET_CONFIDENCE:.0f} | TP1/TP2 yaklaşık %2.5/%4.5 hedef kademesi')
 
     # Spot discovers unusual movers first; the corresponding perpetual contract
     # is then analyzed with futures candles and futures prices, never spot prices.
@@ -1853,7 +1873,7 @@ def main():
         tier_min_target = minimum_target_move_for_rank(
             x['market_cap_rank'], x['market_cap_rank_known'])
         x['tier_min_target_move_pct'] = tier_min_target
-        # Global floor prevents 1-2% TP3 alerts even for top market-cap coins.
+        # Global floor prevents small TP3 plans even for top market-cap coins.
         # Never stretch TP3 artificially: if the modeled/structural target is
         # closer than this floor, target_gate_ok will reject the setup.
         x['min_target_move_pct'] = max(MIN_ACTIONABLE_TARGET_MOVE_PCT, tier_min_target)
@@ -1871,9 +1891,11 @@ def main():
         spot_side_aligned = ((x['direction'] == 'LONG' and spot_change >= 5.0) or
                              (x['direction'] == 'SHORT' and spot_change <= -5.0))
         if (x['spot_discovered'] and spot_side_aligned and x.get('setup_valid', False) and
-                x.get('move_potential', 0.0) >= 70.0 and x.get('directional_confidence', 0.0) >= 65.0 and
+                x.get('move_potential', 0.0) >= 62.0 and x.get('directional_confidence', 0.0) >= 60.0 and
                 not x.get('overextended', False)):
-            spot_bonus = min(5.0, 1.0 + max(abs(spot_change) - 5.0, 0.0) * 0.20)
+            # Strong spot relative momentum can lift a genuine futures setup
+            # materially; it cannot bypass setup, RR, liquidity, target or live-price gates.
+            spot_bonus = min(8.0, 1.5 + max(abs(spot_change) - 5.0, 0.0) * 0.28)
             x['score'] = round(min(100.0, float(x['score']) + spot_bonus), 1)
             x['spot_momentum_bonus'] = round(spot_bonus, 1)
             x['elite_gate'] = bool(
