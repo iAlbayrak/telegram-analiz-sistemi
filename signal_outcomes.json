@@ -2021,7 +2021,7 @@
     "activated": false,
     "signal_ts_ms": 1791475749226,
     "status": "OPEN",
-    "last_checked_ms": 1791707829502
+    "last_checked_ms": 1791708860607
   },
   {
     "symbol": "AR/USDT:USDT",
@@ -2055,7 +2055,7 @@
     "activated": false,
     "signal_ts_ms": 1791475751502,
     "status": "OPEN",
-    "last_checked_ms": 1791707829502
+    "last_checked_ms": 1791708860607
   },
   {
     "symbol": "HOT/USDT:USDT",
@@ -2125,7 +2125,7 @@
     "activated": false,
     "signal_ts_ms": 1791475758635,
     "status": "OPEN",
-    "last_checked_ms": 1791707829502
+    "last_checked_ms": 1791708860607
   },
   {
     "symbol": "CFG/USDT:USDT",
@@ -2141,7 +2141,7 @@
     "activated": false,
     "signal_ts_ms": 1791475759624,
     "status": "OPEN",
-    "last_checked_ms": 1791707829502
+    "last_checked_ms": 1791708860607
   },
   {
     "symbol": "POLYX/USDT:USDT",
@@ -2625,7 +2625,7 @@
     "activated": false,
     "signal_ts_ms": 1791544962600,
     "status": "OPEN",
-    "last_checked_ms": 1791707829502
+    "last_checked_ms": 1791708860607
   },
   {
     "symbol": "UNI/USDT:USDT",
@@ -2875,7 +2875,7 @@
     "activated": false,
     "signal_ts_ms": 1791555073529,
     "status": "OPEN",
-    "last_checked_ms": 1791707829502
+    "last_checked_ms": 1791708860607
   },
   {
     "symbol": "AZTEC/USDT:USDT",
@@ -2891,7 +2891,7 @@
     "activated": false,
     "signal_ts_ms": 1791555074689,
     "status": "OPEN",
-    "last_checked_ms": 1791707829502
+    "last_checked_ms": 1791708860607
   },
   {
     "symbol": "XMR/USDT:USDT",
@@ -3131,7 +3131,7 @@
     "activated": false,
     "signal_ts_ms": 1791613428754,
     "status": "OPEN",
-    "last_checked_ms": 1791707829502
+    "last_checked_ms": 1791708860607
   },
   {
     "symbol": "SUPER/USDT:USDT",
@@ -3207,7 +3207,7 @@
     "activated": false,
     "signal_ts_ms": 1791627639772,
     "status": "OPEN",
-    "last_checked_ms": 1791707829502
+    "last_checked_ms": 1791708860607
   },
   {
     "symbol": "ALGO/USDT:USDT",
@@ -3321,7 +3321,7 @@
     ],
     "signal_ts_ms": 1791650190052,
     "status": "OPEN",
-    "last_checked_ms": 1791707829502,
+    "last_checked_ms": 1791708860607,
     "activated_at_ms": 1791650700000,
     "tp1_hit_ms": 1791651600000,
     "tp2_hit_ms": 1791698400000
@@ -3358,7 +3358,7 @@
     "targets_hit": [],
     "signal_ts_ms": 1791653663795,
     "status": "OPEN",
-    "last_checked_ms": 1791707829502
+    "last_checked_ms": 1791708860607
   },
   {
     "symbol": "WAL/USDT:USDT",
@@ -3392,7 +3392,7 @@
     "targets_hit": [],
     "signal_ts_ms": 1791699581254,
     "status": "OPEN",
-    "last_checked_ms": 1791707829502,
+    "last_checked_ms": 1791708860607,
     "activated_at_ms": 1791705600000
   },
   {
@@ -3427,7 +3427,7 @@
     "targets_hit": [],
     "signal_ts_ms": 1791702338010,
     "status": "OPEN",
-    "last_checked_ms": 1791707829502
+    "last_checked_ms": 1791708860607
   },
   {
     "symbol": "CFX/USDT:USDT",
@@ -3461,7 +3461,7 @@
     "targets_hit": [],
     "signal_ts_ms": 1791705931780,
     "status": "OPEN",
-    "last_checked_ms": 1791707829502
+    "last_checked_ms": 1791708860607
   },
   {
     "symbol": "WAL/USDT:USDT",
@@ -3495,6 +3495,39 @@
     "targets_hit": [],
     "signal_ts_ms": 1791706589370,
     "status": "OPEN",
-    "last_checked_ms": 1791707829502
+    "last_checked_ms": 1791708860607
+  },
+  {
+    "symbol": "CFX/USDT:USDT",
+    "direction": "LONG",
+    "score": 90.1,
+    "entry": 0.07099720192565495,
+    "stop": 0.06745316341255568,
+    "tp1": 0.0741159558171823,
+    "tp2": 0.07631325969530386,
+    "tp3": 0.07879408665447335,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.07099720192565495,
+    "move_potential": 80.8,
+    "modeled_move_pct": 14.43,
+    "target_move_pct": 10.98196058061971,
+    "target_confidence": 77.5,
+    "market_cap_rank": 155,
+    "market_cap_rank_known": true,
+    "market_cap_label": "#155",
+    "target_method": "kırılım sonrası ATR/R projeksiyonu",
+    "forward_room_atr": 3.0,
+    "near_room_atr": 3.0,
+    "open_air_fallback": true,
+    "setup_quality": 77.3,
+    "min_target_move_pct": 6.5,
+    "directional_confidence": 88.5,
+    "entry_quality": 56.9,
+    "spot_momentum_bonus": 8.0,
+    "activated": false,
+    "max_tp_hit": 0,
+    "targets_hit": [],
+    "signal_ts_ms": 1791708862612,
+    "status": "OPEN"
   }
 ]
