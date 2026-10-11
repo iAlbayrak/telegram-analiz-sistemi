@@ -1052,14 +1052,14 @@
     "last_seen": 1791653306
   },
   "WAL/USDT:USDT:LONG": {
-    "tier": "SKOR 85+",
-    "score": 86.7,
+    "tier": "SKOR 80+",
+    "score": 81.5,
     "phase": "PRE_BREAKOUT",
     "market_cap_rank": 422,
     "alert_threshold": 80.0,
-    "target_move_pct": 12.872165070136798,
-    "target_confidence": 82.8,
-    "last_seen": 1791699279
+    "target_move_pct": 12.33249561154306,
+    "target_confidence": 78.5,
+    "last_seen": 1791705439
   },
   "ORCA/USDT:USDT:LONG": {
     "tier": "SKOR 80+",
@@ -1070,5 +1070,15 @@
     "target_move_pct": 9.204498125780924,
     "target_confidence": 77.8,
     "last_seen": 1791702095
+  },
+  "CFX/USDT:USDT:LONG": {
+    "tier": "SKOR 85+",
+    "score": 89.4,
+    "phase": "PRE_BREAKOUT",
+    "market_cap_rank": 155,
+    "alert_threshold": 80.0,
+    "target_move_pct": 10.362105473432525,
+    "target_confidence": 77.0,
+    "last_seen": 1791705398
   }
 }
