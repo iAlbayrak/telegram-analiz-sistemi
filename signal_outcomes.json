@@ -3218,7 +3218,7 @@
     "activated": false,
     "signal_ts_ms": 1791627639772,
     "status": "OPEN",
-    "last_checked_ms": 1791816347725
+    "last_checked_ms": 1791817849887
   },
   {
     "symbol": "ALGO/USDT:USDT",
@@ -3332,7 +3332,7 @@
     ],
     "signal_ts_ms": 1791650190052,
     "status": "OPEN",
-    "last_checked_ms": 1791816347725,
+    "last_checked_ms": 1791817849887,
     "activated_at_ms": 1791650700000,
     "tp1_hit_ms": 1791651600000,
     "tp2_hit_ms": 1791698400000
@@ -3369,7 +3369,7 @@
     "targets_hit": [],
     "signal_ts_ms": 1791653663795,
     "status": "OPEN",
-    "last_checked_ms": 1791816347725
+    "last_checked_ms": 1791817849887
   },
   {
     "symbol": "WAL/USDT:USDT",
@@ -3513,7 +3513,7 @@
     "targets_hit": [],
     "signal_ts_ms": 1791706589370,
     "status": "OPEN",
-    "last_checked_ms": 1791816347725
+    "last_checked_ms": 1791817849887
   },
   {
     "symbol": "CFX/USDT:USDT",
@@ -3624,5 +3624,38 @@
     "activated_at_ms": 1791774000000,
     "resolved_at_ms": 1791770400000,
     "resolved_after_tp": 0
+  },
+  {
+    "symbol": "ANSEM/USDT:USDT",
+    "direction": "SHORT",
+    "score": 82.0,
+    "entry": 0.1334,
+    "stop": 0.13783316998527828,
+    "tp1": 0.1294988104129551,
+    "tp2": 0.12675024502208254,
+    "tp3": 0.12364702603238775,
+    "phase": "BREAKOUT_STARTED",
+    "trigger": 0.13717834150073607,
+    "move_potential": 78.5,
+    "modeled_move_pct": 21.21,
+    "target_move_pct": 7.311074938240059,
+    "target_confidence": 81.2,
+    "market_cap_rank": 369,
+    "market_cap_rank_known": true,
+    "market_cap_label": "#369",
+    "target_method": "kırılım sonrası ATR/R projeksiyonu",
+    "forward_room_atr": 3.92,
+    "near_room_atr": 0.53,
+    "open_air_fallback": false,
+    "setup_quality": 81.6,
+    "min_target_move_pct": 7.0,
+    "directional_confidence": 94.4,
+    "entry_quality": 56.9,
+    "spot_momentum_bonus": 0.0,
+    "activated": true,
+    "max_tp_hit": 0,
+    "targets_hit": [],
+    "signal_ts_ms": 1791817851443,
+    "status": "OPEN"
   }
 ]
