@@ -3381,7 +3381,7 @@
     "targets_hit": [],
     "signal_ts_ms": 1791653663795,
     "status": "OPEN",
-    "last_checked_ms": 1791874986825
+    "last_checked_ms": 1791876358117
   },
   {
     "symbol": "WAL/USDT:USDT",
@@ -3520,12 +3520,13 @@
     "directional_confidence": 83.6,
     "entry_quality": 85.6,
     "spot_momentum_bonus": 0.0,
-    "activated": false,
+    "activated": true,
     "max_tp_hit": 0,
     "targets_hit": [],
     "signal_ts_ms": 1791706589370,
     "status": "OPEN",
-    "last_checked_ms": 1791874986825
+    "last_checked_ms": 1791876358117,
+    "activated_at_ms": 1791873900000
   },
   {
     "symbol": "CFX/USDT:USDT",
@@ -3672,7 +3673,7 @@
     ],
     "signal_ts_ms": 1791817851443,
     "status": "OPEN",
-    "last_checked_ms": 1791874986825,
+    "last_checked_ms": 1791876358117,
     "tp1_hit_ms": 1791832500000,
     "tp2_hit_ms": 1791853200000
   },
@@ -3710,7 +3711,7 @@
     ],
     "signal_ts_ms": 1791868831469,
     "status": "OPEN",
-    "last_checked_ms": 1791874986825,
+    "last_checked_ms": 1791876358117,
     "tp1_hit_ms": 1791873000000
   }
 ]
