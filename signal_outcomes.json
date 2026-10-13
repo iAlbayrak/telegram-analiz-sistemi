@@ -3341,11 +3341,13 @@
       2
     ],
     "signal_ts_ms": 1791650190052,
-    "status": "OPEN",
-    "last_checked_ms": 1791853452467,
+    "status": "STOP_AFTER_TP2",
+    "last_checked_ms": 1791854608790,
     "activated_at_ms": 1791650700000,
     "tp1_hit_ms": 1791651600000,
-    "tp2_hit_ms": 1791698400000
+    "tp2_hit_ms": 1791698400000,
+    "resolved_at_ms": 1791852300000,
+    "resolved_after_tp": 2
   },
   {
     "symbol": "BREV/USDT:USDT",
@@ -3379,7 +3381,7 @@
     "targets_hit": [],
     "signal_ts_ms": 1791653663795,
     "status": "OPEN",
-    "last_checked_ms": 1791853452467
+    "last_checked_ms": 1791854608790
   },
   {
     "symbol": "WAL/USDT:USDT",
@@ -3523,7 +3525,7 @@
     "targets_hit": [],
     "signal_ts_ms": 1791706589370,
     "status": "OPEN",
-    "last_checked_ms": 1791853452467
+    "last_checked_ms": 1791854608790
   },
   {
     "symbol": "CFX/USDT:USDT",
@@ -3663,13 +3665,15 @@
     "entry_quality": 56.9,
     "spot_momentum_bonus": 0.0,
     "activated": true,
-    "max_tp_hit": 1,
+    "max_tp_hit": 2,
     "targets_hit": [
-      1
+      1,
+      2
     ],
     "signal_ts_ms": 1791817851443,
     "status": "OPEN",
-    "last_checked_ms": 1791853452467,
-    "tp1_hit_ms": 1791832500000
+    "last_checked_ms": 1791854608790,
+    "tp1_hit_ms": 1791832500000,
+    "tp2_hit_ms": 1791853200000
   }
 ]
