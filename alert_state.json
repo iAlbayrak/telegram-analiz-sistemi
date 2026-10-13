@@ -371,11 +371,13 @@
   },
   "BTW/USDT:USDT:LONG": {
     "tier": "SKOR 80+",
-    "score": 80.3,
+    "score": 84.7,
     "phase": "PRE_BREAKOUT",
-    "market_cap_rank": 42,
+    "market_cap_rank": 36,
     "alert_threshold": 80.0,
-    "last_seen": 1791463295
+    "target_move_pct": 15.049879106249907,
+    "target_confidence": 76.2,
+    "last_seen": 1791905709
   },
   "FLUID/USDT:USDT:SHORT": {
     "tier": "SKOR 80+",
@@ -1143,12 +1145,22 @@
   },
   "PROM/USDT:USDT:SHORT": {
     "tier": "SKOR 80+",
-    "score": 80.6,
-    "phase": "PRE_BREAKOUT",
+    "score": 82.3,
+    "phase": "BREAKOUT_STARTED",
     "market_cap_rank": 275,
     "alert_threshold": 80.0,
-    "target_move_pct": 7.022047539038789,
-    "target_confidence": 79.7,
-    "last_seen": 1791904023
+    "target_move_pct": 6.6170712607674265,
+    "target_confidence": 82.1,
+    "last_seen": 1791905934
+  },
+  "Q/USDT:USDT:LONG": {
+    "tier": "SKOR 85+",
+    "score": 85.5,
+    "phase": "PRE_BREAKOUT",
+    "market_cap_rank": 338,
+    "alert_threshold": 80.0,
+    "target_move_pct": 10.145261717771724,
+    "target_confidence": 80.4,
+    "last_seen": 1791905718
   }
 }
