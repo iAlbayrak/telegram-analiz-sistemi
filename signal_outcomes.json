@@ -3381,7 +3381,7 @@
     "targets_hit": [],
     "signal_ts_ms": 1791653663795,
     "status": "OPEN",
-    "last_checked_ms": 1791867350955
+    "last_checked_ms": 1791868830080
   },
   {
     "symbol": "WAL/USDT:USDT",
@@ -3525,7 +3525,7 @@
     "targets_hit": [],
     "signal_ts_ms": 1791706589370,
     "status": "OPEN",
-    "last_checked_ms": 1791867350955
+    "last_checked_ms": 1791868830080
   },
   {
     "symbol": "CFX/USDT:USDT",
@@ -3672,8 +3672,41 @@
     ],
     "signal_ts_ms": 1791817851443,
     "status": "OPEN",
-    "last_checked_ms": 1791867350955,
+    "last_checked_ms": 1791868830080,
     "tp1_hit_ms": 1791832500000,
     "tp2_hit_ms": 1791853200000
+  },
+  {
+    "symbol": "CKB/USDT:USDT",
+    "direction": "LONG",
+    "score": 83.6,
+    "entry": 0.0016447,
+    "stop": 0.0015871272606332364,
+    "tp1": 0.0017022727393667637,
+    "tp2": 0.0017310591090501455,
+    "tp3": 0.001814,
+    "phase": "BREAKOUT_STARTED",
+    "trigger": 0.0016314786369683381,
+    "move_potential": 77.5,
+    "modeled_move_pct": 32.55,
+    "target_move_pct": 10.293670578220947,
+    "target_confidence": 82.8,
+    "market_cap_rank": 312,
+    "market_cap_rank_known": true,
+    "market_cap_label": "#312",
+    "target_method": "üst yapısal direnç",
+    "forward_room_atr": 4.21,
+    "near_room_atr": 0.59,
+    "open_air_fallback": false,
+    "setup_quality": 82.5,
+    "min_target_move_pct": 7.0,
+    "directional_confidence": 83.5,
+    "entry_quality": 74.4,
+    "spot_momentum_bonus": 0.0,
+    "activated": true,
+    "max_tp_hit": 0,
+    "targets_hit": [],
+    "signal_ts_ms": 1791868831469,
+    "status": "OPEN"
   }
 ]
