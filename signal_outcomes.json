@@ -3381,7 +3381,7 @@
     "targets_hit": [],
     "signal_ts_ms": 1791653663795,
     "status": "OPEN",
-    "last_checked_ms": 1791902641506
+    "last_checked_ms": 1791904146176
   },
   {
     "symbol": "WAL/USDT:USDT",
@@ -3792,8 +3792,41 @@
     ],
     "signal_ts_ms": 1791897343581,
     "status": "OPEN",
-    "last_checked_ms": 1791902641506,
+    "last_checked_ms": 1791904146176,
     "tp1_hit_ms": 1791898200000,
     "tp2_hit_ms": 1791898200000
+  },
+  {
+    "symbol": "PROM/USDT:USDT",
+    "direction": "SHORT",
+    "score": 80.6,
+    "entry": 5.1302484876753836,
+    "stop": 5.2202847834661865,
+    "tp1": 5.001992275483499,
+    "tp2": 4.8993873057299915,
+    "tp3": 4.77,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 5.1302484876753836,
+    "move_potential": 67.3,
+    "modeled_move_pct": 16.01,
+    "target_move_pct": 7.022047539038789,
+    "target_confidence": 79.7,
+    "market_cap_rank": 275,
+    "market_cap_rank_known": true,
+    "market_cap_label": "#275",
+    "target_method": "alt yapısal destek",
+    "forward_room_atr": 3.89,
+    "near_room_atr": 0.52,
+    "open_air_fallback": false,
+    "setup_quality": 82.8,
+    "min_target_move_pct": 6.5,
+    "directional_confidence": 76.3,
+    "entry_quality": 93.6,
+    "spot_momentum_bonus": 0.0,
+    "activated": false,
+    "max_tp_hit": 0,
+    "targets_hit": [],
+    "signal_ts_ms": 1791904156233,
+    "status": "OPEN"
   }
 ]
