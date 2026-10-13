@@ -3381,7 +3381,7 @@
     "targets_hit": [],
     "signal_ts_ms": 1791653663795,
     "status": "OPEN",
-    "last_checked_ms": 1791895672724
+    "last_checked_ms": 1791897342152
   },
   {
     "symbol": "WAL/USDT:USDT",
@@ -3675,7 +3675,7 @@
     ],
     "signal_ts_ms": 1791817851443,
     "status": "OPEN",
-    "last_checked_ms": 1791895672724,
+    "last_checked_ms": 1791897342152,
     "tp1_hit_ms": 1791832500000,
     "tp2_hit_ms": 1791853200000
   },
@@ -3750,6 +3750,39 @@
     "targets_hit": [],
     "signal_ts_ms": 1791878184376,
     "status": "OPEN",
-    "last_checked_ms": 1791895672724
+    "last_checked_ms": 1791897342152
+  },
+  {
+    "symbol": "S/USDT:USDT",
+    "direction": "LONG",
+    "score": 85.0,
+    "entry": 0.06775,
+    "stop": 0.06399445332424002,
+    "tp1": 0.0710548810746688,
+    "tp2": 0.07338332001363998,
+    "tp3": 0.07601220268667198,
+    "phase": "BREAKOUT_STARTED",
+    "trigger": 0.06588777733378799,
+    "move_potential": 80.9,
+    "modeled_move_pct": 18.69,
+    "target_move_pct": 12.195133116859003,
+    "target_confidence": 78.7,
+    "market_cap_rank": 192,
+    "market_cap_rank_known": true,
+    "market_cap_label": "#192",
+    "target_method": "kırılım sonrası ATR/R projeksiyonu",
+    "forward_room_atr": 3.0,
+    "near_room_atr": 3.0,
+    "open_air_fallback": true,
+    "setup_quality": 77.3,
+    "min_target_move_pct": 6.5,
+    "directional_confidence": 84.7,
+    "entry_quality": 56.9,
+    "spot_momentum_bonus": 4.7,
+    "activated": true,
+    "max_tp_hit": 0,
+    "targets_hit": [],
+    "signal_ts_ms": 1791897343581,
+    "status": "OPEN"
   }
 ]
