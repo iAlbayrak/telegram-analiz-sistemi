@@ -3381,7 +3381,7 @@
     "targets_hit": [],
     "signal_ts_ms": 1791653663795,
     "status": "OPEN",
-    "last_checked_ms": 1791876358117
+    "last_checked_ms": 1791878182633
   },
   {
     "symbol": "WAL/USDT:USDT",
@@ -3524,9 +3524,11 @@
     "max_tp_hit": 0,
     "targets_hit": [],
     "signal_ts_ms": 1791706589370,
-    "status": "OPEN",
-    "last_checked_ms": 1791876358117,
-    "activated_at_ms": 1791873900000
+    "status": "STOP",
+    "last_checked_ms": 1791878182633,
+    "activated_at_ms": 1791873900000,
+    "resolved_at_ms": 1791707400000,
+    "resolved_after_tp": 0
   },
   {
     "symbol": "CFX/USDT:USDT",
@@ -3673,7 +3675,7 @@
     ],
     "signal_ts_ms": 1791817851443,
     "status": "OPEN",
-    "last_checked_ms": 1791876358117,
+    "last_checked_ms": 1791878182633,
     "tp1_hit_ms": 1791832500000,
     "tp2_hit_ms": 1791853200000
   },
@@ -3711,7 +3713,40 @@
     ],
     "signal_ts_ms": 1791868831469,
     "status": "OPEN",
-    "last_checked_ms": 1791876358117,
+    "last_checked_ms": 1791878182633,
     "tp1_hit_ms": 1791873000000
+  },
+  {
+    "symbol": "DUSK/USDT:USDT",
+    "direction": "LONG",
+    "score": 82.3,
+    "entry": 0.10018164178268373,
+    "stop": 0.09594880612900937,
+    "tp1": 0.10390653715791716,
+    "tp2": 0.10653089526319526,
+    "tp3": 0.10949388022076731,
+    "phase": "PRE_BREAKOUT",
+    "trigger": 0.10018164178268373,
+    "move_potential": 79.6,
+    "modeled_move_pct": 12.46,
+    "target_move_pct": 9.29535419102423,
+    "target_confidence": 78.6,
+    "market_cap_rank": 368,
+    "market_cap_rank_known": true,
+    "market_cap_label": "#368",
+    "target_method": "kırılım sonrası ATR/R projeksiyonu",
+    "forward_room_atr": 3.0,
+    "near_room_atr": 3.0,
+    "open_air_fallback": true,
+    "setup_quality": 79.0,
+    "min_target_move_pct": 7.0,
+    "directional_confidence": 91.8,
+    "entry_quality": 56.9,
+    "spot_momentum_bonus": 0.0,
+    "activated": false,
+    "max_tp_hit": 0,
+    "targets_hit": [],
+    "signal_ts_ms": 1791878184376,
+    "status": "OPEN"
   }
 ]
