@@ -3831,7 +3831,7 @@
     "targets_hit": [],
     "signal_ts_ms": 1791904156233,
     "status": "OPEN",
-    "last_checked_ms": 1791919936852,
+    "last_checked_ms": 1791921853431,
     "activated_at_ms": 1791904500000
   },
   {
@@ -3866,7 +3866,7 @@
     "targets_hit": [],
     "signal_ts_ms": 1791906119013,
     "status": "OPEN",
-    "last_checked_ms": 1791919936852,
+    "last_checked_ms": 1791921853431,
     "activated_at_ms": 1791907200000
   },
   {
@@ -3901,7 +3901,7 @@
     "targets_hit": [],
     "signal_ts_ms": 1791906119908,
     "status": "OPEN",
-    "last_checked_ms": 1791919936852
+    "last_checked_ms": 1791921853431
   },
   {
     "symbol": "TRUTH/USDT:USDT",
@@ -3931,16 +3931,19 @@
     "entry_quality": 56.9,
     "spot_momentum_bonus": 5.9,
     "activated": true,
-    "max_tp_hit": 2,
+    "max_tp_hit": 3,
     "targets_hit": [
       1,
-      2
+      2,
+      3
     ],
     "signal_ts_ms": 1791907640360,
-    "status": "OPEN",
-    "last_checked_ms": 1791919936852,
+    "status": "TP3",
+    "last_checked_ms": 1791921853431,
     "activated_at_ms": 1791908100000,
     "tp1_hit_ms": 1791908100000,
-    "tp2_hit_ms": 1791909900000
+    "tp2_hit_ms": 1791909900000,
+    "tp3_hit_ms": 1791918900000,
+    "resolved_at_ms": 1791918900000
   }
 ]
