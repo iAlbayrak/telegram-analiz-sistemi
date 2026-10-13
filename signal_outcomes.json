@@ -3381,7 +3381,7 @@
     "targets_hit": [],
     "signal_ts_ms": 1791653663795,
     "status": "OPEN",
-    "last_checked_ms": 1791882405172
+    "last_checked_ms": 1791883522736
   },
   {
     "symbol": "WAL/USDT:USDT",
@@ -3675,7 +3675,7 @@
     ],
     "signal_ts_ms": 1791817851443,
     "status": "OPEN",
-    "last_checked_ms": 1791882405172,
+    "last_checked_ms": 1791883522736,
     "tp1_hit_ms": 1791832500000,
     "tp2_hit_ms": 1791853200000
   },
@@ -3712,9 +3712,11 @@
       1
     ],
     "signal_ts_ms": 1791868831469,
-    "status": "OPEN",
-    "last_checked_ms": 1791882405172,
-    "tp1_hit_ms": 1791873000000
+    "status": "STOP_AFTER_TP1",
+    "last_checked_ms": 1791883522736,
+    "tp1_hit_ms": 1791873000000,
+    "resolved_at_ms": 1791882000000,
+    "resolved_after_tp": 1
   },
   {
     "symbol": "DUSK/USDT:USDT",
@@ -3748,6 +3750,6 @@
     "targets_hit": [],
     "signal_ts_ms": 1791878184376,
     "status": "OPEN",
-    "last_checked_ms": 1791882405172
+    "last_checked_ms": 1791883522736
   }
 ]
