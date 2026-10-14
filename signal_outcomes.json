@@ -3830,9 +3830,11 @@
     "max_tp_hit": 0,
     "targets_hit": [],
     "signal_ts_ms": 1791904156233,
-    "status": "OPEN",
-    "last_checked_ms": 1791947771683,
-    "activated_at_ms": 1791904500000
+    "status": "STOP",
+    "last_checked_ms": 1791949860851,
+    "activated_at_ms": 1791904500000,
+    "resolved_at_ms": 1791947700000,
+    "resolved_after_tp": 0
   },
   {
     "symbol": "Q/USDT:USDT",
@@ -3908,8 +3910,10 @@
     "max_tp_hit": 0,
     "targets_hit": [],
     "signal_ts_ms": 1791906119908,
-    "status": "OPEN",
-    "last_checked_ms": 1791947771683
+    "status": "STOP",
+    "last_checked_ms": 1791949860851,
+    "resolved_at_ms": 1791947700000,
+    "resolved_after_tp": 0
   },
   {
     "symbol": "TRUTH/USDT:USDT",
