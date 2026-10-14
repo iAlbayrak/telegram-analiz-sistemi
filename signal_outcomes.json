@@ -3831,7 +3831,7 @@
     "targets_hit": [],
     "signal_ts_ms": 1791904156233,
     "status": "OPEN",
-    "last_checked_ms": 1791944110049,
+    "last_checked_ms": 1791946240487,
     "activated_at_ms": 1791904500000
   },
   {
@@ -3862,17 +3862,20 @@
     "entry_quality": 67.0,
     "spot_momentum_bonus": 0.0,
     "activated": true,
-    "max_tp_hit": 2,
+    "max_tp_hit": 3,
     "targets_hit": [
       1,
-      2
+      2,
+      3
     ],
     "signal_ts_ms": 1791906119013,
-    "status": "OPEN",
-    "last_checked_ms": 1791944110049,
+    "status": "TP3",
+    "last_checked_ms": 1791946240487,
     "activated_at_ms": 1791907200000,
     "tp1_hit_ms": 1791936000000,
-    "tp2_hit_ms": 1791936000000
+    "tp2_hit_ms": 1791936000000,
+    "tp3_hit_ms": 1791944100000,
+    "resolved_at_ms": 1791944100000
   },
   {
     "symbol": "PROM/USDT:USDT",
@@ -3906,7 +3909,7 @@
     "targets_hit": [],
     "signal_ts_ms": 1791906119908,
     "status": "OPEN",
-    "last_checked_ms": 1791944110049
+    "last_checked_ms": 1791946240487
   },
   {
     "symbol": "TRUTH/USDT:USDT",
