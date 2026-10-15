@@ -1,44 +1,3 @@
-FIRSAT_KONTROL CSOPSAMSUNG2L/USDT:USDT 24h=-14.52% perp_qv=113068 spot_qv=0 score=72.5 faz=PRE_BREAKOUT neden=SKOR/EŞİK
-FIRSAT_KONTROL SAMSUNGEMSTOCK/USDT:USDT 24h=-14.27% perp_qv=136816 spot_qv=0 score=58.2 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-FIRSAT_KONTROL AGENCY/USDT:USDT     24h=+14.16% perp_qv=179369 spot_qv=0 score=59.5 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-DATA_SKIPS {"YETERSIZ_MUM": 20}
-=== 2026-10-15T01:49:44 | BTC4h=NEUTRAL BTC1h=BEARISH ETH4h=BEARISH ETH1h=BEARISH | perp_taranan=1052 | en_iyi=NIULAI/USDT:USDT 80.5 | marketcap=coinpaprika ===
-PERP NIULAI/USDT:USDT     SHORT phase=BREAKOUT_STARTED score= 80.5 pot=78.0 target_move=7.07% target_min=8.00% setup_strength=78/100 spot_bonus=0.0 modeled_move=17.77% near_room=3.00ATR far_room=3.00ATR early=73.3 rr_internal=2.20 rel1h=-3.30 rel4h=+0.83 mc=#9999 rank_known=False gate=90 valid=False qv=465399 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-PERP MURATASTOCK/USDT:USDT SHORT phase=BREAKOUT_STARTED score= 80.5 pot=80.6 target_move=4.68% target_min=8.00% setup_strength=79/100 spot_bonus=0.0 modeled_move=3.63% near_room=3.00ATR far_room=3.00ATR early=89.2 rr_internal=2.20 rel1h=-6.91 rel4h=+0.02 mc=#9999 rank_known=False gate=90 valid=True qv=289530 reject=SKOR/EŞİK
-PERP S/USDT:USDT          LONG  phase=BREAKOUT_STARTED score= 80.1 pot=73.5 target_move=10.94% target_min=6.50% setup_strength=76/100 spot_bonus=0.0 modeled_move=34.42% near_room=0.51ATR far_room=4.54ATR early=68.8 rr_internal=5.78 rel1h=-0.15 rel4h=+1.89 mc=# 196 rank_known=True gate=80 valid=False qv=5064145 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-PERP HOOKED/USDT:USDT     SHORT phase=BREAKOUT_STARTED score= 79.9 pot=76.5 target_move=43.39% target_min=10.00% setup_strength=79/100 spot_bonus=0.0 modeled_move=196.50% near_room=3.00ATR far_room=3.00ATR early=75.9 rr_internal=2.20 rel1h=-1.96 rel4h=-10.01 mc=#1467 rank_known=True gate=90 valid=True qv=137106 reject=SKOR/EŞİK
-PERP CSOPSKHYNIX2L/USDT:USDT SHORT phase=BREAKOUT_RETEST  score= 79.9 pot=80.0 target_move=9.43% target_min=8.00% setup_strength=76/100 spot_bonus=0.0 modeled_move=17.30% near_room=3.00ATR far_room=3.00ATR early=83.7 rr_internal=2.20 rel1h=-6.20 rel4h=-8.94 mc=#9999 rank_known=False gate=90 valid=False qv=167331 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-PERP SKDD/USDT:USDT       LONG  phase=BREAKOUT_STARTED score= 79.8 pot=80.3 target_move=6.07% target_min=8.00% setup_strength=78/100 spot_bonus=0.0 modeled_move=9.45% near_room=3.00ATR far_room=3.00ATR early=86.6 rr_internal=2.20 rel1h=+3.70 rel4h=+8.02 mc=#9999 rank_known=False gate=90 valid=True qv=595073 reject=SKOR/EŞİK
-PERP KIOXIASTOCK/USDT:USDT SHORT phase=PRE_BREAKOUT     score= 79.3 pot=78.0 target_move=5.97% target_min=8.00% setup_strength=75/100 spot_bonus=0.0 modeled_move=8.75% near_room=3.00ATR far_room=3.00ATR early=75.3 rr_internal=2.20 rel1h=-2.75 rel4h=-4.16 mc=#9999 rank_known=False gate=90 valid=True qv=630254 reject=SKOR/EŞİK
-PERP GPROSTOCK/USDT:USDT  SHORT phase=BREAKOUT_STARTED score= 79.1 pot=76.5 target_move=2.92% target_min=8.00% setup_strength=79/100 spot_bonus=0.0 modeled_move=4.56% near_room=3.00ATR far_room=3.00ATR early=69.1 rr_internal=2.20 rel1h=-1.25 rel4h=-0.83 mc=#9999 rank_known=False gate=90 valid=True qv=176559 reject=SKOR/EŞİK
-PERP MOSTOCK/USDT:USDT    LONG  phase=BREAKOUT_STARTED score= 79.1 pot=76.8 target_move=0.37% target_min=8.00% setup_strength=77/100 spot_bonus=0.0 modeled_move=1.35% near_room=3.00ATR far_room=3.00ATR early=66.7 rr_internal=2.20 rel1h=+0.05 rel4h=+0.51 mc=#9999 rank_known=False gate=90 valid=False qv=140426 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-PERP ZHIPUSTOCK/USDT:USDT SHORT phase=BREAKOUT_STARTED score= 78.9 pot=76.5 target_move=2.72% target_min=8.00% setup_strength=76/100 spot_bonus=0.0 modeled_move=6.21% near_room=3.00ATR far_room=3.00ATR early=67.3 rr_internal=2.20 rel1h=-0.79 rel4h=-1.76 mc=#9999 rank_known=False gate=90 valid=False qv=1547469 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-SPOT UMXM/USDT            AŞAĞI HAREKET   15m=-14.91% 1h=+9.55% 24h=+209.79% vol=1.00x swap=False discovery=True
-SPOT GTT/USDT             AŞAĞI HAREKET   15m=-4.92% 1h=-4.13% 24h=+81.13% vol=0.02x swap=False discovery=True
-SPOT MBK/USDT             AŞAĞI HAREKET   15m=-0.38% 1h=-2.83% 24h=-57.50% vol=0.05x swap=False discovery=True
-SPOT MINT/USDT            AŞAĞI HAREKET   15m=-3.31% 1h=+1.58% 24h=+57.32% vol=0.42x swap=False discovery=True
-SPOT WAL/USDT             YUKARI HAREKET  15m=+3.60% 1h=-0.92% 24h=+49.50% vol=0.32x swap=True discovery=True
-SPOT KRAFT/USDT           YUKARI HAREKET  15m=+1.80% 1h=-8.87% 24h=-32.72% vol=0.00x swap=False discovery=True
-SPOT CTX/USDT             AŞAĞI HAREKET   15m=-8.29% 1h=-4.43% 24h=+30.82% vol=0.73x swap=False discovery=True
-SPOT 龙虾/USDT              YUKARI HAREKET  15m=+3.44% 1h=+8.59% 24h=-27.65% vol=1.28x swap=False discovery=True
-SPOT OKAI/USDT            YUKARI HAREKET  15m=+0.00% 1h=+5.23% 24h=+12.25% vol=0.57x swap=False discovery=True
-SPOT STRK/USDT            AŞAĞI HAREKET   15m=-0.98% 1h=-0.29% 24h=-10.96% vol=0.88x swap=True discovery=True
-FIRSAT_KONTROL CLAUS/USDT:USDT      24h=+36.60% perp_qv=153330 spot_qv=0 score=analiz yok faz=n/a neden=detaylı analiz listesine girmedi; evren/seçim kontrolü gerekli
-FIRSAT_KONTROL ARGUS/USDT:USDT      24h=+34.99% perp_qv=159561 spot_qv=0 score=56.0 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-FIRSAT_KONTROL HOOKED/USDT:USDT     24h=-34.65% perp_qv=137106 spot_qv=0 score=79.9 faz=BREAKOUT_STARTED neden=SKOR/EŞİK
-FIRSAT_KONTROL AGENCY/USDT:USDT     24h=+31.06% perp_qv=183310 spot_qv=0 score=54.5 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-FIRSAT_KONTROL ZEREBRO/USDT:USDT    24h=+29.89% perp_qv=4262337 spot_qv=0 score=56.6 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-FIRSAT_KONTROL WANGCHAI/USDT:USDT   24h=-24.75% perp_qv=127180 spot_qv=0 score=analiz yok faz=n/a neden=detaylı analiz listesine girmedi; evren/seçim kontrolü gerekli
-FIRSAT_KONTROL ZC/USDT:USDT         24h=-22.46% perp_qv=232345 spot_qv=0 score=66.7 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-FIRSAT_KONTROL JEANPHIL/USDT:USDT   24h=-19.70% perp_qv=117561 spot_qv=0 score=analiz yok faz=n/a neden=detaylı analiz listesine girmedi; evren/seçim kontrolü gerekli
-FIRSAT_KONTROL CSOPSKHYNIX2L/USDT:USDT 24h=-18.11% perp_qv=167331 spot_qv=0 score=79.9 faz=BREAKOUT_RETEST neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-FIRSAT_KONTROL KORU/USDT:USDT       24h=-17.91% perp_qv=127526404 spot_qv=0 score=78.3 faz=BREAKOUT_STARTED neden=SKOR/EŞİK
-FIRSAT_KONTROL CSOPSAMSUNG2L/USDT:USDT 24h=-16.34% perp_qv=116271 spot_qv=0 score=71.9 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-FIRSAT_KONTROL NIL/USDT:USDT        24h=+15.11% perp_qv=11609808 spot_qv=0 score=61.4 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-FIRSAT_KONTROL STANDARD/USDT:USDT   24h=-14.96% perp_qv=108897 spot_qv=0 score=57.1 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-FIRSAT_KONTROL WAL/USDT:USDT        24h=+14.37% perp_qv=14272500 spot_qv=1249651 score=59.7 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-FIRSAT_KONTROL ARCSOL/USDT:USDT     24h=+14.35% perp_qv=1730825 spot_qv=0 score=59.3 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
-FIRSAT_KONTROL SAMSUNGEMSTOCK/USDT:USDT 24h=-14.34% perp_qv=144369 spot_qv=0 score=67.7 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
 FIRSAT_KONTROL SKUU/USDT:USDT       24h=-14.11% perp_qv=110961 spot_qv=0 score=68.0 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
 FIRSAT_KONTROL SKDD/USDT:USDT       24h=+14.07% perp_qv=595073 spot_qv=0 score=79.8 faz=BREAKOUT_STARTED neden=SKOR/EŞİK
 FIRSAT_KONTROL IBIDENSTOCK/USDT:USDT 24h=-13.91% perp_qv=112528 spot_qv=0 score=71.6 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
@@ -498,3 +457,44 @@ FIRSAT_KONTROL GP/USDT:USDT         24h=-19.54% perp_qv=119368 spot_qv=0 score=7
 FIRSAT_KONTROL SOPH/USDT:USDT       24h=-19.30% perp_qv=185078 spot_qv=0 score=74.5 faz=BREAKOUT_STARTED neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
 FIRSAT_KONTROL CSOPSAMSUNG2L/USDT:USDT 24h=-19.27% perp_qv=117016 spot_qv=0 score=63.6 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
 FIRSAT_KONTROL KORU/USDT:USDT       24h=-19.04% perp_qv=146587048 spot_qv=0 score=66.9 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+=== 2026-10-15T08:20:49 | BTC4h=NEUTRAL BTC1h=BEARISH ETH4h=BEARISH ETH1h=BEARISH | perp_taranan=1041 | en_iyi=CEGSTOCK/USDT:USDT 82.2 | marketcap=coinpaprika ===
+PERP CEGSTOCK/USDT:USDT   SHORT phase=PRE_BREAKOUT     score= 82.2 pot=82.2 target_move=2.11% target_min=8.00% setup_strength=78/100 spot_bonus=0.0 modeled_move=10.25% near_room=1.72ATR far_room=6.95ATR early=71.9 rr_internal=2.20 rel1h=-0.90 rel4h=-1.04 mc=#9999 rank_known=False gate=90 valid=True qv=339597 reject=SKOR/EŞİK
+PERP MASKSOL/USDT:USDT    LONG  phase=NO_EARLY_SETUP   score= 81.6 pot=74.2 target_move=27.04% target_min=8.00% setup_strength=77/100 spot_bonus=0.0 modeled_move=97.92% near_room=0.54ATR far_room=7.86ATR early=54.3 rr_internal=5.08 rel1h=+7.62 rel4h=-0.26 mc=#9999 rank_known=False gate=90 valid=False qv=102117 reject=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+PERP IONQSTOCK/USDT:USDT  SHORT phase=BREAKOUT_STARTED score= 79.5 pot=75.6 target_move=2.92% target_min=8.00% setup_strength=79/100 spot_bonus=0.0 modeled_move=7.91% near_room=3.00ATR far_room=3.00ATR early=69.7 rr_internal=2.20 rel1h=-0.67 rel4h=-0.86 mc=#9999 rank_known=False gate=90 valid=True qv=886416 reject=SKOR/EŞİK
+PERP DGAI/USDT:USDT       SHORT phase=PRE_BREAKOUT     score= 79.3 pot=80.4 target_move=1.98% target_min=6.50% setup_strength=75/100 spot_bonus=0.0 modeled_move=24.17% near_room=1.55ATR far_room=14.88ATR early=67.9 rr_internal=2.20 rel1h=-1.04 rel4h=-2.04 mc=# 222 rank_known=True gate=80 valid=True qv=279674 reject=SKOR/EŞİK
+PERP ASTSSTOCK/USDT:USDT  SHORT phase=BREAKOUT_STARTED score= 79.2 pot=75.8 target_move=3.65% target_min=8.00% setup_strength=79/100 spot_bonus=0.0 modeled_move=9.14% near_room=3.00ATR far_room=3.00ATR early=68.8 rr_internal=2.20 rel1h=-0.86 rel4h=-0.65 mc=#9999 rank_known=False gate=90 valid=True qv=372893 reject=SKOR/EŞİK
+PERP ARMSTOCK/USDT:USDT   SHORT phase=BREAKOUT_STARTED score= 79.1 pot=75.9 target_move=3.11% target_min=8.00% setup_strength=78/100 spot_bonus=0.0 modeled_move=7.28% near_room=3.00ATR far_room=3.00ATR early=70.9 rr_internal=2.20 rel1h=-0.91 rel4h=-1.56 mc=#9999 rank_known=False gate=90 valid=True qv=204004 reject=SKOR/EŞİK
+PERP AAOISTOCK/USDT:USDT  SHORT phase=BREAKOUT_STARTED score= 79.0 pot=75.7 target_move=4.73% target_min=8.00% setup_strength=79/100 spot_bonus=0.0 modeled_move=10.43% near_room=3.00ATR far_room=3.00ATR early=68.6 rr_internal=2.20 rel1h=-1.26 rel4h=-1.32 mc=#9999 rank_known=False gate=90 valid=True qv=519213 reject=SKOR/EŞİK
+PERP IRENSTOCK/USDT:USDT  SHORT phase=PRE_BREAKOUT     score= 78.9 pot=74.9 target_move=3.43% target_min=8.00% setup_strength=78/100 spot_bonus=0.0 modeled_move=9.60% near_room=3.00ATR far_room=3.00ATR early=69.5 rr_internal=2.20 rel1h=-1.13 rel4h=-1.37 mc=#9999 rank_known=False gate=90 valid=True qv=1964662 reject=SKOR/EŞİK
+PERP SOXS/USDT:USDT       LONG  phase=BREAKOUT_STARTED score= 78.7 pot=73.8 target_move=6.88% target_min=8.00% setup_strength=79/100 spot_bonus=0.0 modeled_move=13.65% near_room=0.57ATR far_room=3.94ATR early=71.0 rr_internal=2.20 rel1h=-0.24 rel4h=-0.15 mc=#9999 rank_known=False gate=90 valid=True qv=79586332 reject=SKOR/EŞİK
+PERP CBRSSTOCK/USDT:USDT  SHORT phase=BREAKOUT_STARTED score= 78.7 pot=75.6 target_move=3.50% target_min=8.00% setup_strength=78/100 spot_bonus=0.0 modeled_move=7.35% near_room=3.00ATR far_room=3.00ATR early=67.5 rr_internal=2.20 rel1h=-1.08 rel4h=-0.80 mc=#9999 rank_known=False gate=90 valid=True qv=678386 reject=SKOR/EŞİK
+SPOT CHOMP/USDT           YUKARI HAREKET  15m=+0.00% 1h=+0.00% 24h=+3780.00% vol=0.00x swap=False discovery=True
+SPOT UMXM/USDT            YUKARI HAREKET  15m=+9.95% 1h=+4.61% 24h=+339.27% vol=0.61x swap=False discovery=True
+SPOT MBK/USDT             YUKARI HAREKET  15m=+0.32% 1h=+5.83% 24h=-54.25% vol=0.06x swap=False discovery=True
+SPOT EVT/USDT             AŞAĞI HAREKET   15m=-2.13% 1h=-8.36% 24h=-51.24% vol=0.00x swap=False discovery=True
+SPOT KRAFT/USDT           YUKARI HAREKET  15m=+4.59% 1h=+0.00% 24h=-44.65% vol=13.77x swap=False discovery=True
+SPOT CTX/USDT             AŞAĞI HAREKET   15m=-8.53% 1h=-15.79% 24h=-34.83% vol=0.03x swap=False discovery=True
+SPOT 龙虾/USDT              YUKARI HAREKET  15m=+0.14% 1h=+2.48% 24h=-32.61% vol=0.19x swap=False discovery=True
+SPOT OKAI/USDT            YUKARI HAREKET  15m=+0.94% 1h=-17.59% 24h=+23.54% vol=0.49x swap=False discovery=True
+SPOT BTW/USDT             YUKARI HAREKET  15m=+0.24% 1h=+0.15% 24h=-21.58% vol=0.27x swap=True discovery=True
+SPOT TRUTH/USDT           YUKARI HAREKET  15m=+1.40% 1h=+1.94% 24h=-20.07% vol=0.86x swap=True discovery=True
+FIRSAT_KONTROL PUFFER/USDT:USDT     24h=+73.78% perp_qv=1102616 spot_qv=0 score=68.6 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+FIRSAT_KONTROL AGENCY/USDT:USDT     24h=+42.99% perp_qv=210249 spot_qv=0 score=55.2 faz=PRE_BREAKOUT neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+FIRSAT_KONTROL ARCSOL/USDT:USDT     24h=+36.55% perp_qv=2211866 spot_qv=0 score=61.6 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+FIRSAT_KONTROL ORBIO/USDT:USDT      24h=-32.27% perp_qv=100409 spot_qv=0 score=67.2 faz=PRE_BREAKOUT neden=SKOR/EŞİK
+FIRSAT_KONTROL WANGCHAI/USDT:USDT   24h=-29.56% perp_qv=125511 spot_qv=0 score=64.4 faz=PRE_BREAKOUT neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+FIRSAT_KONTROL JEANPHIL/USDT:USDT   24h=-29.38% perp_qv=120192 spot_qv=0 score=analiz yok faz=n/a neden=detaylı analiz listesine girmedi; evren/seçim kontrolü gerekli
+FIRSAT_KONTROL BONER/USDT:USDT      24h=-29.22% perp_qv=103020 spot_qv=0 score=67.8 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+FIRSAT_KONTROL HOOKED/USDT:USDT     24h=-26.23% perp_qv=134257 spot_qv=0 score=55.2 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+FIRSAT_KONTROL ZC/USDT:USDT         24h=-25.99% perp_qv=252291 spot_qv=0 score=66.7 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+FIRSAT_KONTROL ARGUS/USDT:USDT      24h=+24.79% perp_qv=177917 spot_qv=0 score=57.5 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+FIRSAT_KONTROL SOCK/USDT:USDT       24h=-23.01% perp_qv=103850 spot_qv=0 score=74.7 faz=PRE_BREAKOUT neden=SKOR/EŞİK
+FIRSAT_KONTROL ZZZ/USDT:USDT        24h=-22.77% perp_qv=100643 spot_qv=0 score=55.5 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+FIRSAT_KONTROL CSOPSKHYNIX2L/USDT:USDT 24h=-21.70% perp_qv=213707 spot_qv=0 score=73.2 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+FIRSAT_KONTROL CLAUDIA/USDT:USDT    24h=-21.51% perp_qv=1525168 spot_qv=0 score=analiz yok faz=n/a neden=detaylı analiz listesine girmedi; evren/seçim kontrolü gerekli
+FIRSAT_KONTROL NIL/USDT:USDT        24h=+20.99% perp_qv=14872786 spot_qv=0 score=72.8 faz=PRE_BREAKOUT neden=SKOR/EŞİK
+FIRSAT_KONTROL SOPH/USDT:USDT       24h=-20.36% perp_qv=204581 spot_qv=0 score=67.2 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+FIRSAT_KONTROL TRUTH/USDT:USDT      24h=-19.74% perp_qv=2008688 spot_qv=753956 score=53.3 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+FIRSAT_KONTROL STANDARD/USDT:USDT   24h=-19.05% perp_qv=108965 spot_qv=0 score=53.7 faz=PRE_BREAKOUT neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+FIRSAT_KONTROL CSOPSAMSUNG2L/USDT:USDT 24h=-19.03% perp_qv=115927 spot_qv=0 score=66.3 faz=NO_EARLY_SETUP neden=ERKEN KIRILIM/TEYİT/YÖN NETLİĞİ
+FIRSAT_KONTROL SHROOM/USDT:USDT     24h=-18.97% perp_qv=107622 spot_qv=0 score=67.2 faz=PRE_BREAKOUT neden=SKOR/EŞİK
