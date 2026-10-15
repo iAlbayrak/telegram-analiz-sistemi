@@ -18,14 +18,14 @@
    "tp1_done": false,
    "extreme": 2.1441,
    "worst": 2.053,
-   "bars": 5,
+   "bars": 6,
    "mfe_pct": 0.9605876536233919,
    "mae_pct": 3.329095446626171,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792094400000,
+  "last_ts": 1792098000000,
   "entry_ts": 1792080000000
  },
  {
@@ -39,7 +39,7 @@
    "side": 1,
    "entry": 0.6025,
    "init_stop": 0.5704203291860429,
-   "stop": 0.5733692675646882,
+   "stop": 0.5736658480528818,
    "risk": 0.03207967081395713,
    "tp1": 0.6506195062209357,
    "remaining": 1.0,
@@ -47,14 +47,14 @@
    "tp1_done": false,
    "extreme": 0.6208,
    "worst": 0.5749,
-   "bars": 5,
+   "bars": 6,
    "mfe_pct": 3.037344398340246,
    "mae_pct": 4.580912863070551,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792094400000,
+  "last_ts": 1792098000000,
   "entry_ts": 1792080000000
  },
  {
@@ -68,22 +68,22 @@
    "side": 1,
    "entry": 0.21109,
    "init_stop": 0.19386252337610188,
-   "stop": 0.19386252337610188,
+   "stop": 0.19453259503851159,
    "risk": 0.01722747662389813,
    "tp1": 0.23693121493584718,
    "remaining": 1.0,
    "realized_r": 0.0,
    "tp1_done": false,
-   "extreme": 0.21941,
+   "extreme": 0.22136,
    "worst": 0.2065,
-   "bars": 2,
-   "mfe_pct": 3.94144677625657,
+   "bars": 3,
+   "mfe_pct": 4.865223364441708,
    "mae_pct": 2.1744279691127057,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792094400000,
+  "last_ts": 1792098000000,
   "entry_ts": 1792090800000
  },
  {
@@ -92,8 +92,27 @@
   "signal_ts": 1792094400000,
   "atr_signal": 0.007785585369062283,
   "strength": 7.073044546184249,
-  "status": "PENDING",
-  "trade": null,
-  "last_ts": 1792094400000
+  "status": "OPEN",
+  "trade": {
+   "side": -1,
+   "entry": 0.36165,
+   "init_stop": 0.3772211707381246,
+   "stop": 0.3772211707381246,
+   "risk": 0.015571170738124565,
+   "tp1": 0.3382932438928132,
+   "remaining": 1.0,
+   "realized_r": 0.0,
+   "tp1_done": false,
+   "extreme": 0.36008,
+   "worst": 0.37112,
+   "bars": 1,
+   "mfe_pct": 0.43412138808240447,
+   "mae_pct": 2.6185538504078467,
+   "done": false,
+   "exit_reason": "",
+   "exit_price": null
+  },
+  "last_ts": 1792098000000,
+  "entry_ts": 1792098000000
  }
 ]
