@@ -5,9 +5,28 @@
   "signal_ts": 1792076400000,
   "atr_signal": 0.06673376772911638,
   "strength": 7.614679298081904,
-  "status": "PENDING",
-  "trade": null,
-  "last_ts": 1792076400000
+  "status": "OPEN",
+  "trade": {
+   "side": 1,
+   "entry": 2.1237,
+   "init_stop": 1.990232464541767,
+   "stop": 1.990232464541767,
+   "risk": 0.13346753545823276,
+   "tp1": 2.323901303187349,
+   "remaining": 1.0,
+   "realized_r": 0.0,
+   "tp1_done": false,
+   "extreme": 2.1282,
+   "worst": 2.0565,
+   "bars": 1,
+   "mfe_pct": 0.21189433535810948,
+   "mae_pct": 3.1642887413476344,
+   "done": false,
+   "exit_reason": "",
+   "exit_price": null
+  },
+  "last_ts": 1792080000000,
+  "entry_ts": 1792080000000
  },
  {
   "symbol": "TIA/USDT:USDT",
@@ -15,8 +34,27 @@
   "signal_ts": 1792076400000,
   "atr_signal": 0.016039835406978564,
   "strength": 5.853111168660226,
-  "status": "PENDING",
-  "trade": null,
-  "last_ts": 1792076400000
+  "status": "OPEN",
+  "trade": {
+   "side": 1,
+   "entry": 0.6025,
+   "init_stop": 0.5704203291860429,
+   "stop": 0.5704203291860429,
+   "risk": 0.03207967081395713,
+   "tp1": 0.6506195062209357,
+   "remaining": 1.0,
+   "realized_r": 0.0,
+   "tp1_done": false,
+   "extreme": 0.6208,
+   "worst": 0.5942,
+   "bars": 1,
+   "mfe_pct": 3.037344398340246,
+   "mae_pct": 1.3775933609958646,
+   "done": false,
+   "exit_reason": "",
+   "exit_price": null
+  },
+  "last_ts": 1792080000000,
+  "entry_ts": 1792080000000
  }
 ]
