@@ -18,14 +18,14 @@
    "tp1_done": false,
    "extreme": 2.1441,
    "worst": 2.053,
-   "bars": 4,
+   "bars": 5,
    "mfe_pct": 0.9605876536233919,
    "mae_pct": 3.329095446626171,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792090800000,
+  "last_ts": 1792094400000,
   "entry_ts": 1792080000000
  },
  {
@@ -46,15 +46,15 @@
    "realized_r": 0.0,
    "tp1_done": false,
    "extreme": 0.6208,
-   "worst": 0.5792,
-   "bars": 4,
+   "worst": 0.5749,
+   "bars": 5,
    "mfe_pct": 3.037344398340246,
-   "mae_pct": 3.867219917012446,
+   "mae_pct": 4.580912863070551,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792090800000,
+  "last_ts": 1792094400000,
   "entry_ts": 1792080000000
  },
  {
@@ -74,16 +74,26 @@
    "remaining": 1.0,
    "realized_r": 0.0,
    "tp1_done": false,
-   "extreme": 0.21717,
+   "extreme": 0.21941,
    "worst": 0.2065,
-   "bars": 1,
-   "mfe_pct": 2.880288028802881,
+   "bars": 2,
+   "mfe_pct": 3.94144677625657,
    "mae_pct": 2.1744279691127057,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792090800000,
+  "last_ts": 1792094400000,
   "entry_ts": 1792090800000
+ },
+ {
+  "symbol": "BR/USDT:USDT",
+  "side": -1,
+  "signal_ts": 1792094400000,
+  "atr_signal": 0.007785585369062283,
+  "strength": 7.073044546184249,
+  "status": "PENDING",
+  "trade": null,
+  "last_ts": 1792094400000
  }
 ]
