@@ -1,34 +1,5 @@
 [
  {
-  "symbol": "ZRO/USDT:USDT",
-  "side": 1,
-  "signal_ts": 1792076400000,
-  "atr_signal": 0.06673376772911638,
-  "strength": 7.614679298081904,
-  "status": "OPEN",
-  "trade": {
-   "side": 1,
-   "entry": 2.1237,
-   "init_stop": 1.990232464541767,
-   "stop": 2.125938103729248,
-   "risk": 0.13346753545823276,
-   "tp1": 2.323901303187349,
-   "remaining": 1.0,
-   "realized_r": 0.0,
-   "tp1_done": false,
-   "extreme": 2.2802,
-   "worst": 2.053,
-   "bars": 23,
-   "mfe_pct": 7.369214107453965,
-   "mae_pct": 3.329095446626171,
-   "done": false,
-   "exit_reason": "",
-   "exit_price": null
-  },
-  "last_ts": 1792159200000,
-  "entry_ts": 1792080000000
- },
- {
   "symbol": "TIA/USDT:USDT",
   "side": 1,
   "signal_ts": 1792076400000,
@@ -47,43 +18,24 @@
    "tp1_done": true,
    "extreme": 0.7228,
    "worst": 0.5749,
-   "bars": 23,
+   "bars": 24,
    "mfe_pct": 19.966804979253105,
    "mae_pct": 4.580912863070551,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792159200000,
+  "last_ts": 1792162800000,
   "entry_ts": 1792080000000
  },
  {
-  "symbol": "AVAX/USDT:USDT",
+  "symbol": "BR/USDT:USDT",
   "side": 1,
-  "signal_ts": 1792141200000,
-  "atr_signal": 0.1181429649432148,
-  "strength": 4.197450502470463,
-  "status": "OPEN",
-  "trade": {
-   "side": 1,
-   "entry": 10.378,
-   "init_stop": 10.14171407011357,
-   "stop": 10.160740976023462,
-   "risk": 0.2362859298864296,
-   "tp1": 10.732428894829644,
-   "remaining": 1.0,
-   "realized_r": 0.0,
-   "tp1_done": false,
-   "extreme": 10.516,
-   "worst": 10.223,
-   "bars": 5,
-   "mfe_pct": 1.3297359799576016,
-   "mae_pct": 1.49354403545962,
-   "done": false,
-   "exit_reason": "",
-   "exit_price": null
-  },
-  "last_ts": 1792159200000,
-  "entry_ts": 1792144800000
+  "signal_ts": 1792162800000,
+  "atr_signal": 0.029563615241030343,
+  "strength": 69.57564691201601,
+  "status": "PENDING",
+  "trade": null,
+  "last_ts": 1792162800000
  }
 ]
