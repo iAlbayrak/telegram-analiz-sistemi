@@ -10,7 +10,7 @@
    "side": 1,
    "entry": 2.1237,
    "init_stop": 1.990232464541767,
-   "stop": 2.107691568576429,
+   "stop": 2.1147635993960168,
    "risk": 0.13346753545823276,
    "tp1": 2.323901303187349,
    "remaining": 1.0,
@@ -18,14 +18,14 @@
    "tp1_done": false,
    "extreme": 2.2802,
    "worst": 2.053,
-   "bars": 17,
+   "bars": 18,
    "mfe_pct": 7.369214107453965,
    "mae_pct": 3.329095446626171,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792137600000,
+  "last_ts": 1792141200000,
   "entry_ts": 1792080000000
  },
  {
@@ -47,14 +47,14 @@
    "tp1_done": true,
    "extreme": 0.72,
    "worst": 0.5749,
-   "bars": 17,
+   "bars": 18,
    "mfe_pct": 19.502074688796668,
    "mae_pct": 4.580912863070551,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792137600000,
+  "last_ts": 1792141200000,
   "entry_ts": 1792080000000
  },
  {
@@ -76,14 +76,24 @@
    "tp1_done": true,
    "extreme": 0.33266,
    "worst": 0.37112,
-   "bars": 12,
+   "bars": 13,
    "mfe_pct": 8.016037605419609,
    "mae_pct": 2.6185538504078467,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792137600000,
+  "last_ts": 1792141200000,
   "entry_ts": 1792098000000
+ },
+ {
+  "symbol": "AVAX/USDT:USDT",
+  "side": 1,
+  "signal_ts": 1792141200000,
+  "atr_signal": 0.1181429649432148,
+  "strength": 4.197450502470463,
+  "status": "PENDING",
+  "trade": null,
+  "last_ts": 1792141200000
  }
 ]
