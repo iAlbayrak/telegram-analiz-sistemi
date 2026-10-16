@@ -10,7 +10,7 @@
    "side": 1,
    "entry": 2.1237,
    "init_stop": 1.990232464541767,
-   "stop": 2.1030063046271126,
+   "stop": 2.107691568576429,
    "risk": 0.13346753545823276,
    "tp1": 2.323901303187349,
    "remaining": 1.0,
@@ -18,14 +18,14 @@
    "tp1_done": false,
    "extreme": 2.2802,
    "worst": 2.053,
-   "bars": 16,
+   "bars": 17,
    "mfe_pct": 7.369214107453965,
    "mae_pct": 3.329095446626171,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792134000000,
+  "last_ts": 1792137600000,
   "entry_ts": 1792080000000
  },
  {
@@ -47,14 +47,14 @@
    "tp1_done": true,
    "extreme": 0.72,
    "worst": 0.5749,
-   "bars": 16,
+   "bars": 17,
    "mfe_pct": 19.502074688796668,
    "mae_pct": 4.580912863070551,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792134000000,
+  "last_ts": 1792137600000,
   "entry_ts": 1792080000000
  },
  {
@@ -68,22 +68,22 @@
    "side": -1,
    "entry": 0.36165,
    "init_stop": 0.3772211707381246,
-   "stop": 0.36496683891461706,
+   "stop": 0.3564522394675998,
    "risk": 0.015571170738124565,
    "tp1": 0.3382932438928132,
-   "remaining": 1.0,
-   "realized_r": 0.0,
-   "tp1_done": false,
-   "extreme": 0.34249,
+   "remaining": 0.6699999999999999,
+   "realized_r": 0.495,
+   "tp1_done": true,
+   "extreme": 0.33266,
    "worst": 0.37112,
-   "bars": 11,
-   "mfe_pct": 5.297939997234899,
+   "bars": 12,
+   "mfe_pct": 8.016037605419609,
    "mae_pct": 2.6185538504078467,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792134000000,
+  "last_ts": 1792137600000,
   "entry_ts": 1792098000000
  }
 ]
