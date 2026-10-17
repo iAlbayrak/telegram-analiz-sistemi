@@ -112,7 +112,7 @@ def format_early_candidate(symbol: str, c: dict, btc_context: dict, eth_context:
         f"Fiyat: {c['close']:.6g}\n"
         f"20g destek/direnç: {c['support']:.6g} / {c['resistance']:.6g}\n"
         f"Sıkışma oranı (20g/60g): {c['compression']:.2f} · Hacim tabanı: ×{c['vol_ratio']:.2f}\n"
-        f"Getiri bağlamı: 1h {c['trend_1w']} · 1a {c['trend_1m']} · 3a {c['trend_3m']} · 1y {c['trend_1y']}\n"
+        f"Getiri bağlamı: 1 hafta {c['trend_1w']} · 1 ay {c['trend_1m']} · 3 ay {c['trend_3m']} · 1 yıl {c['trend_1y']}\n"
         f"BTC: 1s {btc_context.get('btc_1h', 'NA')} / 4s {btc_context.get('btc_4h', 'NA')} / 1g {btc_context.get('btc_1d', 'NA')}\n"
         f"ETH: 1s {eth_context.get('eth_1h', 'NA')} / 4s {eth_context.get('eth_4h', 'NA')}\n"
         f"İpuçları:\n{reasons}\n"
