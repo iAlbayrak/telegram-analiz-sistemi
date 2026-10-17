@@ -65,7 +65,9 @@ def main() -> int:
 
     # --- BTC bağlamı ---
     btc = dm.fetch_recent(ex, "BTC/USDT:USDT", TF, 500)
-    ctx = {"btc_1h": trend_state(btc["close"]), "btc_4h": trend_state(resample_4h(btc)["close"])}
+    eth = dm.fetch_recent(ex, "ETH/USDT:USDT", TF, 500)
+    ctx = {"btc_1h": trend_state(btc["close"]), "btc_4h": trend_state(resample_4h(btc)["close"]),
+           "eth_1h": trend_state(eth["close"]), "eth_4h": trend_state(resample_4h(eth)["close"])}
     reg_last = int(btc_regime_series(btc).iloc[-1]) if p.use_btc_filter else 0
     print(f"BTC 1s={ctx['btc_1h']} 4s={ctx['btc_4h']}", flush=True)
 
