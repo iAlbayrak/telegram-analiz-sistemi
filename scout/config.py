@@ -27,7 +27,7 @@ class StrategyParams:
 
     # --- risk ve çıkış ---
     stop_atr: float = 2.0            # başlangıç stopu = giriş -/+ stop_atr x ATR
-    max_stop_pct: float = 0.12       # stop mesafesi fiyatın %12'sinden büyükse sinyal yok
+    max_stop_pct: float = 0.06       # stop mesafesi fiyatın %12'sinden büyükse sinyal yok
     tp1_r: float = 1.5               # TP1 = +1.5R
     tp1_frac: float = 0.33           # TP1'de pozisyonun bu kadarı kapanır
     be_after_tp1: bool = True        # TP1'den sonra stop girişe çekilir
@@ -52,10 +52,11 @@ class Costs:
 class LiveConfig:
     timeframe: str = "1h"
     min_quote_volume: float = 1_500_000.0   # 24s USDT hacmi tabanı (likidite)
-    history_bars: int = 320
+    history_bars: int = 1000
     max_alerts_per_run: int = 5
     alert_cooldown_hours: int = 24          # aynı coin+yön için tekrar bildirim aralığı
-    max_price_drift_atr: float = 0.75       # canlı fiyat sinyal kapanışından bu kadar ATR uzaklaştıysa gönderme
+    max_price_drift_atr: float = 0.50       # lehe kaçmışsa giriş kovalanmaz
+    max_adverse_drift_atr: float = 0.35    # sinyalden ters yönde fazla uzaklaştıysa iptal
     workers: int = 3
     min_request_interval: float = 0.12
 
