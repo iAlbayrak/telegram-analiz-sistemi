@@ -47,6 +47,7 @@ def format_one(c: dict, p: StrategyParams) -> str:
     lines = [
         f"{icon} {c['side']} · {c['symbol']}",
         f"1s mum {p.donchian_n} saatlik {way} hacimle kırdı (hacim ×{c['vol_mult']:.1f}, mum {c['range_atr']:.1f} ATR, 1s ATR %{c['atr_pct']*100:.1f})",
+        f"Üst zaman dilimi: 4s {TREND_TR.get(c.get('trend_4h', 'NEUTRAL'), '▬ yatay')} | 1g {TREND_TR.get(c.get('trend_1d', 'NEUTRAL'), '▬ yatay')}",
         f"Referans giriş: {_fp(c['close'])}  (en fazla {_fp(c['entry_limit'])} civarı; daha uzaktaysa bekle)",
         f"Stop: {_fp(c['stop'])}  ({sgn}%{c['stop_pct']:.1f})",
         f"TP1: {_fp(c['tp1'])}  ({'+' if c['side']=='LONG' else '−'}%{c['tp1_pct']:.1f}) → pozisyonun {int(round(p.tp1_frac*100))}%'ini kapat"
@@ -58,7 +59,8 @@ def format_one(c: dict, p: StrategyParams) -> str:
 
 
 def format_message(cands: List[dict], ctx: Dict[str, str], p: StrategyParams, extra: int = 0) -> str:
-    head = (f"BTC 1s: {TREND_TR.get(ctx.get('btc_1h'), '?')} | BTC 4s: {TREND_TR.get(ctx.get('btc_4h'), '?')}")
+    head = (f"BTC: 1s {TREND_TR.get(ctx.get('btc_1h'), '?')} · 4s {TREND_TR.get(ctx.get('btc_4h'), '?')} · 1g {TREND_TR.get(ctx.get('btc_1d'), '?')}\n"
+            f"ETH: 1s {TREND_TR.get(ctx.get('eth_1h'), '?')} · 4s {TREND_TR.get(ctx.get('eth_4h'), '?')}")
     body = "\n\n".join(format_one(c, p) for c in cands)
     note = (f"\n\n(+{extra} aday daha vardı; sinyal gücüne göre ilk {len(cands)} gösterildi. "
             f"Çok sayıda aynı anda sinyal genelde tek bir piyasa hareketidir: toplam riski sınırlayın.)") if extra > 0 else ""
