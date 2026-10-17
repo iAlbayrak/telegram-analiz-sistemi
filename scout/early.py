@@ -1,0 +1,94 @@
+"""Early-warning setup scoring on closed daily candles; this is not an entry signal."""
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+
+
+def _trend(close: pd.Series, n: int = 50) -> str:
+    if len(close) < n + 3:
+        return "YETERSİZ VERİ"
+    ema = close.ewm(span=n, adjust=False).mean().iloc[-1]
+    dev = float(close.iloc[-1] / ema - 1.0)
+    return "YUKARI" if dev > 0.003 else "AŞAĞI" if dev < -0.003 else "YATAY"
+
+
+def score_daily_setup(df: pd.DataFrame) -> dict | None:
+    """Return a scored pre-breakout watch candidate from daily OHLCV.
+
+    Scores describe chart conditions, not a probability or prediction. Requires >=90 daily
+    candles so 20/60-day structure and a long-term context are not inferred from a tiny sample.
+    """
+    required = {"ts", "open", "high", "low", "close", "volume"}
+    if not required.issubset(df.columns) or len(df) < 90:
+        return None
+    d = df.sort_values("ts").drop_duplicates("ts").tail(400).reset_index(drop=True)
+    close = d["close"].astype(float)
+    high = d["high"].astype(float)
+    low = d["low"].astype(float)
+    volume = d["volume"].astype(float)
+    if (close <= 0).any() or not np.isfinite(close.to_numpy()).all():
+        return None
+
+    c = float(close.iloc[-1])
+    hi20, lo20 = float(high.iloc[-20:].max()), float(low.iloc[-20:].min())
+    hi60, lo60 = float(high.iloc[-60:].max()), float(low.iloc[-60:].min())
+    width20 = (hi20 - lo20) / c
+    width60 = (hi60 - lo60) / c
+    if width60 <= 0:
+        return None
+    compression = width20 / width60
+    near_high = c >= hi20 * 0.965
+    near_low = c <= lo20 * 1.035
+    higher_lows = float(low.iloc[-5:].min()) > float(low.iloc[-10:-5].min())
+    lower_highs = float(high.iloc[-5:].max()) < float(high.iloc[-10:-5].max())
+    vol_base = float(volume.iloc[-20:-1].median())
+    vol_ratio = float(volume.iloc[-5:].median() / vol_base) if vol_base > 0 else 1.0
+    trend_1y = _trend(close, 200)
+    trend_3m = _trend(close, 60)
+    trend_1m = _trend(close, 20)
+
+    options = []
+    # Long setup: a compressed base near resistance with higher lows and volume starting to build.
+    long_score = 0.0
+    long_reasons = []
+    if compression <= 0.60:
+        long_score += 1.5; long_reasons.append("20g aralık, 60g aralığa göre sıkışmış")
+    if near_high:
+        long_score += 1.5; long_reasons.append("20g direncine yakın")
+    if higher_lows:
+        long_score += 1.0; long_reasons.append("kısa vadeli dipler yükseliyor")
+    if vol_ratio >= 1.15:
+        long_score += 1.0; long_reasons.append(f"son 5g hacim tabanı ×{vol_ratio:.2f}")
+    if trend_3m == "YUKARI":
+        long_score += 0.5; long_reasons.append("3 aylık eğilim yukarı")
+    if near_high and compression <= 0.85:
+        options.append((long_score, "LONG", long_reasons, hi20, lo20))
+
+    # Short setup is symmetric: compression near support, lower highs and/or building volume.
+    short_score = 0.0
+    short_reasons = []
+    if compression <= 0.60:
+        short_score += 1.5; short_reasons.append("20g aralık, 60g aralığa göre sıkışmış")
+    if near_low:
+        short_score += 1.5; short_reasons.append("20g desteğine yakın")
+    if lower_highs:
+        short_score += 1.0; short_reasons.append("kısa vadeli tepeler alçalıyor")
+    if vol_ratio >= 1.15:
+        short_score += 1.0; short_reasons.append(f"son 5g hacim tabanı ×{vol_ratio:.2f}")
+    if trend_3m == "AŞAĞI":
+        short_score += 0.5; short_reasons.append("3 aylık eğilim aşağı")
+    if near_low and compression <= 0.85:
+        options.append((short_score, "SHORT", short_reasons, hi20, lo20))
+
+    if not options:
+        return None
+    score, side, reasons, resistance, support = max(options, key=lambda x: x[0])
+    if score < 3.0:
+        return None
+    return {
+        "side": side, "score": round(float(score), 2), "close": c,
+        "support": support, "resistance": resistance, "compression": round(compression, 3),
+        "vol_ratio": round(vol_ratio, 2), "trend_1m": trend_1m,
+        "trend_3m": trend_3m, "trend_1y": trend_1y, "reasons": reasons,
+    }
