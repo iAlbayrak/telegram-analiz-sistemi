@@ -10,7 +10,7 @@
    "side": -1,
    "entry": 0.3746,
    "init_stop": 0.3904458040579094,
-   "stop": 0.38179920405837964,
+   "stop": 0.38131354662549216,
    "risk": 0.01584580405790941,
    "tp1": 0.3508312939131359,
    "remaining": 1.0,
@@ -18,14 +18,14 @@
    "tp1_done": false,
    "extreme": 0.3624,
    "worst": 0.3829,
-   "bars": 12,
+   "bars": 13,
    "mfe_pct": 3.256807261078481,
    "mae_pct": 2.215696743192747,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792245600000,
+  "last_ts": 1792249200000,
   "entry_ts": 1792206000000
  },
  {
@@ -39,22 +39,72 @@
    "side": 1,
    "entry": 0.05956,
    "init_stop": 0.05732324513909911,
-   "stop": 0.05956,
+   "stop": 0.060540101345337216,
    "risk": 0.002236754860900893,
    "tp1": 0.06291513229135134,
    "remaining": 0.6699999999999999,
    "realized_r": 0.49500000000000044,
    "tp1_done": true,
-   "extreme": 0.06447,
+   "extreme": 0.06602,
    "worst": 0.058,
-   "bars": 5,
-   "mfe_pct": 8.24378777703156,
+   "bars": 6,
+   "mfe_pct": 10.846205507051701,
    "mae_pct": 2.6192075218267274,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792245600000,
+  "last_ts": 1792249200000,
   "entry_ts": 1792231200000
+ },
+ {
+  "symbol": "PONS/USDT:USDT",
+  "side": -1,
+  "signal_ts": 1792249200000,
+  "atr_signal": 0.006297714837909562,
+  "strength": 7.254558171280569,
+  "status": "PENDING",
+  "trade": null,
+  "last_ts": 1792249200000
+ },
+ {
+  "symbol": "RENDER/USDT:USDT",
+  "side": -1,
+  "signal_ts": 1792249200000,
+  "atr_signal": 0.020849995292146064,
+  "strength": 5.67037995396044,
+  "status": "PENDING",
+  "trade": null,
+  "last_ts": 1792249200000
+ },
+ {
+  "symbol": "NEAR/USDT:USDT",
+  "side": -1,
+  "signal_ts": 1792249200000,
+  "atr_signal": 0.08669179268710987,
+  "strength": 5.180394279439622,
+  "status": "PENDING",
+  "trade": null,
+  "last_ts": 1792249200000
+ },
+ {
+  "symbol": "ENA/USDT:USDT",
+  "side": -1,
+  "signal_ts": 1792249200000,
+  "atr_signal": 0.002396294891007382,
+  "strength": 4.912577864072943,
+  "status": "PENDING",
+  "trade": null,
+  "last_ts": 1792249200000
+ },
+ {
+  "symbol": "SUI/USDT:USDT",
+  "side": -1,
+  "signal_ts": 1792249200000,
+  "atr_signal": 0.010841032577211484,
+  "strength": 4.712112614332288,
+  "status": "PENDING",
+  "trade": null,
+  "last_ts": 1792249200000
  }
 ]
