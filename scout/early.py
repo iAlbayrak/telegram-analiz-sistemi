@@ -99,3 +99,24 @@ def score_daily_setup(df: pd.DataFrame) -> dict | None:
         "vol_ratio": round(vol_ratio, 2), "trend_1w": trend_1w,
         "trend_1m": trend_1m, "trend_3m": trend_3m, "trend_1y": trend_1y, "reasons": reasons,
     }
+
+
+
+def format_early_candidate(symbol: str, c: dict, btc_context: dict, eth_context: dict) -> str:
+    """Human-readable watchlist alert; explicitly not an instruction to enter."""
+    direction = "YUKARI ADAYI" if c["side"] == "LONG" else "AŞAĞI ADAYI"
+    reasons = "\n".join(f"• {reason}" for reason in c["reasons"]) or "• Sınırlı yapısal ipucu"
+    return (
+        f"🔎 ERKEN ADAY · {symbol} · {direction}\n"
+        f"Yapı puanı: {c['score']:.1f}/5.5 (olasılık/kârlılık yüzdesi değildir)\n"
+        f"Fiyat: {c['close']:.6g}\n"
+        f"20g destek/direnç: {c['support']:.6g} / {c['resistance']:.6g}\n"
+        f"Sıkışma oranı (20g/60g): {c['compression']:.2f} · Hacim tabanı: ×{c['vol_ratio']:.2f}\n"
+        f"Getiri bağlamı: 1h {c['trend_1w']} · 1a {c['trend_1m']} · 3a {c['trend_3m']} · 1y {c['trend_1y']}\n"
+        f"BTC: 1s {btc_context.get('btc_1h', 'NA')} / 4s {btc_context.get('btc_4h', 'NA')} / 1g {btc_context.get('btc_1d', 'NA')}\n"
+        f"ETH: 1s {eth_context.get('eth_1h', 'NA')} / 4s {eth_context.get('eth_4h', 'NA')}\n"
+        f"İpuçları:\n{reasons}\n"
+        f"İptal seviyesi: {'20g desteği altı' if c['side'] == 'LONG' else '20g direnci üstü'} "
+        f"({c['support'] if c['side'] == 'LONG' else c['resistance']:.6g})\n"
+        "⚠️ ERKEN İZLEME LİSTESİDİR, giriş sinyali değildir. Kırılım/kapanış ve risk kontrolü beklenmeli."
+    )
