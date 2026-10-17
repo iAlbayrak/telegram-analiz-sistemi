@@ -62,8 +62,15 @@ def main() -> int:
     now_ms = int(time.time() * 1000)
 
     ex = dm.make_exchange()
+    # Entry signals keep a stricter liquidity floor; early discovery uses a broader
+    # universe so that rising-but-not-yet-top-volume contracts can be noticed.
     universe = dm.list_universe(ex, cfg.min_quote_volume)
-    print(f"Evren: {len(universe)} likit USDT vadeli sözleşme (24s hacim >= {cfg.min_quote_volume:,.0f})", flush=True)
+    early_universe = dm.list_universe(ex, cfg.early_min_quote_volume)
+    print(
+        f"Evren: giriş={len(universe)} sözleşme (24s hacim >= {cfg.min_quote_volume:,.0f} USDT), "
+        f"erken tarama={len(early_universe)} sözleşme (>= {cfg.early_min_quote_volume:,.0f} USDT)",
+        flush=True,
+    )
 
     # --- BTC bağlamı ---
     btc = dm.fetch_recent(ex, "BTC/USDT:USDT", TF, 1000)
@@ -87,10 +94,11 @@ def main() -> int:
     reg_last = int(btc_regime_series(btc).iloc[-1]) if p.use_btc_filter else 0
     print(f"BTC 1s={ctx['btc_1h']} 4s={ctx['btc_4h']}", flush=True)
 
-    # --- Erken aday taraması: en likit sözleşmelerde günlük baz oluşumu ---
+    # --- Erken aday taraması: yalnızca ilk 30 değil, erken tarama evrenindeki TÜM sözleşmeler ---
     early_hits = []
+    early_errors = 0
     early_cooldown_ms = cfg.early_alert_cooldown_hours * 3_600_000
-    for sym, _quote_volume in universe[:cfg.early_scan_symbols]:
+    for sym, _quote_volume in early_universe:
         try:
             daily = dm.fetch_recent(ex, sym, "1d", 400)
             if len(daily) < 90:
@@ -104,11 +112,18 @@ def main() -> int:
             last = int(early_state.get("alerts", {}).get(key, 0))
             if now_ms - last < early_cooldown_ms:
                 continue
-            early_hits.append({"symbol": sym, **setup, "key": key})
+            early_hits.append({"symbol": sym, **setup, "key": key, "quote_volume": _quote_volume})
         except Exception as exc:
+            early_errors += 1
             print(f"  erken tarama hatası {sym}: {type(exc).__name__}: {str(exc)[:80]}")
-    early_hits.sort(key=lambda x: x["score"], reverse=True)
+    early_hits.sort(key=lambda x: (x["score"], x.get("quote_volume", 0)), reverse=True)
+    # The scan is broad; only the strongest few candidates are sent to avoid alert spam.
     early_hits = early_hits[:3]
+    print(
+        f"Erken tarama tamamlandı: evren={len(early_universe)}, "
+        f"hata={early_errors}, bildirime uygun={len(early_hits)}",
+        flush=True,
+    )
     if early_hits:
         early_messages = [
             format_early_candidate(x["symbol"], x, ctx, ctx)
@@ -169,7 +184,7 @@ def main() -> int:
     unchecked = 0
     for idx, c in enumerate(fresh):
         if len(sendable) >= cfg.max_alerts_per_run:
-            unchecked = len(fresh) - idx      # sınır aşıldı: kalanlar kullanıcıya SAYI olarak bildirilir
+            unchecked = len(fresh) - idx
             break
         try:
             live = dm.fetch_last_price(ex, c["symbol"])
@@ -223,7 +238,7 @@ def main() -> int:
         # SKIPPED kayıtları atılır
     print(_forward_stats(closed_recs), flush=True)
 
-    horizon = now_ms - 7 * 86_400_000          # 7 günden eski tekrar-engeli kayıtlarını temizle
+    horizon = now_ms - 7 * 86_400_000
     state["alerts"] = {k: v for k, v in state.get("alerts", {}).items() if int(v) >= horizon}
     _save(state_dir / "alert_state.json", state)
     _save(state_dir / "early_alert_state.json", early_state)
