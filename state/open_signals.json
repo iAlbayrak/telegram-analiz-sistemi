@@ -18,14 +18,14 @@
    "tp1_done": false,
    "extreme": 0.3721,
    "worst": 0.3829,
-   "bars": 8,
+   "bars": 9,
    "mfe_pct": 0.6673785371062473,
    "mae_pct": 2.215696743192747,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792231200000,
+  "last_ts": 1792234800000,
   "entry_ts": 1792206000000
  },
  {
@@ -47,14 +47,14 @@
    "tp1_done": true,
    "extreme": 0.2811,
    "worst": 0.2628,
-   "bars": 8,
+   "bars": 9,
    "mfe_pct": 6.4369556985990215,
    "mae_pct": 0.4922377887164041,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792231200000,
+  "last_ts": 1792234800000,
   "entry_ts": 1792206000000
  },
  {
@@ -68,22 +68,22 @@
    "side": 1,
    "entry": 0.05956,
    "init_stop": 0.05732324513909911,
-   "stop": 0.05732324513909911,
+   "stop": 0.05755531960611777,
    "risk": 0.002236754860900893,
    "tp1": 0.06291513229135134,
    "remaining": 1.0,
    "realized_r": 0.0,
    "tp1_done": false,
-   "extreme": 0.0598,
+   "extreme": 0.06152,
    "worst": 0.058,
-   "bars": 1,
-   "mfe_pct": 0.4029550033579536,
+   "bars": 2,
+   "mfe_pct": 3.290799194089987,
    "mae_pct": 2.6192075218267274,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792231200000,
+  "last_ts": 1792234800000,
   "entry_ts": 1792231200000
  }
 ]
