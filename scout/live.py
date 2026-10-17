@@ -64,17 +64,23 @@ def main() -> int:
     print(f"Evren: {len(universe)} likit USDT vadeli sözleşme (24s hacim >= {cfg.min_quote_volume:,.0f})", flush=True)
 
     # --- BTC bağlamı ---
-    btc = dm.fetch_recent(ex, "BTC/USDT:USDT", TF, 500)
+    btc = dm.fetch_recent(ex, "BTC/USDT:USDT", TF, 1000)
     btc4 = resample_4h(btc)
     btc_dt = btc.copy()
     btc_dt["dt"] = pd.to_datetime(btc_dt["ts"], unit="ms", utc=True)
     btc1d = btc_dt.set_index("dt").resample("1D").agg({"close": "last"}).dropna()["close"]
-    eth = dm.fetch_recent(ex, "ETH/USDT:USDT", TF, 500)
-    eth4 = resample_4h(eth)
+    try:
+        eth = dm.fetch_recent(ex, "ETH/USDT:USDT", TF, 1000)
+        eth4 = resample_4h(eth)
+        eth_1h = trend_state(eth["close"])
+        eth_4h = trend_state(eth4["close"], n=20)
+    except Exception as exc:
+        # ETH context is useful but must never disable the entire scan if its feed is unavailable.
+        print(f"ETH bağlamı alınamadı: {type(exc).__name__}")
+        eth_1h = eth_4h = "NEUTRAL"
     ctx = {
         "btc_1h": trend_state(btc["close"]), "btc_4h": trend_state(btc4["close"], n=20),
-        "btc_1d": trend_state(btc1d, n=20),
-        "eth_1h": trend_state(eth["close"]), "eth_4h": trend_state(eth4["close"], n=20),
+        "btc_1d": trend_state(btc1d, n=20), "eth_1h": eth_1h, "eth_4h": eth_4h,
     }
     reg_last = int(btc_regime_series(btc).iloc[-1]) if p.use_btc_filter else 0
     print(f"BTC 1s={ctx['btc_1h']} 4s={ctx['btc_4h']}", flush=True)
