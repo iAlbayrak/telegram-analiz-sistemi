@@ -59,8 +59,9 @@ def format_one(c: dict, p: StrategyParams) -> str:
 
 
 def format_message(cands: List[dict], ctx: Dict[str, str], p: StrategyParams, extra: int = 0) -> str:
-    head = (f"BTC: 1s {TREND_TR.get(ctx.get('btc_1h'), '?')} · 4s {TREND_TR.get(ctx.get('btc_4h'), '?')} · 1g {TREND_TR.get(ctx.get('btc_1d'), '?')}\n"
-            f"ETH: 1s {TREND_TR.get(ctx.get('eth_1h'), '?')} · 4s {TREND_TR.get(ctx.get('eth_4h'), '?')}")
+    head = ("📊 PİYASA YÖNÜ\n"
+            f"₿ BTC  1s {TREND_TR.get(ctx.get('btc_1h'), '?')} · 4s {TREND_TR.get(ctx.get('btc_4h'), '?')} · 1g {TREND_TR.get(ctx.get('btc_1d'), '?')}\n"
+            f"◆ ETH  1s {TREND_TR.get(ctx.get('eth_1h'), '?')} · 4s {TREND_TR.get(ctx.get('eth_4h'), '?')}")
     body = "\n\n".join(format_one(c, p) for c in cands)
     note = (f"\n\n(+{extra} aday daha vardı; sinyal gücüne göre ilk {len(cands)} gösterildi. "
             f"Çok sayıda aynı anda sinyal genelde tek bir piyasa hareketidir: toplam riski sınırlayın.)") if extra > 0 else ""
