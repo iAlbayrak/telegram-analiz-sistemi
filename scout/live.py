@@ -17,6 +17,7 @@ import pandas as pd
 
 from .config import costs_from_env, live_from_env, strategy_from_env
 from .indicators import atr, btc_regime_series, prepare, resample_4h, trend_state
+from .early import format_early_candidate, score_daily_setup
 from .notify import send_telegram
 from .signals import candidate_from_row, format_message, record_alert, should_alert
 from .strategy import compute_signals
@@ -55,19 +56,88 @@ def main() -> int:
     token, chat = os.getenv("TELEGRAM_BOT_TOKEN", ""), os.getenv("TELEGRAM_CHAT_ID", "")
     state_dir = Path(os.getenv("SCOUT_STATE_DIR", "state"))
     state = _load(state_dir / "alert_state.json", {"alerts": {}})
+    early_state = _load(state_dir / "early_alert_state.json", {"alerts": {}})
     open_recs = _load(state_dir / "open_signals.json", [])
     closed_recs = _load(state_dir / "closed_signals.json", [])
     now_ms = int(time.time() * 1000)
 
     ex = dm.make_exchange()
+    # Entry signals keep a stricter liquidity floor; early discovery uses a broader
+    # universe so that rising-but-not-yet-top-volume contracts can be noticed.
     universe = dm.list_universe(ex, cfg.min_quote_volume)
-    print(f"Evren: {len(universe)} likit USDT vadeli sözleşme (24s hacim >= {cfg.min_quote_volume:,.0f})", flush=True)
+    early_universe = dm.list_universe(ex, cfg.early_min_quote_volume)
+    print(
+        f"Evren: giriş={len(universe)} sözleşme (24s hacim >= {cfg.min_quote_volume:,.0f} USDT), "
+        f"erken tarama={len(early_universe)} sözleşme (>= {cfg.early_min_quote_volume:,.0f} USDT)",
+        flush=True,
+    )
 
     # --- BTC bağlamı ---
-    btc = dm.fetch_recent(ex, "BTC/USDT:USDT", TF, 500)
-    ctx = {"btc_1h": trend_state(btc["close"]), "btc_4h": trend_state(resample_4h(btc)["close"])}
+    btc = dm.fetch_recent(ex, "BTC/USDT:USDT", TF, 1000)
+    btc4 = resample_4h(btc)
+    btc_dt = btc.copy()
+    btc_dt["dt"] = pd.to_datetime(btc_dt["ts"], unit="ms", utc=True)
+    btc1d = btc_dt.set_index("dt").resample("1D").agg({"close": "last"}).dropna()["close"]
+    try:
+        eth = dm.fetch_recent(ex, "ETH/USDT:USDT", TF, 1000)
+        eth4 = resample_4h(eth)
+        eth_1h = trend_state(eth["close"])
+        eth_4h = trend_state(eth4["close"], n=20)
+    except Exception as exc:
+        # ETH context is useful but must never disable the entire scan if its feed is unavailable.
+        print(f"ETH bağlamı alınamadı: {type(exc).__name__}")
+        eth_1h = eth_4h = "NEUTRAL"
+    ctx = {
+        "btc_1h": trend_state(btc["close"]), "btc_4h": trend_state(btc4["close"], n=20),
+        "btc_1d": trend_state(btc1d, n=20), "eth_1h": eth_1h, "eth_4h": eth_4h,
+    }
     reg_last = int(btc_regime_series(btc).iloc[-1]) if p.use_btc_filter else 0
     print(f"BTC 1s={ctx['btc_1h']} 4s={ctx['btc_4h']}", flush=True)
+
+    # --- Erken aday taraması: yalnızca ilk 30 değil, erken tarama evrenindeki TÜM sözleşmeler ---
+    early_hits = []
+    early_errors = 0
+    early_cooldown_ms = cfg.early_alert_cooldown_hours * 3_600_000
+    for sym, _quote_volume in early_universe:
+        try:
+            daily = dm.fetch_recent(ex, sym, "1d", 400)
+            if len(daily) < 90:
+                continue
+            if now_ms - (int(daily["ts"].iloc[-1]) + 86_400_000) > 3 * 86_400_000:
+                continue
+            setup = score_daily_setup(daily)
+            if not setup:
+                continue
+            key = f"{sym}:{setup['side']}"
+            last = int(early_state.get("alerts", {}).get(key, 0))
+            if now_ms - last < early_cooldown_ms:
+                continue
+            early_hits.append({"symbol": sym, **setup, "key": key, "quote_volume": _quote_volume})
+        except Exception as exc:
+            early_errors += 1
+            print(f"  erken tarama hatası {sym}: {type(exc).__name__}: {str(exc)[:80]}")
+    early_hits.sort(key=lambda x: (x["score"], x.get("quote_volume", 0)), reverse=True)
+    # The scan is broad; only the strongest few candidates are sent to avoid alert spam.
+    early_hits = early_hits[:3]
+    print(
+        f"Erken tarama tamamlandı: evren={len(early_universe)}, "
+        f"hata={early_errors}, bildirime uygun={len(early_hits)}",
+        flush=True,
+    )
+    if early_hits:
+        early_messages = [
+            format_early_candidate(x["symbol"], x, ctx, ctx)
+            for x in early_hits
+        ]
+        early_msg = "📡 ERKEN UYARI — GİRİŞ SİNYALİ DEĞİL\n\n" + "\n\n".join(early_messages)
+        early_ok = (send_telegram(early_msg, token, chat) if (token and chat)
+                    else (print("TELEGRAM AYARLI DEĞİL — erken aday mesajı:\n" + early_msg) or True))
+        if early_ok:
+            for x in early_hits:
+                early_state.setdefault("alerts", {})[x["key"]] = now_ms
+            print(f"{len(early_hits)} erken aday bildirimi işlendi.", flush=True)
+    else:
+        print("Erken tarama: yeni uygun aday yok.", flush=True)
 
     skipped = {"kısa_veri": 0, "bayat": 0, "hata": 0}
 
@@ -83,10 +153,19 @@ def main() -> int:
             d = prepare(df, p)
             sig = compute_signals(d, p, np.full(len(d), reg_last) if p.use_btc_filter else None)
             i = len(d) - 1
+            d4 = resample_4h(df)
+            dt = df.copy()
+            dt["dt"] = pd.to_datetime(dt["ts"], unit="ms", utc=True)
+            d1 = dt.set_index("dt").resample("1D").agg({"close": "last"}).dropna()["close"]
             if sig["long"].iloc[i]:
-                return candidate_from_row(sym, d, i, +1, sig["strength"].iloc[i], p, cfg)
-            if sig["short"].iloc[i]:
-                return candidate_from_row(sym, d, i, -1, sig["strength"].iloc[i], p, cfg)
+                c = candidate_from_row(sym, d, i, +1, sig["strength"].iloc[i], p, cfg)
+            elif sig["short"].iloc[i]:
+                c = candidate_from_row(sym, d, i, -1, sig["strength"].iloc[i], p, cfg)
+            else:
+                return None
+            c["trend_4h"] = trend_state(d4["close"], n=20)
+            c["trend_1d"] = trend_state(d1, n=20)
+            return c
         except Exception as exc:
             skipped["hata"] += 1
             print(f"  hata {sym}: {type(exc).__name__}: {str(exc)[:100]}")
@@ -105,7 +184,7 @@ def main() -> int:
     unchecked = 0
     for idx, c in enumerate(fresh):
         if len(sendable) >= cfg.max_alerts_per_run:
-            unchecked = len(fresh) - idx      # sınır aşıldı: kalanlar kullanıcıya SAYI olarak bildirilir
+            unchecked = len(fresh) - idx
             break
         try:
             live = dm.fetch_last_price(ex, c["symbol"])
@@ -114,8 +193,14 @@ def main() -> int:
             continue
         side = 1 if c["side"] == "LONG" else -1
         drift_atr = side * (live - c["close"]) / c["atr"]
+        if c["stop_pct"] / 100.0 > p.max_stop_pct:
+            print(f"  ELENDİ {c['symbol']} {c['side']}: stop mesafesi %{c['stop_pct']:.2f}, izin verilen %{p.max_stop_pct*100:.1f}")
+            continue
         if drift_atr > cfg.max_price_drift_atr:
             print(f"  ELENDİ {c['symbol']} {c['side']}: fiyat kaçtı ({drift_atr:.2f} ATR lehe)")
+            continue
+        if drift_atr < -cfg.max_adverse_drift_atr:
+            print(f"  ELENDİ {c['symbol']} {c['side']}: sinyal sonrası ters hareket ({drift_atr:.2f} ATR)")
             continue
         if side * (live - c["stop"]) <= 0:
             print(f"  ELENDİ {c['symbol']} {c['side']}: fiyat zaten stopun ötesinde")
@@ -153,9 +238,10 @@ def main() -> int:
         # SKIPPED kayıtları atılır
     print(_forward_stats(closed_recs), flush=True)
 
-    horizon = now_ms - 7 * 86_400_000          # 7 günden eski tekrar-engeli kayıtlarını temizle
+    horizon = now_ms - 7 * 86_400_000
     state["alerts"] = {k: v for k, v in state.get("alerts", {}).items() if int(v) >= horizon}
     _save(state_dir / "alert_state.json", state)
+    _save(state_dir / "early_alert_state.json", early_state)
     _save(state_dir / "open_signals.json", still_open)
     _save(state_dir / "closed_signals.json", closed_recs[-1000:])
     return 0

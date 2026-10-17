@@ -28,7 +28,7 @@ class TestSignalsTracker(unittest.TestCase):
         df, d, sig = first_signal_series()
         c = candidate_from_row("TEST/USDT:USDT", d, 500, +1, sig["strength"].iloc[500], P, CFG)
         msg = format_message([c], {"btc_1h": "BULLISH", "btc_4h": "NEUTRAL"}, P)
-        for needle in ("LONG", "TEST/USDT:USDT", "Stop:", "TP1:", "iz süren", "BTC 1s"):
+        for needle in ("LONG", "TEST/USDT:USDT", "Stop:", "TP1:", "iz süren", "BTC: 1s", "ETH: 1s"):
             self.assertIn(needle, msg)
         self.assertLess(c["stop"], c["close"]); self.assertGreater(c["tp1"], c["close"])
         self.assertAlmostEqual(c["stop"], c["close"] - P.stop_atr * c["atr"])

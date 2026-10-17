@@ -12,7 +12,7 @@ import pandas as pd
 from .config import is_excluded_base
 
 COLS = ["ts", "open", "high", "low", "close", "volume"]
-TF_MS = {"15m": 900_000, "1h": 3_600_000, "4h": 14_400_000}
+TF_MS = {"15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000}
 MIN_INTERVAL = float(os.getenv("SCOUT_MIN_REQUEST_INTERVAL", "0.12"))
 
 _lock = threading.Lock()
