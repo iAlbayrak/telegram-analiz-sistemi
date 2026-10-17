@@ -65,7 +65,17 @@ def main() -> int:
 
     # --- BTC bağlamı ---
     btc = dm.fetch_recent(ex, "BTC/USDT:USDT", TF, 500)
-    ctx = {"btc_1h": trend_state(btc["close"]), "btc_4h": trend_state(resample_4h(btc)["close"])}
+    btc4 = resample_4h(btc)
+    btc_dt = btc.copy()
+    btc_dt["dt"] = pd.to_datetime(btc_dt["ts"], unit="ms", utc=True)
+    btc1d = btc_dt.set_index("dt").resample("1D").agg({"close": "last"}).dropna()["close"]
+    eth = dm.fetch_recent(ex, "ETH/USDT:USDT", TF, 500)
+    eth4 = resample_4h(eth)
+    ctx = {
+        "btc_1h": trend_state(btc["close"]), "btc_4h": trend_state(btc4["close"], n=20),
+        "btc_1d": trend_state(btc1d, n=20),
+        "eth_1h": trend_state(eth["close"]), "eth_4h": trend_state(eth4["close"], n=20),
+    }
     reg_last = int(btc_regime_series(btc).iloc[-1]) if p.use_btc_filter else 0
     print(f"BTC 1s={ctx['btc_1h']} 4s={ctx['btc_4h']}", flush=True)
 
@@ -83,10 +93,19 @@ def main() -> int:
             d = prepare(df, p)
             sig = compute_signals(d, p, np.full(len(d), reg_last) if p.use_btc_filter else None)
             i = len(d) - 1
+            d4 = resample_4h(df)
+            dt = df.copy()
+            dt["dt"] = pd.to_datetime(dt["ts"], unit="ms", utc=True)
+            d1 = dt.set_index("dt").resample("1D").agg({"close": "last"}).dropna()["close"]
             if sig["long"].iloc[i]:
-                return candidate_from_row(sym, d, i, +1, sig["strength"].iloc[i], p, cfg)
-            if sig["short"].iloc[i]:
-                return candidate_from_row(sym, d, i, -1, sig["strength"].iloc[i], p, cfg)
+                c = candidate_from_row(sym, d, i, +1, sig["strength"].iloc[i], p, cfg)
+            elif sig["short"].iloc[i]:
+                c = candidate_from_row(sym, d, i, -1, sig["strength"].iloc[i], p, cfg)
+            else:
+                return None
+            c["trend_4h"] = trend_state(d4["close"], n=20)
+            c["trend_1d"] = trend_state(d1, n=20)
+            return c
         except Exception as exc:
             skipped["hata"] += 1
             print(f"  hata {sym}: {type(exc).__name__}: {str(exc)[:100]}")
@@ -114,8 +133,14 @@ def main() -> int:
             continue
         side = 1 if c["side"] == "LONG" else -1
         drift_atr = side * (live - c["close"]) / c["atr"]
+        if c["stop_pct"] / 100.0 > p.max_stop_pct:
+            print(f"  ELENDİ {c['symbol']} {c['side']}: stop mesafesi %{c['stop_pct']:.2f}, izin verilen %{p.max_stop_pct*100:.1f}")
+            continue
         if drift_atr > cfg.max_price_drift_atr:
             print(f"  ELENDİ {c['symbol']} {c['side']}: fiyat kaçtı ({drift_atr:.2f} ATR lehe)")
+            continue
+        if drift_atr < -cfg.max_adverse_drift_atr:
+            print(f"  ELENDİ {c['symbol']} {c['side']}: sinyal sonrası ters hareket ({drift_atr:.2f} ATR)")
             continue
         if side * (live - c["stop"]) <= 0:
             print(f"  ELENDİ {c['symbol']} {c['side']}: fiyat zaten stopun ötesinde")
