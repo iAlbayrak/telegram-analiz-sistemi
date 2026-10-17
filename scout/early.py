@@ -44,9 +44,16 @@ def score_daily_setup(df: pd.DataFrame) -> dict | None:
     lower_highs = float(high.iloc[-5:].max()) < float(high.iloc[-10:-5].max())
     vol_base = float(volume.iloc[-20:-1].median())
     vol_ratio = float(volume.iloc[-5:].median() / vol_base) if vol_base > 0 else 1.0
-    trend_1y = _trend(close, 200)
-    trend_3m = _trend(close, 60)
-    trend_1m = _trend(close, 20)
+    def horizon_return(days: int) -> str:
+        if len(close) <= days:
+            return "YETERSİZ"
+        pct = float(close.iloc[-1] / close.iloc[-1-days] - 1.0) * 100.0
+        return f"{pct:+.1f}%"
+    trend_1w = horizon_return(7)
+    trend_1m = horizon_return(30)
+    trend_3m = horizon_return(90)
+    trend_1y = horizon_return(365)
+    trend_3m_state = _trend(close, 60)
 
     options = []
     # Long setup: a compressed base near resistance with higher lows and volume starting to build.
@@ -60,7 +67,7 @@ def score_daily_setup(df: pd.DataFrame) -> dict | None:
         long_score += 1.0; long_reasons.append("kısa vadeli dipler yükseliyor")
     if vol_ratio >= 1.15:
         long_score += 1.0; long_reasons.append(f"son 5g hacim tabanı ×{vol_ratio:.2f}")
-    if trend_3m == "YUKARI":
+    if trend_3m_state == "YUKARI":
         long_score += 0.5; long_reasons.append("3 aylık eğilim yukarı")
     if near_high and compression <= 0.85:
         options.append((long_score, "LONG", long_reasons, hi20, lo20))
@@ -76,7 +83,7 @@ def score_daily_setup(df: pd.DataFrame) -> dict | None:
         short_score += 1.0; short_reasons.append("kısa vadeli tepeler alçalıyor")
     if vol_ratio >= 1.15:
         short_score += 1.0; short_reasons.append(f"son 5g hacim tabanı ×{vol_ratio:.2f}")
-    if trend_3m == "AŞAĞI":
+    if trend_3m_state == "AŞAĞI":
         short_score += 0.5; short_reasons.append("3 aylık eğilim aşağı")
     if near_low and compression <= 0.85:
         options.append((short_score, "SHORT", short_reasons, hi20, lo20))
@@ -89,6 +96,6 @@ def score_daily_setup(df: pd.DataFrame) -> dict | None:
     return {
         "side": side, "score": round(float(score), 2), "close": c,
         "support": support, "resistance": resistance, "compression": round(compression, 3),
-        "vol_ratio": round(vol_ratio, 2), "trend_1m": trend_1m,
-        "trend_3m": trend_3m, "trend_1y": trend_1y, "reasons": reasons,
+        "vol_ratio": round(vol_ratio, 2), "trend_1w": trend_1w,
+        "trend_1m": trend_1m, "trend_3m": trend_3m, "trend_1y": trend_1y, "reasons": reasons,
     }
