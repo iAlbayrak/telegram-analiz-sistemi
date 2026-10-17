@@ -51,7 +51,8 @@ class Costs:
 @dataclass(frozen=True)
 class LiveConfig:
     timeframe: str = "1h"
-    min_quote_volume: float = 1_500_000.0   # 24s USDT hacmi tabanı (likidite)
+    min_quote_volume: float = 1_500_000.0  # giriş sinyalleri için 24s USDT hacmi tabanı
+    early_min_quote_volume: float = 100_000.0  # erken adaylar: daha geniş havuz, düşük ama işlem gören hacim
     history_bars: int = 1000
     max_alerts_per_run: int = 5
     alert_cooldown_hours: int = 24          # aynı coin+yön için tekrar bildirim aralığı
@@ -59,7 +60,6 @@ class LiveConfig:
     max_adverse_drift_atr: float = 0.35    # sinyalden ters yönde fazla uzaklaştıysa iptal
     workers: int = 3
     min_request_interval: float = 0.12
-    early_scan_symbols: int = 30             # günlük erken-aday taramasında en likit ilk N sözleşme
     early_alert_cooldown_hours: int = 72     # aynı erken-aday yapısı için tekrar süresi
 
 
