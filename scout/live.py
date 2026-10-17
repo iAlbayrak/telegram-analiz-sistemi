@@ -17,6 +17,7 @@ import pandas as pd
 
 from .config import costs_from_env, live_from_env, strategy_from_env
 from .indicators import atr, btc_regime_series, prepare, resample_4h, trend_state
+from .early import format_early_candidate, score_daily_setup
 from .notify import send_telegram
 from .signals import candidate_from_row, format_message, record_alert, should_alert
 from .strategy import compute_signals
@@ -55,6 +56,7 @@ def main() -> int:
     token, chat = os.getenv("TELEGRAM_BOT_TOKEN", ""), os.getenv("TELEGRAM_CHAT_ID", "")
     state_dir = Path(os.getenv("SCOUT_STATE_DIR", "state"))
     state = _load(state_dir / "alert_state.json", {"alerts": {}})
+    early_state = _load(state_dir / "early_alert_state.json", {"alerts": {}})
     open_recs = _load(state_dir / "open_signals.json", [])
     closed_recs = _load(state_dir / "closed_signals.json", [])
     now_ms = int(time.time() * 1000)
@@ -84,6 +86,43 @@ def main() -> int:
     }
     reg_last = int(btc_regime_series(btc).iloc[-1]) if p.use_btc_filter else 0
     print(f"BTC 1s={ctx['btc_1h']} 4s={ctx['btc_4h']}", flush=True)
+
+    # --- Erken aday taraması: en likit sözleşmelerde günlük baz oluşumu ---
+    early_hits = []
+    early_cooldown_ms = cfg.early_alert_cooldown_hours * 3_600_000
+    for sym, _quote_volume in universe[:cfg.early_scan_symbols]:
+        try:
+            daily = dm.fetch_recent(ex, sym, "1d", 400)
+            if len(daily) < 90:
+                continue
+            if now_ms - (int(daily["ts"].iloc[-1]) + 86_400_000) > 3 * 86_400_000:
+                continue
+            setup = score_daily_setup(daily)
+            if not setup:
+                continue
+            key = f"{sym}:{setup['side']}"
+            last = int(early_state.get("alerts", {}).get(key, 0))
+            if now_ms - last < early_cooldown_ms:
+                continue
+            early_hits.append({"symbol": sym, **setup, "key": key})
+        except Exception as exc:
+            print(f"  erken tarama hatası {sym}: {type(exc).__name__}: {str(exc)[:80]}")
+    early_hits.sort(key=lambda x: x["score"], reverse=True)
+    early_hits = early_hits[:3]
+    if early_hits:
+        early_messages = [
+            format_early_candidate(x["symbol"], x, ctx, ctx)
+            for x in early_hits
+        ]
+        early_msg = "📡 ERKEN UYARI — GİRİŞ SİNYALİ DEĞİL\n\n" + "\n\n".join(early_messages)
+        early_ok = (send_telegram(early_msg, token, chat) if (token and chat)
+                    else (print("TELEGRAM AYARLI DEĞİL — erken aday mesajı:\n" + early_msg) or True))
+        if early_ok:
+            for x in early_hits:
+                early_state.setdefault("alerts", {})[x["key"]] = now_ms
+            print(f"{len(early_hits)} erken aday bildirimi işlendi.", flush=True)
+    else:
+        print("Erken tarama: yeni uygun aday yok.", flush=True)
 
     skipped = {"kısa_veri": 0, "bayat": 0, "hata": 0}
 
@@ -187,6 +226,7 @@ def main() -> int:
     horizon = now_ms - 7 * 86_400_000          # 7 günden eski tekrar-engeli kayıtlarını temizle
     state["alerts"] = {k: v for k, v in state.get("alerts", {}).items() if int(v) >= horizon}
     _save(state_dir / "alert_state.json", state)
+    _save(state_dir / "early_alert_state.json", early_state)
     _save(state_dir / "open_signals.json", still_open)
     _save(state_dir / "closed_signals.json", closed_recs[-1000:])
     return 0
