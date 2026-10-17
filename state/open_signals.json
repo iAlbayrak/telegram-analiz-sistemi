@@ -10,7 +10,7 @@
    "side": 1,
    "entry": 0.6025,
    "init_stop": 0.5704203291860429,
-   "stop": 0.6936429366555465,
+   "stop": 0.6968898697514816,
    "risk": 0.03207967081395713,
    "tp1": 0.6506195062209357,
    "remaining": 0.6699999999999999,
@@ -18,14 +18,14 @@
    "tp1_done": true,
    "extreme": 0.767,
    "worst": 0.5749,
-   "bars": 41,
+   "bars": 42,
    "mfe_pct": 27.30290456431535,
    "mae_pct": 4.580912863070551,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792224000000,
+  "last_ts": 1792227600000,
   "entry_ts": 1792080000000
  },
  {
@@ -47,14 +47,14 @@
    "tp1_done": false,
    "extreme": 0.3721,
    "worst": 0.3829,
-   "bars": 6,
+   "bars": 7,
    "mfe_pct": 0.6673785371062473,
    "mae_pct": 2.215696743192747,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792224000000,
+  "last_ts": 1792227600000,
   "entry_ts": 1792206000000
  },
  {
@@ -76,14 +76,24 @@
    "tp1_done": true,
    "extreme": 0.2811,
    "worst": 0.2628,
-   "bars": 6,
+   "bars": 7,
    "mfe_pct": 6.4369556985990215,
    "mae_pct": 0.4922377887164041,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792224000000,
+  "last_ts": 1792227600000,
   "entry_ts": 1792206000000
+ },
+ {
+  "symbol": "SAND/USDT:USDT",
+  "side": 1,
+  "signal_ts": 1792227600000,
+  "atr_signal": 0.0011183774304504466,
+  "strength": 16.95782401411653,
+  "status": "PENDING",
+  "trade": null,
+  "last_ts": 1792227600000
  }
 ]
