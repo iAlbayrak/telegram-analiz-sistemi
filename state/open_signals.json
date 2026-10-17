@@ -18,14 +18,34 @@
    "tp1_done": true,
    "extreme": 0.7228,
    "worst": 0.5749,
-   "bars": 34,
+   "bars": 35,
    "mfe_pct": 19.966804979253105,
    "mae_pct": 4.580912863070551,
    "done": false,
    "exit_reason": "",
    "exit_price": null
   },
-  "last_ts": 1792198800000,
+  "last_ts": 1792202400000,
   "entry_ts": 1792080000000
+ },
+ {
+  "symbol": "STX/USDT:USDT",
+  "side": -1,
+  "signal_ts": 1792202400000,
+  "atr_signal": 0.007922902028954706,
+  "strength": 8.801190512088288,
+  "status": "PENDING",
+  "trade": null,
+  "last_ts": 1792202400000
+ },
+ {
+  "symbol": "EIGEN/USDT:USDT",
+  "side": 1,
+  "signal_ts": 1792202400000,
+  "atr_signal": 0.00487233831951484,
+  "strength": 7.834047789475251,
+  "status": "PENDING",
+  "trade": null,
+  "last_ts": 1792202400000
  }
 ]
